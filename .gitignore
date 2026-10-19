@@ -1,0 +1,23 @@
+# Sekrety i dane: nigdy w repozytorium
+.env
+var/
+*.sqlite3
+*.sqlite3-*
+/data/
+/import/
+/library/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# System / edytory
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
