@@ -14,6 +14,10 @@ PANEL_URLS = [
     ("panel:user_create", []),
     ("panel:code_list", []),
     ("panel:group_list", []),
+    ("panel:album_list", []),
+    ("panel:permissions", []),
+    ("panel:sync", []),
+    ("panel:login_photos", []),
 ]
 
 

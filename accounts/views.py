@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordChangeView
 from django.db import transaction
 from django.shortcuts import redirect, render
@@ -9,6 +10,8 @@ from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
+
+from core.login_photos import login_background
 
 from . import ratelimit
 from .forms import JoinCodeForm, JoinProfileForm, LoginForm
@@ -55,7 +58,12 @@ def login_view(request):
     return render(
         request,
         "accounts/login.html",
-        {"form": form, "error": error, "next": request.GET.get("next", "")},
+        {
+            "form": form,
+            "error": error,
+            "next": request.GET.get("next", ""),
+            "login_photos": login_background(),
+        },
         status=429 if error == BLOCKED_MESSAGE else 200,
     )
 
@@ -135,6 +143,37 @@ def join_profile_view(request):
         return redirect("archive")
 
     return render(request, "accounts/join_profile.html", {"form": form, "group": code.group})
+
+
+@login_required
+@require_http_methods(["GET", "HEAD", "POST"])
+def add_code_view(request):
+    """„Mam kolejny kod”: zalogowana osoba dołącza do następnej grupy bez zakładania konta."""
+    form = JoinCodeForm(request.POST or None)
+    error = None
+    if request.method == "POST" and form.is_valid():
+        if ratelimit.is_blocked("code", request):
+            error = BLOCKED_MESSAGE
+        else:
+            code = InviteCode.objects.filter(code=InviteCode.normalize(form.cleaned_data["code"])).first()
+            if code is None or code.unusable_reason() is not None:
+                ratelimit.record_failure("code", request)
+                error = "Ten kod nie działa. Sprawdź pisownię albo poproś o nowy."
+            elif request.user.family_groups.filter(pk=code.group_id).exists():
+                messages.info(request, f"Już należysz do grupy „{code.group}”.")
+                return redirect("archive")
+            else:
+                request.user.family_groups.add(code.group)
+                logger.info("%s dołączył(a) kodem %s do grupy %s", request.user.username, code.pk, code.group)
+                messages.success(request, f"Dołączono do grupy „{code.group}”. Jej albumy są już widoczne.")
+                return redirect("archive")
+
+    return render(
+        request,
+        "accounts/add_code.html",
+        {"form": form, "error": error},
+        status=429 if error == BLOCKED_MESSAGE else 200,
+    )
 
 
 class OwnPasswordChangeView(PasswordChangeView):

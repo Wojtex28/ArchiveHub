@@ -86,4 +86,28 @@ class InviteCodeForm(forms.ModelForm):
 class FamilyGroupForm(forms.ModelForm):
     class Meta:
         model = FamilyGroup
-        fields = ["name", "description"]
+        fields = ["name", "description", "sees_all_albums"]
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleImageField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        files = [f for f in (data if isinstance(data, (list, tuple)) else [data]) if f]
+        if not files:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        return [super(MultipleImageField, self).clean(f, initial) for f in files]
+
+
+class LoginPhotoUploadForm(forms.Form):
+    photos = MultipleImageField(
+        label="Zdjęcia",
+        help_text=(
+            "Możesz zaznaczyć kilka plików naraz. Zostaną zmniejszone, a dane z aparatu (np. GPS) usunięte."
+        ),
+    )
+    photos.widget.attrs.update(accept="image/jpeg,image/png,image/webp")

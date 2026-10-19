@@ -6,6 +6,8 @@
       <legend>{{ field.label }}</legend>
       {% for choice in field %}<label class="check">{{ choice.tag }} {{ choice.choice_label }}</label>{% empty %}<p class="hint">Brak grup.</p>{% endfor %}
     </fieldset>
+  {% elif field.widget_type == 'checkbox' %}
+    <label class="check">{{ field }} {{ field.label }}</label>
   {% else %}
     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}

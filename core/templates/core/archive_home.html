@@ -5,7 +5,21 @@
 {% with groups=user.family_groups.all %}
 {% if groups %}<p class="lead">Twoje grupy: {% for g in groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 {% endwith %}
+{% if albums %}
+<h2 class="section-title">Albumy</h2>
+<ul class="album-grid">
+  {% for album in albums %}
+  <li class="album-card">
+    <span class="album-card__title">{{ album.title }}</span>
+    <span class="album-card__meta">{{ album.photo_count }} zdj.{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+<p class="hint">Oglądanie zdjęć w albumach pojawi się w kolejnych etapach.</p>
+{% else %}
 <div class="empty-state">
-  <p>Albumy pojawią się tutaj wkrótce.</p>
+  <p>Nie widzisz jeszcze żadnych albumów.</p>
+  <p>Jeśli masz kod do innej części archiwum, <a href="{% url 'add_code' %}">wpisz go tutaj</a>.</p>
 </div>
+{% endif %}
 {% endblock %}

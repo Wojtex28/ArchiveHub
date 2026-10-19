@@ -3,15 +3,22 @@
 <h1>Panel administratora</h1>
 <div class="stats">
   <a class="stat" href="{% url 'panel:user_list' %}"><span class="stat__value">{{ user_count }}</span><span class="stat__label">aktywnych osób</span></a>
+  <a class="stat" href="{% url 'panel:album_list' %}"><span class="stat__value">{{ album_count }}</span><span class="stat__label">albumów</span></a>
+  <a class="stat" href="{% url 'panel:album_list' %}"><span class="stat__value">{{ photo_count }}</span><span class="stat__label">zdjęć</span></a>
   <a class="stat" href="{% url 'panel:group_list' %}"><span class="stat__value">{{ group_count }}</span><span class="stat__label">grup</span></a>
   <a class="stat" href="{% url 'panel:code_list' %}"><span class="stat__value">{{ code_count }}</span><span class="stat__label">aktywnych kodów</span></a>
 </div>
 {% if inactive_count %}<p class="hint">Wyłączone konta: {{ inactive_count }}.</p>{% endif %}
-<h2>Ostatnio dołączyli</h2>
-<ul class="plain-list">
-  {% for person in recent_users %}
-  <li><a href="{% url 'panel:user_detail' person.pk %}">{{ person.username }}</a> <span class="hint">{{ person.date_joined|date:"j E Y, H:i" }}</span></li>
-  {% empty %}<li class="hint">Nikt jeszcze nie dołączył.</li>{% endfor %}
+<div class="heading-row">
+  <h2>Ostatnie zdarzenia</h2>
+  <form method="post" action="{% url 'panel:sync' %}">{% csrf_token %}<button type="submit" class="button button--quiet">Synchronizuj archiwum</button></form>
+</div>
+<ul class="plain-list events">
+  {% for when, kind, item in events %}
+  <li>
+    <span class="hint">{{ when|date:"j E Y, H:i" }}</span>
+    <span>{% if kind == "join" %}<a href="{% url 'panel:user_detail' item.pk %}">{{ item.username }}</a> dołączył(a) do archiwum{% else %}<a href="{% url 'panel:sync' %}">Synchronizacja</a>: {% if item.error %}<span class="is-danger">błąd</span>{% else %}{{ item.albums_total }} albumów, {{ item.photos_total }} zdjęć{% if item.new_albums %}, nowe: {{ item.new_albums|length }}{% endif %}{% endif %}{% endif %}</span>
+  </li>
+  {% empty %}<li class="hint">Na razie nic się nie wydarzyło.</li>{% endfor %}
 </ul>
-<p class="hint">Albumy, uprawnienia i synchronizacja pojawią się w kolejnych etapach.</p>
 {% endblock %}

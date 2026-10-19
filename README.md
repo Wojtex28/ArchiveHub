@@ -12,9 +12,10 @@ w projekcie.
 | --- | --- | --- |
 | 0 | Analiza i architektura | gotowe |
 | 1 | Fundament: Django, baza, Docker, Caddy, konfiguracja, testy | gotowe |
-| 2 | Konta, logowanie, kody rodzinne, konto administratora, podstawy panelu | **gotowe** |
-| 3 | Panel administratora: pełna struktura (albumy, uprawnienia, synchronizacja) | następny |
-| 3+ | Panel, import albumów, uprawnienia, galeria, pobieranie, komentarze… | zaplanowane |
+| 2 | Konta, logowanie, kody rodzinne, konto administratora, podstawy panelu | gotowe |
+| 3 | Panel administratora: albumy, uprawnienia grupa × album, synchronizacja, tło logowania | **gotowe** |
+| 4 | Import albumów z udziału sieciowego (konwersja, miniatury, rewersy) | następny |
+| 5+ | Zarządzanie albumami, galeria, pobieranie, komentarze… | zaplanowane |
 
 ## Technologie
 
@@ -59,11 +60,22 @@ na zwykłej stronie logowania; w menu pojawi się „Panel” (`/panel/`), któr
 
 W panelu:
 
-1. **Grupy**: utwórz grupy, np. „Bereza”, „Włodyka”, „Najbliższa rodzina”.
+1. **Grupy**: utwórz grupy, np. „Bereza”, „Włodyka”, „Wszystkie albumy”. Grupa z opcją
+   „widzi wszystkie albumy” ma dostęp do każdego albumu, także dodanego później.
 2. **Kody rodzinne**: utwórz kod dla grupy (panel proponuje losowy, np. `lipa-bocian-64`).
-   Przekaż rodzinie adres `/dolacz/` i kod. Każda osoba wybiera swój nick i własne hasło.
-3. **Osoby**: lista kont, przypisanie do grup, nowe hasło dla kogoś, kto zapomniał,
+   Przekaż rodzinie adres `/dolacz/` i kod. Każda osoba wybiera swój nick i własne hasło,
+   a kod od razu dopisuje ją do grupy. Kto dostanie kolejny kod, wpisuje go po zalogowaniu
+   w menu „Mam kod” i dochodzi do następnej grupy na tym samym koncie.
+3. **Synchronizacja**: każdy folder w bibliotece zdjęć (`/data/albumy` w kontenerze) to album.
+   Przycisk „Synchronizuj archiwum” dodaje nowe foldery jako albumy i zapisuje raport w historii.
+   Album, którego folder zniknął, dostaje znacznik „brak folderu”; nic nie jest usuwane.
+   Folder z `_` na początku nazwy trafia do archiwum jako ukryty.
+4. **Uprawnienia**: tabela albumy × grupy. Osoba widzi album, jeśli jest w choć jednej zaznaczonej grupie.
+5. **Osoby**: lista kont, przypisanie do grup, nowe hasło dla kogoś, kto zapomniał,
    wyłączenie lub usunięcie konta. Konto można też założyć ręcznie.
+6. **Tło logowania**: zdjęcia pływające pod siatką kropek na stronie logowania (można je łapać
+   i przesuwać). Wgrywasz je tutaj; aplikacja zmniejsza je do 900 px i usuwa dane z aparatu (np. GPS).
+   Strona logowania jest publiczna, więc wybieraj zdjęcia, które możesz pokazać obcym.
 
 Limit prób: 8 błędnych haseł na nick lub 20 z jednego adresu IP w 15 minut blokuje logowanie
 na kwadrans; 10 błędnych kodów z jednego adresu blokuje dołączanie. Za Cloudflare Tunnel
@@ -325,10 +337,11 @@ GitHub Actions uruchamia przy każdej zmianie: lint, testy, budowanie obrazu Doc
 ```text
 config/        ustawienia (wszystko ze zmiennych środowiskowych), adresy URL
 accounts/      konta, grupy, kody rodzinne, logowanie, limit prób
-panel/         panel administratora (osoby, kody, grupy)
-core/          strona powitalna, /healthz, robots.txt, nagłówki bezpieczeństwa
+panel/         panel administratora (osoby, albumy, uprawnienia, synchronizacja, kody, grupy, tło)
+albums/        albumy, widoczność dla grup, synchronizacja z folderami
+core/          strona powitalna, tło logowania, /healthz, robots.txt, nagłówki bezpieczeństwa
 templates/     szablony wspólne
-static/        CSS
+static/        CSS i JavaScript (tło logowania)
 tests/         testy (pytest)
 deploy/        Caddyfile, konfiguracja Gunicorna, skrypt startowy kontenera
 compose.yaml   usługi: app, caddy, cloudflared (profil „tunnel”)
@@ -336,7 +349,8 @@ compose.yaml   usługi: app, caddy, cloudflared (profil „tunnel”)
 
 ## Dane i bezpieczeństwo
 
-- Baza danych leży w wolumenie Dockera `data` (`/data/db/archivehub.sqlite3` w kontenerze).
+- Baza danych leży w wolumenie Dockera `data` (`/data/db/archivehub.sqlite3` w kontenerze),
+  obok biblioteki albumów (`/data/albumy`) i zdjęć tła logowania (`/data/tlo-logowania`).
 - Plik `.env`, baza i zdjęcia nigdy nie trafiają do repozytorium (`.gitignore`). Repozytorium jest publiczne.
 - Produkcja: przekierowanie na HTTPS, ciasteczka tylko przez HTTPS, HSTS, Content-Security-Policy
   bez skryptów inline, `noindex` dla wyszukiwarek, aplikacja w kontenerze działa jako zwykły użytkownik.

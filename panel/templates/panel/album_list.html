@@ -1,0 +1,29 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<div class="heading-row">
+  <h1>Albumy</h1>
+  <form method="post" action="{% url 'panel:sync' %}">{% csrf_token %}<button type="submit" class="button">Synchronizuj archiwum</button></form>
+</div>
+<p class="hint">Albumy powstają z folderów w bibliotece zdjęć. Kto widzi który album, ustawiasz w zakładce <a href="{% url 'panel:permissions' %}">Uprawnienia</a>.
+{% if all_groups %}Wszystkie albumy widzą też grupy: {% for g in all_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Album</th><th>Zdjęcia</th><th>Grupy</th></tr></thead>
+  <tbody>
+  {% for album in albums %}
+  <tr{% if album.folder_missing %} class="is-muted"{% endif %}>
+    <td>{{ album.title }}
+      {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
+      {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}
+      <br><span class="hint">folder: {{ album.folder }}</span></td>
+    <td>{{ album.photo_count }}</td>
+    <td>{% for g in album.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">żadna</span>{% endfor %}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3" class="hint">Nie ma jeszcze albumów. Wrzuć foldery ze zdjęciami do biblioteki i kliknij „Synchronizuj archiwum”.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if last_sync %}<p class="hint">Ostatnia synchronizacja: {{ last_sync.started_at|date:"j E Y, H:i" }}.</p>{% endif %}
+{% endblock %}

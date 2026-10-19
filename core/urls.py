@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path("", views.landing, name="landing"),
     path("archiwum/", views.archive_home, name="archive"),
+    path("tlo/<uuid:key>.jpg", views.login_photo, name="login_photo"),
     path("healthz", views.healthz, name="healthz"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
 ]

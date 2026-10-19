@@ -44,6 +44,11 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 DATA_DIR = Path(env("ARCHIVEHUB_DATA_DIR", str(BASE_DIR / "var")))
 (DATA_DIR / "db").mkdir(parents=True, exist_ok=True)
 
+# Biblioteka zdjęć: każdy podfolder to jeden album (synchronizacja w panelu).
+ARCHIVEHUB_ALBUMS_DIR = Path(env("ARCHIVEHUB_ALBUMS_DIR", str(DATA_DIR / "albumy")))
+# Zdjęcia w tle strony logowania. Wgrywane w panelu, nigdy nie trafiają do repozytorium.
+ARCHIVEHUB_LOGIN_PHOTOS_DIR = DATA_DIR / "tlo-logowania"
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -54,6 +59,7 @@ INSTALLED_APPS = [
     "accounts",
     "core",
     "panel",
+    "albums",
 ]
 
 MIDDLEWARE = [
@@ -153,7 +159,7 @@ STORAGES = {
 }
 
 # Wbudowany panel Django zostaje tylko jako narzędzie awaryjne, pod
-# nieoczywistym adresem. Właściwy panel administratora powstaje w ETAPIE 3.
+# nieoczywistym adresem. Właściwy panel administratora jest pod /panel/.
 DJANGO_ADMIN_PATH = env("ARCHIVEHUB_DJANGO_ADMIN_PATH", "zaplecze/")
 
 SITE_TITLE = env("ARCHIVEHUB_SITE_TITLE", "Skany fotografii Włodyka/Bereza")

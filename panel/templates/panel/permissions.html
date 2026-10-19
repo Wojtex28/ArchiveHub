@@ -1,0 +1,36 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Uprawnienia</h1>
+<p class="hint">Zaznacz, która grupa widzi który album. Osoba widzi album, jeśli należy do choć jednej zaznaczonej grupy. Grupy z opcją „widzi wszystkie albumy” mają kolumnę zaznaczoną na stałe; zmienisz to w zakładce <a href="{% url 'panel:group_list' %}">Grupy</a>.</p>
+{% if rows and groups %}
+<form method="post" class="permissions">
+  {% csrf_token %}
+  <div class="table-wrap">
+  <table class="table table--matrix">
+    <thead><tr><th scope="col">Album</th>{% for g in groups %}<th scope="col">{{ g.name }}{% if g.sees_all_albums %}<br><span class="hint">widzi wszystko</span>{% endif %}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr{% if row.album.folder_missing %} class="is-muted"{% endif %}>
+      <th scope="row">{{ row.album.title }}{% if row.album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}{% if row.album.folder_missing %} <span class="badge badge--danger">brak folderu</span>{% endif %}</th>
+      {% for g in groups %}
+      <td>
+        {% if g.sees_all_albums %}
+        <input type="checkbox" checked disabled aria-label="{{ g.name }} widzi album {{ row.album.title }}">
+        {% else %}
+        <input type="checkbox" name="album-{{ row.album.pk }}" value="{{ g.pk }}"{% if g.pk in row.group_ids %} checked{% endif %} aria-label="{{ g.name }} widzi album {{ row.album.title }}">
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <button type="submit" class="button">Zapisz uprawnienia</button>
+</form>
+{% elif not groups %}
+<div class="empty-state"><p>Najpierw <a href="{% url 'panel:group_list' %}">utwórz grupę</a>.</p></div>
+{% else %}
+<div class="empty-state"><p>Nie ma jeszcze albumów. <a href="{% url 'panel:sync' %}">Zsynchronizuj archiwum</a>.</p></div>
+{% endif %}
+{% endblock %}

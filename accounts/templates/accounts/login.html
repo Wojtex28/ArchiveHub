@@ -1,5 +1,15 @@
 {% extends "auth_base.html" %}
+{% load static %}
 {% block title %}Logowanie · {{ site_title }}{% endblock %}
+{% block body_class %}page-landing page-login{% endblock %}
+{% block backdrop %}
+<div class="login-bg" data-login-bg aria-hidden="true">
+  <div class="login-bg__photos"></div>
+  <canvas class="login-bg__grid"></canvas>
+</div>
+{{ login_photos|json_script:"login-photos" }}
+<script src="{% static 'js/login-background.js' %}" defer></script>
+{% endblock %}
 {% block card %}
 <h1>Zaloguj się</h1>
 {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}

@@ -4,15 +4,28 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.views import redirect_to_login
-from django.db.models import Count, Prefetch
-from django.http import Http404
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Count, Prefetch, Sum
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from accounts.models import FamilyGroup, InviteCode
+from albums.models import Album, SyncReport
+from albums.sync import albums_dir, sync_albums
+from core.login_photos import delete_login_photo, save_login_photo
+from core.models import LoginPhoto
 
 from .codes import suggest_code
-from .forms import FamilyGroupForm, InviteCodeForm, SetPasswordForm, UserCreateForm, UserEditForm
+from .forms import (
+    FamilyGroupForm,
+    InviteCodeForm,
+    LoginPhotoUploadForm,
+    SetPasswordForm,
+    UserCreateForm,
+    UserEditForm,
+)
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -34,15 +47,24 @@ def master_required(view):
 
 @master_required
 def dashboard(request):
+    albums = Album.objects.filter(folder_missing=False)
+    # Ostatnie zdarzenia: dołączenia i synchronizacje, najnowsze na górze.
+    events = [
+        (person.date_joined, "join", person) for person in User.objects.order_by("-date_joined")[:8]
+    ] + [(report.started_at, "sync", report) for report in SyncReport.objects.all()[:8]]
+    events.sort(key=lambda event: event[0], reverse=True)
     return render(
         request,
         "panel/dashboard.html",
         {
             "user_count": User.objects.filter(is_active=True).count(),
             "inactive_count": User.objects.filter(is_active=False).count(),
+            "album_count": albums.count(),
+            "photo_count": albums.aggregate(total=Sum("photo_count"))["total"] or 0,
             "group_count": FamilyGroup.objects.count(),
             "code_count": InviteCode.objects.filter(is_active=True).count(),
-            "recent_users": User.objects.order_by("-date_joined")[:5],
+            "last_sync": SyncReport.objects.first(),
+            "events": events[:8],
         },
     )
 
@@ -181,7 +203,7 @@ def group_list(request):
         return redirect("panel:group_list")
     groups = FamilyGroup.objects.prefetch_related(
         Prefetch("members", queryset=User.objects.order_by("username"))
-    ).annotate(code_count=Count("invite_codes", distinct=True))
+    ).annotate(code_count=Count("invite_codes", distinct=True), album_count=Count("albums", distinct=True))
     return render(request, "panel/group_list.html", {"groups": groups, "form": form})
 
 
@@ -195,3 +217,117 @@ def group_edit(request, pk):
         messages.success(request, "Zapisano grupę.")
         return redirect("panel:group_list")
     return render(request, "panel/group_edit.html", {"group": group, "form": form})
+
+
+# --- Albumy i uprawnienia ---------------------------------------------------
+
+
+@master_required
+def album_list(request):
+    albums = Album.objects.prefetch_related("groups")
+    return render(
+        request,
+        "panel/album_list.html",
+        {
+            "albums": albums,
+            "all_groups": FamilyGroup.objects.filter(sees_all_albums=True),
+            "last_sync": SyncReport.objects.first(),
+        },
+    )
+
+
+@master_required
+@require_http_methods(["GET", "HEAD", "POST"])
+def permissions(request):
+    """Tabela albumy × grupy. Grupy „widzą wszystko” mają kolumnę zawsze zaznaczoną."""
+    albums = list(Album.objects.prefetch_related("groups"))
+    groups = list(FamilyGroup.objects.all())
+    editable_ids = {g.pk for g in groups if not g.sees_all_albums}
+
+    if request.method == "POST":
+        with transaction.atomic():
+            for album in albums:
+                chosen = {
+                    int(value)
+                    for value in request.POST.getlist(f"album-{album.pk}")
+                    if value.isdigit() and int(value) in editable_ids
+                }
+                album.groups.set(chosen)
+        logger.info("Administrator %s zapisał uprawnienia do albumów", request.user)
+        messages.success(request, "Zapisano uprawnienia.")
+        return redirect("panel:permissions")
+
+    rows = [{"album": album, "group_ids": {g.pk for g in album.groups.all()}} for album in albums]
+    return render(request, "panel/permissions.html", {"rows": rows, "groups": groups})
+
+
+@master_required
+@require_http_methods(["GET", "HEAD", "POST"])
+def sync(request):
+    if request.method == "POST":
+        report = sync_albums(triggered_by=request.user)
+        if report.error:
+            messages.error(request, report.error)
+        else:
+            messages.success(
+                request,
+                f"Synchronizacja zakończona: {report.albums_total} albumów, {report.photos_total} zdjęć, "
+                f"nowe: {len(report.new_albums)}.",
+            )
+        return redirect("panel:sync")
+    return render(
+        request,
+        "panel/sync.html",
+        {"reports": SyncReport.objects.select_related("triggered_by")[:20], "albums_dir": albums_dir()},
+    )
+
+
+# --- Tło strony logowania ---------------------------------------------------
+
+
+@master_required
+@require_http_methods(["GET", "HEAD", "POST"])
+def login_photos(request):
+    form = LoginPhotoUploadForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        added, errors = 0, []
+        for uploaded in form.cleaned_data["photos"]:
+            try:
+                save_login_photo(uploaded)
+                added += 1
+            except ValidationError as exc:
+                errors.extend(exc.messages)
+        if added:
+            messages.success(request, f"Dodano zdjęcia: {added}.")
+        for error in errors:
+            messages.error(request, error)
+        return redirect("panel:login_photos")
+    return render(request, "panel/login_photos.html", {"form": form, "photos": LoginPhoto.objects.all()})
+
+
+@master_required
+@require_safe
+def login_photo_preview(request, pk):
+    """Podgląd w panelu, także zdjęć ukrytych (publiczny adres pokazuje tylko widoczne)."""
+    photo = get_object_or_404(LoginPhoto, pk=pk)
+    try:
+        return FileResponse(photo.path.open("rb"), content_type="image/jpeg")
+    except FileNotFoundError:
+        raise Http404 from None
+
+
+@master_required
+@require_POST
+def login_photo_toggle(request, pk):
+    photo = get_object_or_404(LoginPhoto, pk=pk)
+    photo.is_active = not photo.is_active
+    photo.save(update_fields=["is_active"])
+    return redirect("panel:login_photos")
+
+
+@master_required
+@require_POST
+def login_photo_delete(request, pk):
+    delete_login_photo(get_object_or_404(LoginPhoto, pk=pk))
+    messages.success(request, "Usunięto zdjęcie z tła.")
+    return redirect("panel:login_photos")
