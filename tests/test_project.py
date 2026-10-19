@@ -45,3 +45,21 @@ def test_production_refuses_to_start_without_secret_key(tmp_path):
     )
     assert result.returncode != 0
     assert "DJANGO_SECRET_KEY" in result.stderr
+
+
+def test_production_healthcheck_host_allowed_with_only_domain_configured(tmp_path):
+    # Healthcheck w Dockerfile odpytuje 127.0.0.1, a w .env jest tylko domena archiwum.
+    result = _manage(
+        "shell",
+        "-c",
+        "from django.conf import settings; print(settings.ALLOWED_HOSTS)",
+        extra_env={
+            "DJANGO_DEBUG": "0",
+            "DJANGO_SECRET_KEY": "x" * 30 + "-test-key-" + "y" * 30,
+            "DJANGO_ALLOWED_HOSTS": "archiwum.example.com",
+            "ARCHIVEHUB_DATA_DIR": str(tmp_path),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "archiwum.example.com" in result.stdout
+    assert "127.0.0.1" in result.stdout

@@ -33,7 +33,7 @@ jobs:
         run: |
           docker run -d --name ah -p 8000:8000 \
             -e DJANGO_SECRET_KEY=ci-only-secret-key-not-used-anywhere-else-0123456789 \
-            -e DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1 \
+            -e DJANGO_ALLOWED_HOSTS=archiwum.example.com \
             -e ARCHIVEHUB_SSL_REDIRECT=0 \
             archivehub:ci
           for i in $(seq 1 30); do

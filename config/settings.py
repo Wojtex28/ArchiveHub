@@ -36,7 +36,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("Ustaw DJANGO_SECRET_KEY (patrz .env.example).")
     SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"  # noqa: S105
 
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1" if DEBUG else "")
+# localhost zawsze: healthcheck Dockera pyta aplikację o /healthz pod 127.0.0.1.
+ALLOWED_HOSTS = [*env_list("DJANGO_ALLOWED_HOSTS"), "localhost", "127.0.0.1"]
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 # Katalog na dane trwałe (baza, później miniatury i biblioteka zdjęć).
