@@ -1,0 +1,22 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<div class="heading-row">
+  <h1>Osoby</h1>
+  <a class="button" href="{% url 'panel:user_create' %}">Dodaj osobę</a>
+</div>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Nick</th><th>Grupy</th><th>Stan</th><th>Ostatnie logowanie</th></tr></thead>
+  <tbody>
+  {% for person in users %}
+  <tr{% if not person.is_active %} class="is-muted"{% endif %}>
+    <td><a href="{% url 'panel:user_detail' person.pk %}">{{ person.username }}</a>{% if person.is_superuser %} <span class="badge">administrator</span>{% endif %}</td>
+    <td>{% for g in person.family_groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">brak</span>{% endfor %}</td>
+    <td>{% if person.is_active %}aktywne{% else %}wyłączone{% endif %}</td>
+    <td>{% if person.last_login %}{{ person.last_login|date:"j E Y" }}{% else %}<span class="hint">nigdy</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body_class %}page-landing{% endblock %}
+{% block content %}
+<main class="auth">
+  <a class="auth__brand" href="{% url 'landing' %}">{{ site_title }}</a>
+  <div class="card">
+    {% if messages %}{% for message in messages %}<p class="message message--{{ message.tags }}">{{ message }}</p>{% endfor %}{% endif %}
+    {% block card %}{% endblock %}
+  </div>
+  {% block after_card %}{% endblock %}
+</main>
+{% endblock %}

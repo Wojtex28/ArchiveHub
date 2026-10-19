@@ -1,5 +1,6 @@
 import logging
 
+from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -14,9 +15,10 @@ def landing(request):
 
 
 @require_safe
-def archive_placeholder(request):
-    # Logowanie i archiwum powstają w kolejnych etapach.
-    return render(request, "core/archive_placeholder.html")
+@login_required
+def archive_home(request):
+    # Albumy pojawią się tu w kolejnych etapach.
+    return render(request, "core/archive_home.html")
 
 
 @require_safe

@@ -1,0 +1,16 @@
+{% extends "auth_base.html" %}
+{% block title %}Dołącz · {{ site_title }}{% endblock %}
+{% block card %}
+<p class="step">Krok 1 z 2</p>
+<h1>Wpisz kod rodzinny</h1>
+<p class="lead">Kod dostajesz od osoby, która prowadzi archiwum.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button button--wide">Dalej</button>
+</form>
+{% endblock %}
+{% block after_card %}
+<p class="auth__aside">Masz już konto? <a href="{% url 'login' %}">Zaloguj się</a></p>
+{% endblock %}
