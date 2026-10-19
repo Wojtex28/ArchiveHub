@@ -215,18 +215,30 @@ a z komputera nie, patrz tabelka „Gdy coś nie działa” niżej (stary DNS w 
 docker compose exec app python manage.py createsuperuser
 ```
 
-Podaj nick, e-mail możesz pominąć (Enter), potem dwa razy hasło. Użyj długiego, unikalnego hasła:
-to konto ma dostęp do wszystkiego. Zaloguj się na stronie, w menu pojawi się „Panel”.
+Podaj nick, e-mail możesz pominąć (Enter), potem dwa razy hasło (podczas wpisywania nic się nie wyświetla).
+Użyj długiego, unikalnego hasła: to konto ma dostęp do wszystkiego. Zaloguj się na stronie, w menu pojawi się „Panel”.
+
+Nie ma żadnego domyślnego konta ani hasła: nick i hasło mastera wymyślasz sam przy tym poleceniu.
+Zapomniane hasło mastera ustawisz od nowa (zamiast `Wojtek` podaj swój nick; jeśli go nie pamiętasz,
+`createsuperuser` powie, że wybrany nick jest zajęty):
+
+```bash
+docker compose exec app python manage.py changepassword Wojtek
+```
+
+Zwykłym osobom hasło zmieniasz w panelu: Osoby → osoba → „Nowe hasło” → Ustaw hasło.
 
 ### Krok 9. Test całości (10 minut)
 
-1. W panelu utwórz grupę, np. „Test”.
-2. Utwórz kod rodzinny dla tej grupy (panel podpowie losowy).
+1. Zaloguj się kontem master, wejdź w **Panel → Grupy** i utwórz grupę, np. „Test”.
+2. **Panel → Kody rodzinne:** utwórz kod dla tej grupy (panel podpowie losowy, np. `lipa-bocian-64`).
 3. Na telefonie, najlepiej w trybie prywatnym, wejdź na `https://archiwum.twojadomena.pl/dolacz/`,
    wpisz kod, wybierz nick i hasło. Powinno Cię przenieść do archiwum.
-4. W panelu, w „Osoby”, nowa osoba powinna być widoczna w grupie „Test”.
+4. Na komputerze w **Panel → Osoby** nowa osoba powinna być widoczna w grupie „Test”.
 5. Wyloguj się na telefonie i zaloguj ponownie nickiem i hasłem.
-6. Po teście usuń testowe konto, a kod wyłącz.
+6. Sprawdź błędy: zły kod na `/dolacz/` pokazuje „Ten kod nie działa…”, złe hasło
+   „Nieprawidłowy nick lub hasło.”
+7. Sprzątanie: usuń testowe konto w „Osoby”, a kod w „Kody rodzinne” wyłącz.
 
 ### Aktualizacja do nowej wersji
 
