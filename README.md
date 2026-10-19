@@ -48,7 +48,7 @@ docker compose down               # zatrzymanie (dane zostają w wolumenach)
 
 ## Konto administratora i pierwsze kroki
 
-Konto administratora („master”) zakładasz raz, poleceniem w terminalu (na serwerze: krok 7 poradnika niżej):
+Konto administratora („master”) zakładasz raz, poleceniem w terminalu (na serwerze: krok 8 poradnika niżej):
 
 ```bash
 docker compose exec app python manage.py createsuperuser
@@ -86,6 +86,8 @@ W przykładach domena to `archiwum.twojadomena.pl`; wszędzie wpisz swoją.
 ### Czego potrzebujesz
 
 - Serwer z Linuksem (ten z Nextcloudem), dostęp przez SSH i konto z `sudo`.
+  **TrueNAS SCALE 24.10 lub nowszy też się nadaje:** przeczytaj najpierw sekcję
+  [„Wariant: TrueNAS SCALE”](#wariant-truenas-scale), bo kroki 2 i 3 wyglądają tam inaczej.
 - Domenę, której DNS obsługuje Cloudflare (darmowy plan wystarczy), patrz krok 1.
 - Około 1 GB wolnego miejsca na start; później ~300 MB na każdy album.
 
@@ -129,21 +131,21 @@ cd /srv/archivehub
 
 Wszystkie dalsze polecenia uruchamiasz w katalogu `/srv/archivehub`.
 
-### Krok 4. Tunel w Cloudflare
+### Krok 4. Tunel w Cloudflare (część 1: token)
 
-1. Wejdź na <https://one.dash.cloudflare.com> (Zero Trust). Przy pierwszym wejściu Cloudflare poprosi
-   o nazwę zespołu i wybór planu: wybierz Free (karta płatnicza może być wymagana, ale nic nie jest pobierane).
+1. Wejdź na <https://one.dash.cloudflare.com> (panel **Zero Trust**, osobny od zwykłego panelu domeny;
+   w zwykłym panelu jest do niego link „Zero Trust” w menu po lewej). Przy pierwszym wejściu Cloudflare
+   poprosi o nazwę zespołu (dowolna) i plan: wybierz **Free**.
 2. **Networks → Tunnels → Create a tunnel** (w nowszym panelu: Networks → Connectors → Cloudflare Tunnels).
    Typ: **Cloudflared**. Nazwa: np. `archivehub`.
-3. Na ekranie instalacji wybierz **Docker**. Pokaże się polecenie `docker run ... --token eyJ...`.
-   **Nie uruchamiaj go.** Skopiuj sam token (długi ciąg po `--token`); trafi do `.env` w kroku 5.
-4. Dalej, w części **Public Hostname** (w nowszym panelu: Published application routes), dodaj:
-   - Subdomain: `archiwum`, Domain: `twojadomena.pl`
-   - Service: Type **HTTP**, URL **`caddy:80`**
+3. Na ekranie „Install and run” wybierz **Docker**. Pokaże się polecenie `docker run ... --token eyJ...`.
+   **Nie uruchamiaj go i niczego nie instaluj**: nasz `compose.yaml` ma własny cloudflared.
+   Skopiuj przyciskiem kopiowania całe polecenie i zostaw z niego sam token (od `eyJ` do końca).
+4. **Zostaw tę kartę otwartą.** Kreator czeka („Waiting for your Tunnel to connect”), aż tunel się
+   połączy, czyli aż uruchomisz aplikację w kroku 6. Wrócisz tu w kroku 7.
 
-   `caddy` to nazwa kontenera w naszym `compose.yaml`; cloudflared widzi go w sieci Dockera.
-5. Zapisz. Cloudflare sam utworzy rekord DNS dla `archiwum.twojadomena.pl`.
-6. Zalecane: w panelu domeny **SSL/TLS → Edge Certificates** włącz „Always Use HTTPS”.
+Token to hasło do tunelu: nie wklejaj go w czaty ani maile. Jeśli wyciekł, w ustawieniach tunelu
+wygeneruj nowy (Refresh token) i podmień w `.env`.
 
 ### Krok 5. Plik `.env`
 
@@ -153,7 +155,8 @@ chmod 600 .env
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
-Ostatnia komenda wypisze losowy klucz (bez Pythona: `openssl rand -base64 48`). Otwórz plik (`nano .env`) i ustaw:
+Ostatnia komenda wypisze losowy klucz (bez Pythona: `openssl rand -base64 48`). Otwórz plik (`nano .env`)
+i **zmień istniejące linijki** (nie dopisuj ich drugi raz na dole):
 
 ```ini
 DJANGO_DEBUG=0
@@ -161,6 +164,13 @@ DJANGO_SECRET_KEY=<wklej wygenerowany klucz>
 DJANGO_ALLOWED_HOSTS=archiwum.twojadomena.pl
 DJANGO_CSRF_TRUSTED_ORIGINS=https://archiwum.twojadomena.pl
 CLOUDFLARE_TUNNEL_TOKEN=<wklej token z kroku 4>
+```
+
+W nano: zapis **Ctrl+O**, Enter; wyjście **Ctrl+X**. Sprawdzenie, czy każda zmienna jest raz
+(linijki są ucinane, żeby nie pokazać całego tokenu):
+
+```bash
+grep -E "^(DJANGO_|CLOUDFLARE)" .env | cut -c1-40
 ```
 
 Resztę zostaw bez zmian. Jeśli port `8080` na serwerze jest już zajęty (np. przez Nextcloud),
@@ -179,30 +189,56 @@ Pierwsze budowanie trwa kilka minut. Potem sprawdź:
 ```bash
 docker compose ps                          # app powinno być „healthy”, caddy i cloudflared „running”
 curl http://127.0.0.1:8080/healthz          # {"status": "ok"}  (port z ARCHIVEHUB_HTTP_PORT)
-docker compose logs cloudflared | tail      # powinno być „Registered tunnel connection”
+docker compose logs cloudflared | grep Registered   # 4 linijki „Registered tunnel connection”
 ```
 
-W panelu Cloudflare tunel powinien mieć status **Healthy**. Otwórz `https://archiwum.twojadomena.pl`:
-pojawi się strona powitalna archiwum.
+Ostrzeżenie `QUIC connection failed` w logu cloudflared nie przeszkadza: tunel sam przełącza się na HTTP/2.
 
-### Krok 7. Konto administratora
+### Krok 7. Tunel w Cloudflare (część 2: adres archiwum)
+
+1. Wróć do karty z kroku 4. Po chwili pojawi się **„Tunnel connected successfully”**; kliknij **Next**.
+2. W części **Published application routes** (w starszym panelu: Public Hostname) dodaj:
+   - Subdomain: `archiwum`, Domain: `twojadomena.pl`
+   - Service URL: **`http://caddy:80`** (pełny adres z `http://`; nie `https`)
+
+   `caddy` to nazwa kontenera w naszym `compose.yaml`; cloudflared widzi go w sieci Dockera.
+3. Zapisz. Cloudflare sam utworzy rekord DNS `archiwum` (CNAME na `<id-tunelu>.cfargotunnel.com`).
+   **Nie dodawaj go ręcznie.**
+4. Zalecane: w panelu domeny **SSL/TLS → Edge Certificates** włącz „Always Use HTTPS”.
+
+Otwórz `https://archiwum.twojadomena.pl`: pojawi się strona powitalna archiwum. Jeśli z telefonu działa,
+a z komputera nie, patrz tabelka „Gdy coś nie działa” niżej (stary DNS w pamięci komputera).
+
+### Krok 8. Konto administratora
 
 ```bash
 docker compose exec app python manage.py createsuperuser
 ```
 
-Podaj nick, e-mail możesz pominąć (Enter), potem dwa razy hasło. Użyj długiego, unikalnego hasła:
-to konto ma dostęp do wszystkiego. Zaloguj się na stronie, w menu pojawi się „Panel”.
+Podaj nick, e-mail możesz pominąć (Enter), potem dwa razy hasło (podczas wpisywania nic się nie wyświetla).
+Użyj długiego, unikalnego hasła: to konto ma dostęp do wszystkiego. Zaloguj się na stronie, w menu pojawi się „Panel”.
 
-### Krok 8. Test całości (10 minut)
+Nie ma żadnego domyślnego konta ani hasła: nick i hasło mastera wymyślasz sam przy tym poleceniu.
+Zapomniane hasło mastera ustawisz od nowa (zamiast `Wojtek` podaj swój nick; jeśli go nie pamiętasz,
+`createsuperuser` powie, że wybrany nick jest zajęty):
 
-1. W panelu utwórz grupę, np. „Test”.
-2. Utwórz kod rodzinny dla tej grupy (panel podpowie losowy).
+```bash
+docker compose exec app python manage.py changepassword Wojtek
+```
+
+Zwykłym osobom hasło zmieniasz w panelu: Osoby → osoba → „Nowe hasło” → Ustaw hasło.
+
+### Krok 9. Test całości (10 minut)
+
+1. Zaloguj się kontem master, wejdź w **Panel → Grupy** i utwórz grupę, np. „Test”.
+2. **Panel → Kody rodzinne:** utwórz kod dla tej grupy (panel podpowie losowy, np. `lipa-bocian-64`).
 3. Na telefonie, najlepiej w trybie prywatnym, wejdź na `https://archiwum.twojadomena.pl/dolacz/`,
    wpisz kod, wybierz nick i hasło. Powinno Cię przenieść do archiwum.
-4. W panelu, w „Osoby”, nowa osoba powinna być widoczna w grupie „Test”.
+4. Na komputerze w **Panel → Osoby** nowa osoba powinna być widoczna w grupie „Test”.
 5. Wyloguj się na telefonie i zaloguj ponownie nickiem i hasłem.
-6. Po teście usuń testowe konto, a kod wyłącz.
+6. Sprawdź błędy: zły kod na `/dolacz/` pokazuje „Ten kod nie działa…”, złe hasło
+   „Nieprawidłowy nick lub hasło.”
+7. Sprzątanie: usuń testowe konto w „Osoby”, a kod w „Kody rodzinne” wyłącz.
 
 ### Aktualizacja do nowej wersji
 
@@ -215,6 +251,8 @@ docker compose --profile tunnel up -d --build
 ```
 
 Migracje bazy uruchamiają się same przy starcie. Dane zostają w wolumenach Dockera.
+Na TrueNAS zamiast `git pull` pobierz kod ponownie (patrz [wariant TrueNAS](#wariant-truenas-scale));
+plik `.env` zostaje nietknięty.
 
 ### Kopia zapasowa bazy (na razie ręcznie)
 
@@ -237,8 +275,39 @@ Plik `kopia-RRRR-MM-DD.sqlite3` przenieś poza serwer (np. na Google Drive).
 | Błąd 1033 lub 502 z Cloudflare | Tunel nie działa: `docker compose logs cloudflared`. Sprawdź token oraz że usługa w Cloudflare to `http://caddy:80` |
 | „Za wiele przekierowań” | Sprawdź, że usługa w tunelu to `http://caddy:80` (nie `https`). Jeśli to nie to, wyślij mi wynik `docker compose logs caddy app` |
 | `port is already allocated` | Zmień `ARCHIVEHUB_HTTP_PORT` w `.env` |
+| Z telefonu (LTE) działa, z komputera nie | Komputer albo router pamięta DNS sprzed przełączenia na Cloudflare. PowerShell jako administrator: `ipconfig /flushdns`, zamknij przeglądarkę; w Chrome także `chrome://net-internals/#dns` → Clear host cache. Samo mija po kilku godzinach |
+| `Invalid service URL format` w Cloudflare | Adres usługi w tunelu musi mieć protokół: `http://caddy:80` |
+| Przy tunelu w Cloudflare „Unsupported” | Stara wersja cloudflared. Pobierz aktualny kod i `docker compose --profile tunnel up -d` |
+| „Out of memory” w logach serwera | Kontenery ArchiveHub mają twarde limity RAM (aplikacja 768 MB, `ARCHIVEHUB_APP_MEMORY`), więc nie zabiorą pamięci NAS-owi. Sprawdź `free -h` i `docker stats --no-stream`, co zajmuje resztę |
 
 Zatrzymanie: `docker compose --profile tunnel down` (dane zostają). Logi na żywo: `docker compose logs -f`.
+
+### Wariant: TrueNAS SCALE
+
+Sprawdzone na TrueNAS SCALE 25.10 (aplikacje na Dockerze; wersje przed 24.10 używały Kubernetesa
+i się nie nadają). Kroki 1, 4 i 7–9 bez zmian; poniżej różnice.
+
+- **Nie instaluj Dockera** (krok 2) ani niczego przez `apt`: TrueNAS to zamknięty system.
+  Docker jest wbudowany; wystarczy, że w **Apps** wybrana jest pula na aplikacje (Configuration → Choose Pool).
+  Sprawdź: `sudo docker compose version`.
+- **Shell:** używaj **System → Shell** w panelu WWW TrueNAS. Wklejasz tam przez **Ctrl+Shift+V**
+  albo Shift+Insert. Nie wklejaj w oknie konsoli Hyper-V/maszyny wirtualnej: „Wpisz tekst ze schowka”
+  przekłamuje znaki przy polskiej klawiaturze.
+- **`sudo` przed każdym `docker`** (i przy edycji `.env`). Hasło to hasło Twojego konta TrueNAS
+  (zwykle `truenas_admin`); podczas wpisywania nic się nie wyświetla.
+- **Katalog (zamiast kroku 3):** w panelu **Datasets** zaznacz pulę → **Add Dataset**, nazwa np. `ArchiveHub`,
+  preset Generic. Nie używaj `ix-apps`. Potem w shellu (git może być niedostępny, więc pobieramy archiwum):
+
+  ```bash
+  cd "$(find /mnt -maxdepth 3 -name ArchiveHub -type d | head -1)" && pwd
+  curl -L https://github.com/Wojtex28/ArchiveHub/archive/refs/heads/main.tar.gz | sudo tar xz --strip-components=1
+  ```
+
+  Tą samą komendą `curl … | sudo tar …` pobierasz aktualizacje; `.env` zostaje.
+- **TrueNAS w Hyper-V:** daj maszynie co najmniej **8 GB** pamięci **statycznej** i wyłącz
+  „pamięć dynamiczną” (ZFS źle ją znosi; objaw: „Out of memory” zaraz po starcie). Zmiana tylko na wyłączonej
+  maszynie: Ustawienia → Pamięć, albo w PowerShellu
+  `Set-VMMemory -VMName "TrueNAS" -DynamicMemoryEnabled $false -StartupBytes 8GB`.
 
 ## Testy i jakość kodu
 

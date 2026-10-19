@@ -16,6 +16,8 @@ services:
     volumes:
       - data:/data
       - static:/srv/static
+    # Twarde limity pamięci: przy braku RAM-u na serwerze OOM trafi w ten kontener, a nie w NAS.
+    mem_limit: ${ARCHIVEHUB_APP_MEMORY:-768m}
     restart: unless-stopped
     logging: *logging
 
@@ -29,17 +31,19 @@ services:
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - static:/srv/static:ro
+    mem_limit: 128m
     restart: unless-stopped
     logging: *logging
 
   cloudflared:
-    image: cloudflare/cloudflared:2025.9.1
+    image: cloudflare/cloudflared:2026.10.1
     profiles: ["tunnel"]
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       - caddy
+    mem_limit: 256m
     restart: unless-stopped
     logging: *logging
 
