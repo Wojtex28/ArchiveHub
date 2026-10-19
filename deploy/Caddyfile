@@ -1,0 +1,27 @@
+# Caddy: pliki statyczne i przekazywanie ruchu do aplikacji.
+# HTTPS obsługuje Cloudflare Tunnel, więc tu działa zwykły HTTP w sieci Dockera.
+{
+	auto_https off
+	admin off
+	servers {
+		# Ufamy nagłówkom X-Forwarded-* tylko z sieci prywatnych (cloudflared, Docker).
+		trusted_proxies static private_ranges
+		client_ip_headers Cf-Connecting-Ip X-Forwarded-For
+	}
+}
+
+:80 {
+	encode zstd gzip
+	header -Server
+
+	# Pliki statyczne mają skrót treści w nazwie, więc mogą być cache'owane na zawsze.
+	handle_path /static/* {
+		root * /srv/static
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		reverse_proxy app:8000
+	}
+}
