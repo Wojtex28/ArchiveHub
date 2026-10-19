@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body_class %}page-landing{% endblock %}
+{% block content %}
+<main class="landing">
+  <p class="landing__eyebrow">Prywatne archiwum rodzinne</p>
+  <h1 class="landing__title">{{ site_title }}</h1>
+  <p class="landing__lead">Zeskanowane rodzinne albumy, zebrane w jednym miejscu dla najbliższych.</p>
+  <a class="button" href="{% url 'archive' %}">Przejdź do archiwum</a>
+</main>
+<footer class="site-footer">Archiwum prywatne. Dostęp tylko dla zaproszonych osób.</footer>
+{% endblock %}

@@ -1,0 +1,93 @@
+/* Podstawowy wygląd. Pełny projekt strony powitalnej powstaje w ETAPIE 11. */
+
+:root {
+  --paper: #f4efe6;
+  --ink: #3b332b;
+  --ink-quiet: #7a6e62;
+  --accent: #6f2f2a;
+  --accent-ink: #fbf8f2;
+  --rule: #ddd3c4;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font: 1.0625rem/1.6 var(--sans);
+}
+
+.page-landing {
+  display: flex;
+  flex-direction: column;
+}
+
+.landing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 1rem;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.landing__eyebrow {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+}
+
+.landing__title {
+  margin: 0 0 1rem;
+  font: 400 clamp(2rem, 6vw, 3.25rem)/1.15 var(--serif);
+}
+
+.landing__lead {
+  margin: 0 0 2.25rem;
+  font-size: 1.125rem;
+  color: var(--ink-quiet);
+}
+
+.button {
+  display: inline-block;
+  min-height: 44px;
+  padding: 0.75rem 1.75rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 600;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.button:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgb(59 51 43 / 0.18); }
+.button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+.button--quiet {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+}
+
+.site-footer {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ink-quiet);
+  border-top: 1px solid var(--rule);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

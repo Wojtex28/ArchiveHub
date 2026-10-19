@@ -1,0 +1,4 @@
+# Zależności produkcyjne. Wersje przypięte; aktualizacja: patrz README.
+Django==5.2.18
+argon2-cffi==25.1.0
+gunicorn==26.2.0
