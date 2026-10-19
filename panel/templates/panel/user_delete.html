@@ -1,0 +1,10 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Usunąć konto „{{ person.username }}”?</h1>
+<p>Tej operacji nie da się cofnąć. Jeśli chcesz tylko zablokować dostęp, lepiej <a href="{% url 'panel:user_detail' person.pk %}">wyłącz konto</a>.</p>
+<form method="post" class="inline-form">
+  {% csrf_token %}
+  <button type="submit" class="button button--danger">Tak, usuń konto</button>
+  <a class="button button--quiet" href="{% url 'panel:user_detail' person.pk %}">Anuluj</a>
+</form>
+{% endblock %}

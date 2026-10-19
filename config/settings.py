@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "core",
+    "panel",
 ]
 
 MIDDLEWARE = [
@@ -104,6 +105,20 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
+
+AUTHENTICATION_BACKENDS = ["accounts.backends.CaseInsensitiveModelBackend"]
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "archive"
+LOGOUT_REDIRECT_URL = "landing"
+
+# Rodzina loguje się rzadko; sesja trwa rok. Wyłączenie konta lub zmiana hasła
+# natychmiast kończy wszystkie sesje tej osoby.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 365
+
+# Nagłówek z prawdziwym adresem IP odwiedzającego (Cloudflare Tunnel ustawia
+# CF-Connecting-IP). Używany do limitu prób logowania.
+ARCHIVEHUB_CLIENT_IP_HEADER = env("ARCHIVEHUB_CLIENT_IP_HEADER", "HTTP_CF_CONNECTING_IP")
 
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",

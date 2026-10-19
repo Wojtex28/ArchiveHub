@@ -1,0 +1,10 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<p><a href="{% url 'panel:group_list' %}">← Wszystkie grupy</a></p>
+<h1>{{ group.name }}</h1>
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Zapisz</button>
+</form>
+{% endblock %}

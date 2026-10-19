@@ -1,0 +1,17 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Panel administratora</h1>
+<div class="stats">
+  <a class="stat" href="{% url 'panel:user_list' %}"><span class="stat__value">{{ user_count }}</span><span class="stat__label">aktywnych osób</span></a>
+  <a class="stat" href="{% url 'panel:group_list' %}"><span class="stat__value">{{ group_count }}</span><span class="stat__label">grup</span></a>
+  <a class="stat" href="{% url 'panel:code_list' %}"><span class="stat__value">{{ code_count }}</span><span class="stat__label">aktywnych kodów</span></a>
+</div>
+{% if inactive_count %}<p class="hint">Wyłączone konta: {{ inactive_count }}.</p>{% endif %}
+<h2>Ostatnio dołączyli</h2>
+<ul class="plain-list">
+  {% for person in recent_users %}
+  <li><a href="{% url 'panel:user_detail' person.pk %}">{{ person.username }}</a> <span class="hint">{{ person.date_joined|date:"j E Y, H:i" }}</span></li>
+  {% empty %}<li class="hint">Nikt jeszcze nie dołączył.</li>{% endfor %}
+</ul>
+<p class="hint">Albumy, uprawnienia i synchronizacja pojawią się w kolejnych etapach.</p>
+{% endblock %}

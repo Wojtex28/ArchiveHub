@@ -12,9 +12,10 @@ def test_landing_page_renders(client):
 
 
 @pytest.mark.django_db
-def test_archive_placeholder_renders(client):
+def test_archive_requires_login(client):
     response = client.get(reverse("archive"))
-    assert response.status_code == 200
+    assert response.status_code == 302
+    assert response.url.startswith(reverse("login"))
 
 
 @pytest.mark.django_db

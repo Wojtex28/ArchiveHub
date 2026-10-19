@@ -1,0 +1,12 @@
+{% extends "auth_base.html" %}
+{% block title %}Dołącz · {{ site_title }}{% endblock %}
+{% block card %}
+<p class="step">Krok 2 z 2</p>
+<h1>Załóż swoje konto</h1>
+<p class="lead">Dołączasz do grupy <strong>{{ group.name }}</strong>. Wybierz nick i własne hasło.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button button--wide">Załóż konto</button>
+</form>
+{% endblock %}

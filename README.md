@@ -11,8 +11,9 @@ w projekcie.
 | Etap | Zakres | Stan |
 | --- | --- | --- |
 | 0 | Analiza i architektura | gotowe |
-| 1 | Fundament: Django, baza, Docker, Caddy, konfiguracja, testy | **gotowe** |
-| 2 | Konta, logowanie, kody rodzinne, konto administratora | następny |
+| 1 | Fundament: Django, baza, Docker, Caddy, konfiguracja, testy | gotowe |
+| 2 | Konta, logowanie, kody rodzinne, konto administratora, podstawy panelu | **gotowe** |
+| 3 | Panel administratora: pełna struktura (albumy, uprawnienia, synchronizacja) | następny |
 | 3+ | Panel, import albumów, uprawnienia, galeria, pobieranie, komentarze… | zaplanowane |
 
 ## Technologie
@@ -43,8 +44,32 @@ Przydatne polecenia:
 docker compose logs -f app        # logi aplikacji
 docker compose ps                 # stan kontenerów
 docker compose down               # zatrzymanie (dane zostają w wolumenach)
-docker compose exec app python manage.py createsuperuser   # konto do panelu awaryjnego /zaplecze/
 ```
+
+## Konto administratora i pierwsze kroki
+
+Konto administratora („master”) zakładasz raz, poleceniem w terminalu:
+
+```bash
+docker compose exec app python manage.py createsuperuser
+```
+
+Podajesz nick (login), opcjonalnie e-mail (można zostawić pusty) i hasło. Potem logujesz się
+na zwykłej stronie logowania; w menu pojawi się „Panel” (`/panel/`), którego nikt inny nie widzi.
+
+W panelu:
+
+1. **Grupy**: utwórz grupy, np. „Bereza”, „Włodyka”, „Najbliższa rodzina”.
+2. **Kody rodzinne**: utwórz kod dla grupy (panel proponuje losowy, np. `lipa-bocian-64`).
+   Przekaż rodzinie adres `/dolacz/` i kod. Każda osoba wybiera swój nick i własne hasło.
+3. **Osoby**: lista kont, przypisanie do grup, nowe hasło dla kogoś, kto zapomniał,
+   wyłączenie lub usunięcie konta. Konto można też założyć ręcznie.
+
+Limit prób: 8 błędnych haseł na nick lub 20 z jednego adresu IP w 15 minut blokuje logowanie
+na kwadrans; 10 błędnych kodów z jednego adresu blokuje dołączanie. Za Cloudflare Tunnel
+adres IP odwiedzającego pochodzi z nagłówka `CF-Connecting-IP`.
+
+Awaryjny panel Django (`/zaplecze/`) też jest dostępny tylko dla administratora i loguje przez tę samą stronę.
 
 ## Uruchomienie na serwerze domowym (produkcja)
 
@@ -84,7 +109,8 @@ GitHub Actions uruchamia przy każdej zmianie: lint, testy, budowanie obrazu Doc
 
 ```text
 config/        ustawienia (wszystko ze zmiennych środowiskowych), adresy URL
-accounts/      model użytkownika (Argon2)
+accounts/      konta, grupy, kody rodzinne, logowanie, limit prób
+panel/         panel administratora (osoby, kody, grupy)
 core/          strona powitalna, /healthz, robots.txt, nagłówki bezpieczeństwa
 templates/     szablony wspólne
 static/        CSS

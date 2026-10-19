@@ -1,0 +1,10 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Dodaj osobę</h1>
+<p class="hint">Zwykle wystarczy dać komuś kod rodzinny. Tu zakładasz konto ręcznie, np. dla osoby, która sobie nie poradzi.</p>
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Utwórz konto</button>
+</form>
+{% endblock %}

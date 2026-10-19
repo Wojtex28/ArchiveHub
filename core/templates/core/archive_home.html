@@ -1,0 +1,11 @@
+{% extends "app_base.html" %}
+{% block title %}Archiwum · {{ site_title }}{% endblock %}
+{% block main %}
+<h1>Witaj, {{ user }}</h1>
+{% with groups=user.family_groups.all %}
+{% if groups %}<p class="lead">Twoje grupy: {% for g in groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+{% endwith %}
+<div class="empty-state">
+  <p>Albumy pojawią się tutaj wkrótce.</p>
+</div>
+{% endblock %}

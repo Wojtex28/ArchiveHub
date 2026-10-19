@@ -1,0 +1,40 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<p><a href="{% url 'panel:user_list' %}">← Wszystkie osoby</a></p>
+<h1>{{ person.username }}{% if not person.is_active %} <span class="badge badge--muted">wyłączone</span>{% endif %}</h1>
+<p class="hint">
+  Dołączył(a) {{ person.date_joined|date:"j E Y" }}{% if person.joined_with_code %} kodem „{{ person.joined_with_code.code }}”{% endif %}.
+  Ostatnie logowanie: {% if person.last_login %}{{ person.last_login|date:"j E Y, H:i" }}{% else %}nigdy{% endif %}.
+</p>
+
+<div class="grid-2">
+  <form method="post" novalidate class="card card--form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="edit">
+    <h2>Dane i grupy</h2>
+    {% include "includes/form_fields.html" with form=edit_form %}
+    <button type="submit" class="button">Zapisz</button>
+  </form>
+
+  <form method="post" novalidate class="card card--form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="password">
+    <h2>Nowe hasło</h2>
+    <p class="hint">Gdy ktoś zapomni hasła: ustaw nowe i przekaż mu je. Wszystkie jego sesje wygasną.</p>
+    {% include "includes/form_fields.html" with form=password_form %}
+    <button type="submit" class="button">Ustaw hasło</button>
+  </form>
+</div>
+
+{% if person != user %}
+<div class="card danger-zone">
+  <h2>Dostęp</h2>
+  <form method="post" action="{% url 'panel:user_toggle_active' person.pk %}" class="inline-form">
+    {% csrf_token %}
+    <button type="submit" class="button button--quiet">{% if person.is_active %}Wyłącz konto{% else %}Włącz konto{% endif %}</button>
+  </form>
+  {% if not person.is_superuser %}<a class="button button--danger" href="{% url 'panel:user_delete' person.pk %}">Usuń konto</a>{% endif %}
+  <p class="hint">Wyłączone konto nie może się zalogować, ale zostaje w archiwum (np. podpisy przy komentarzach).</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Grupy</h1>
+<p class="hint">Grupy porządkują rodzinę, np. „Bereza”, „Włodyka”, „Najbliższa rodzina”. W kolejnych etapach będą dostawać dostęp do albumów.</p>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Grupa</th><th>Osoby</th><th>Kody</th></tr></thead>
+  <tbody>
+  {% for group in groups %}
+  <tr>
+    <td><a href="{% url 'panel:group_edit' group.pk %}">{{ group.name }}</a>{% if group.description %}<br><span class="hint">{{ group.description }}</span>{% endif %}</td>
+    <td>{% for m in group.members.all %}<a href="{% url 'panel:user_detail' m.pk %}">{{ m.username }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">nikt</span>{% endfor %}</td>
+    <td>{{ group.code_count }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3" class="hint">Nie ma jeszcze grup. Utwórz pierwszą poniżej.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  <h2>Nowa grupa</h2>
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Utwórz grupę</button>
+</form>
+{% endblock %}

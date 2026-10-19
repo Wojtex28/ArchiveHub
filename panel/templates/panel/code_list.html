@@ -1,0 +1,38 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Kody rodzinne</h1>
+<p class="hint">Osoba z kodem zakłada konto sama (nick + własne hasło) i trafia do grupy przypisanej do kodu.
+Link do przekazania: <strong>{{ request.scheme }}://{{ request.get_host }}{% url 'join' %}</strong></p>
+
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Kod</th><th>Grupa</th><th>Użycia</th><th>Ważny do</th><th>Stan</th><th></th></tr></thead>
+  <tbody>
+  {% for code in codes %}
+  <tr{% if code.unusable_reason %} class="is-muted"{% endif %}>
+    <td><code>{{ code.code }}</code>{% if code.note %}<br><span class="hint">{{ code.note }}</span>{% endif %}</td>
+    <td>{{ code.group.name }}</td>
+    <td>{{ code.use_count }}{% if code.max_uses %} / {{ code.max_uses }}{% endif %}</td>
+    <td>{% if code.expires_at %}{{ code.expires_at|date:"j E Y, H:i" }}{% else %}<span class="hint">bez limitu</span>{% endif %}</td>
+    <td>{% with reason=code.unusable_reason %}{% if reason %}{{ reason }}{% else %}działa{% endif %}{% endwith %}</td>
+    <td>
+      <form method="post" action="{% url 'panel:code_toggle_active' code.pk %}" class="inline-form">
+        {% csrf_token %}
+        <button type="submit" class="link-button">{% if code.is_active %}Wyłącz{% else %}Włącz{% endif %}</button>
+      </form>
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6" class="hint">Nie ma jeszcze żadnego kodu.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  <h2>Nowy kod</h2>
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Utwórz kod</button>
+</form>
+{% endblock %}
