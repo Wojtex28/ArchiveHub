@@ -237,6 +237,7 @@ Plik `kopia-RRRR-MM-DD.sqlite3` przenieś poza serwer (np. na Google Drive).
 | Błąd 1033 lub 502 z Cloudflare | Tunel nie działa: `docker compose logs cloudflared`. Sprawdź token oraz że usługa w Cloudflare to `http://caddy:80` |
 | „Za wiele przekierowań” | Sprawdź, że usługa w tunelu to `http://caddy:80` (nie `https`). Jeśli to nie to, wyślij mi wynik `docker compose logs caddy app` |
 | `port is already allocated` | Zmień `ARCHIVEHUB_HTTP_PORT` w `.env` |
+| „Out of memory” w logach serwera | Kontenery ArchiveHub mają twarde limity RAM (aplikacja 768 MB, `ARCHIVEHUB_APP_MEMORY`), więc nie zabiorą pamięci NAS-owi. Sprawdź `free -h` i `docker stats --no-stream`, co zajmuje resztę |
 
 Zatrzymanie: `docker compose --profile tunnel down` (dane zostają). Logi na żywo: `docker compose logs -f`.
 
