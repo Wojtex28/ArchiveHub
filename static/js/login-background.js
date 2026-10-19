@@ -1,4 +1,5 @@
-/* Tło strony logowania: siatka kropek reagująca na kursor, a pod nią
+/* Tło strony logowania: siatka kwadracików połączonych cienkimi liniami,
+   lekko reagująca na kursor (ślad powoli wygasa), a pod nią
    pływające zdjęcia, które można złapać i przesunąć (myszką lub palcem).
    Bez bibliotek; dane zdjęć przychodzą w <script type="application/json">. */
 (() => {
@@ -18,13 +19,16 @@
   const DOT = css.getPropertyValue("--grid-dot").trim() || "59 51 43";
   const DOT_ACTIVE = css.getPropertyValue("--grid-dot-active").trim() || "111 47 42";
 
-  const GRID = { spacing: 24, radius: 1.1, reach: 140, push: 16 };
+  // reach: zasięg kursora (px), push: o ile odsuwa punkty, rise/fall: szybkość narastania i wygasania.
+  const GRID = { spacing: 26, size: 2, reach: 170, push: 7, rise: 7, fall: 1.1 };
   const pointer = { x: -9999, y: -9999, active: false };
 
   let width = 0;
   let height = 0;
   let dpr = 1;
   let dots = [];
+  let cols = 0;
+  let rows = 0;
   let gridDirty = true;
 
   // --- Siatka kropek -------------------------------------------------------
@@ -40,8 +44,8 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const s = width < 600 ? GRID.spacing - 4 : GRID.spacing;
-    const cols = Math.ceil(width / s) + 1;
-    const rows = Math.ceil(height / s) + 1;
+    cols = Math.ceil(width / s) + 1;
+    rows = Math.ceil(height / s) + 1;
     const offX = (width - (cols - 1) * s) / 2;
     const offY = (height - (rows - 1) * s) / 2;
     dots = [];
@@ -54,8 +58,9 @@
   }
 
   function updateGrid(dt) {
-    // Kropki uciekają spod kursora i sprężyście wracają na miejsce.
-    const ease = 1 - Math.exp(-dt * 10);
+    // Punkty lekko odsuwają się spod kursora i powoli wracają na miejsce, zostawiając ślad.
+    const up = 1 - Math.exp(-dt * GRID.rise);
+    const down = 1 - Math.exp(-dt * GRID.fall);
     let moving = false;
     for (const d of dots) {
       let tx = 0;
@@ -72,10 +77,11 @@
           tg = f;
         }
       }
+      const ease = tg > d.glow ? up : down;
       d.dx += (tx - d.dx) * ease;
       d.dy += (ty - d.dy) * ease;
       d.glow += (tg - d.glow) * ease;
-      if (Math.abs(tx - d.dx) > 0.05 || Math.abs(ty - d.dy) > 0.05 || Math.abs(tg - d.glow) > 0.005) {
+      if (Math.abs(tx - d.dx) > 0.02 || Math.abs(ty - d.dy) > 0.02 || Math.abs(tg - d.glow) > 0.003) {
         moving = true;
       }
     }
@@ -84,21 +90,48 @@
 
   function drawGrid() {
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = `rgb(${DOT} / 0.28)`;
+    const at = (r, c) => dots[r * cols + c];
+    const px = (d) => d.x + d.dx;
+    const py = (d) => d.y + d.dy;
+
+    // Cieniutkie linie do sąsiada z prawej i z dołu: cała siatka jedną ścieżką.
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = `rgb(${DOT} / 0.09)`;
     ctx.beginPath();
-    for (const d of dots) {
-      if (d.glow > 0.02) continue;
-      ctx.moveTo(d.x + d.dx + GRID.radius, d.y + d.dy);
-      ctx.arc(d.x + d.dx, d.y + d.dy, GRID.radius, 0, Math.PI * 2);
+    const lit = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = at(r, c);
+        for (const n of [c + 1 < cols ? at(r, c + 1) : null, r + 1 < rows ? at(r + 1, c) : null]) {
+          if (!n) continue;
+          ctx.moveTo(px(d), py(d));
+          ctx.lineTo(px(n), py(n));
+          const glow = (d.glow + n.glow) / 2;
+          if (glow > 0.03) lit.push([d, n, glow]);
+        }
+      }
     }
-    ctx.fill();
-    // Kropki przy kursorze: większe i w kolorze akcentu.
-    for (const d of dots) {
-      if (d.glow <= 0.02) continue;
-      ctx.fillStyle = `rgb(${DOT_ACTIVE} / ${0.3 + d.glow * 0.6})`;
+    ctx.stroke();
+    // Linie przy kursorze: w kolorze akcentu, wyraźniejsze.
+    for (const [d, n, glow] of lit) {
+      ctx.strokeStyle = `rgb(${DOT_ACTIVE} / ${glow * 0.45})`;
       ctx.beginPath();
-      ctx.arc(d.x + d.dx, d.y + d.dy, GRID.radius + d.glow * 1.6, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(px(d), py(d));
+      ctx.lineTo(px(n), py(n));
+      ctx.stroke();
+    }
+
+    // Kwadraciki w węzłach.
+    const half = GRID.size / 2;
+    ctx.fillStyle = `rgb(${DOT} / 0.3)`;
+    for (const d of dots) {
+      if (d.glow <= 0.03) ctx.fillRect(px(d) - half, py(d) - half, GRID.size, GRID.size);
+    }
+    for (const d of dots) {
+      if (d.glow <= 0.03) continue;
+      const size = GRID.size + d.glow * 1.5;
+      ctx.fillStyle = `rgb(${DOT_ACTIVE} / ${0.3 + d.glow * 0.55})`;
+      ctx.fillRect(px(d) - size / 2, py(d) - size / 2, size, size);
     }
   }
 
