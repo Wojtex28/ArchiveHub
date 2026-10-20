@@ -400,7 +400,7 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .viewer__flip[hidden] { display: none; }
 .viewer__close:hover, .viewer__flip:hover, .viewer__nav:hover { background: rgb(255 255 255 / 0.18); }
 .viewer :focus-visible { outline: 3px solid #f4efe6; outline-offset: 2px; }
-.viewer__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 0.5rem 0.5rem; touch-action: pan-y pinch-zoom; }
+.viewer__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 0.5rem 0.5rem; touch-action: none; }
 .viewer__img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
 .viewer__img.is-loading { filter: blur(2px); }
 .viewer__nav { position: absolute; top: 50%; transform: translateY(-50%); display: inline-grid; place-items: center; width: 3rem; height: 3rem; font-size: 2rem; line-height: 1; padding-bottom: 0.25rem; }
@@ -508,4 +508,55 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
   .comment-admin__item { grid-template-columns: 4rem 1fr; }
   .comment-admin__thumb { width: 4rem; height: 4rem; }
   .comment-admin__item form { grid-column: 2; }
+}
+
+/* Strona główna (ETAP 11): zdjęcia rozrzucone jak na stole */
+.landing--photos { max-width: 66rem; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 3rem; text-align: left; padding: 3rem 1.5rem; }
+.landing--photos .landing__text { animation: landing-text 0.9s 0.3s ease-out both; }
+.landing__stats { margin: -1.25rem 0 2rem; font-size: 0.9375rem; color: var(--ink-quiet); font-variant-numeric: tabular-nums; }
+.landing__table { position: relative; width: 100%; max-width: 32rem; aspect-ratio: 1; justify-self: center; }
+.polaroid { position: absolute; width: 50%; padding: 0.55rem 0.55rem 2.1rem; background: #fdfbf6; border-radius: 2px; box-shadow: 0 1px 2px rgb(59 51 43 / 0.18), 0 10px 26px rgb(59 51 43 / 0.16); transition: rotate 0.4s ease, scale 0.4s ease, box-shadow 0.4s ease; animation: polaroid-drop 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards, polaroid-float 9s ease-in-out infinite alternate; }
+.polaroid img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; background: var(--rule); filter: sepia(0.12) saturate(0.95); }
+a.polaroid:hover, a.polaroid:focus-visible { z-index: 10; rotate: 0deg; scale: 1.06; box-shadow: 0 2px 4px rgb(59 51 43 / 0.2), 0 18px 40px rgb(59 51 43 / 0.24); }
+.polaroid:nth-child(1) { left: 2%; top: 6%; rotate: -7deg; animation-delay: 0s, 0s; }
+.polaroid:nth-child(2) { left: 46%; top: 0; rotate: 6deg; animation-delay: 0.15s, -2s; }
+.polaroid:nth-child(3) { left: 24%; top: 30%; rotate: -2deg; animation-delay: 0.3s, -4s; }
+.polaroid:nth-child(4) { left: 50%; top: 44%; rotate: 9deg; animation-delay: 0.45s, -6s; }
+.polaroid:nth-child(5) { left: 0; top: 48%; rotate: 4deg; animation-delay: 0.6s, -8s; }
+@keyframes polaroid-drop { from { opacity: 0; scale: 1.12; } to { opacity: 1; scale: 1; } }
+@keyframes polaroid-float { from { translate: 0 0; } to { translate: 0 -7px; } }
+@keyframes landing-text { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 48rem) {
+  .landing--photos { grid-template-columns: 1fr; gap: 1.5rem; text-align: center; padding: 1.5rem 1rem 2.5rem; }
+  .landing__table { max-width: 22rem; }
+  .polaroid { padding: 0.4rem 0.4rem 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .polaroid, .landing--photos .landing__text { animation: none; }
+}
+
+/* ETAP 12: powiększanie zdjęcia w podglądzie */
+.viewer__img { cursor: zoom-in; transition: transform 0.2s ease; will-change: transform; }
+.viewer__stage.is-gesturing .viewer__img { transition: none; }
+.viewer__stage.is-zoomed .viewer__img { cursor: grab; }
+.viewer__stage.is-zoomed.is-gesturing .viewer__img { cursor: grabbing; }
+.viewer__stage.is-zoomed ~ .viewer__nav { opacity: 0.35; }
+
+/* ETAP 12: telefon i tablet */
+@media (max-width: 40rem) {
+  .app-header { gap: 0.25rem; padding-top: 0.75rem; padding-bottom: 0; }
+  /* Menu zostaje w całości widoczne (zawija się zamiast chować „Wyloguj”), tylko ciaśniej. */
+  .app-header__nav { gap: 0 1rem; font-size: 0.9375rem; }
+  .app-header__nav a, .app-header__nav .link-button { white-space: nowrap; }
+  /* Zakładki panelu w jednym wierszu, przewijane palcem; wygaszona krawędź podpowiada, że jest ich więcej. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: none; white-space: nowrap; padding: 0.625rem 0.75rem; }
+  .album-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+  .album-card { padding: 0.4rem 0.4rem 0.75rem; }
+  .album-card__title, .album-card__meta, .album-card__description { padding: 0 0.25rem; }
+  .album-card__title { font-size: 1rem; }
+  .album-card__description { font-size: 0.8125rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+  .table--matrix th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 8.5rem; background: var(--card); box-shadow: 1px 0 0 var(--rule); }
+  .thumb__actions .link-button { min-height: 2.25rem; padding: 0 0.25rem; }
 }
