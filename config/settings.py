@@ -54,6 +54,8 @@ ARCHIVEHUB_IMPORT_STABLE_MINUTES = int(env("ARCHIVEHUB_IMPORT_STABLE_MINUTES", "
 ARCHIVEHUB_REVERSE_SUFFIX = env("ARCHIVEHUB_REVERSE_SUFFIX", "_r")
 # Po tylu sekundach od ostatniego kliknięcia ↺/↻ worker obraca pliki zdjęcia.
 ARCHIVEHUB_ROTATION_DELAY_SECONDS = int(env("ARCHIVEHUB_ROTATION_DELAY_SECONDS", "30"))
+# Tyle ZIP-ów może się pobierać naraz; każdy zajmuje jeden wątek serwera na cały czas pobierania.
+ARCHIVEHUB_MAX_ZIP_DOWNLOADS = int(env("ARCHIVEHUB_MAX_ZIP_DOWNLOADS", "3"))
 # Dłuższy bok wersji do oglądania i miniatury (px).
 # Oryginał do pobrania: 0 = pełna rozdzielczość skanu.
 ARCHIVEHUB_ORIGINAL_MAX_SIDE = int(env("ARCHIVEHUB_ORIGINAL_MAX_SIDE", "0"))

@@ -437,8 +437,10 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 /* Pobieranie: przycisk w podglądzie i zaznaczanie zdjęć do ZIP-a */
 .viewer__download { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; font-size: 1.25rem; color: inherit; text-decoration: none; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; }
 .viewer__download:hover { background: rgb(255 255 255 / 0.18); }
-.gallery-actions { margin: 0.5rem 0 0; }
-.gallery-actions:empty, .gallery-actions:has(> [hidden]:only-child) { display: none; }
+.gallery-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0 0; }
+.gallery-actions[hidden] { display: none; }
+.gallery-actions__size { font-weight: 400; opacity: 0.85; }
+.gallery-actions__link { white-space: nowrap; }
 .gallery-form { margin: 0; }
 .gallery-grid li { position: relative; }
 .gallery-select { display: none; }

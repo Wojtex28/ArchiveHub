@@ -1,15 +1,21 @@
-"""Pobieranie zdjęć w pełnej rozdzielczości: pojedynczo albo zaznaczone jako ZIP.
+"""Pobieranie zdjęć w pełnej rozdzielczości: pojedynczo, zaznaczone albo cały album jako ZIP.
 
 ZIP powstaje w locie, kawałek po kawałku, bez plików tymczasowych: nawet cały album
 (ponad 1 GB) nie zajmuje pamięci ani dysku serwera. Zdjęcia JPEG już są skompresowane,
 więc archiwum ich nie kompresuje drugi raz (szybciej, ten sam rozmiar).
+
+Każdy pobierany ZIP zajmuje wątek serwera na cały czas pobierania (minuty przy dużym albumie),
+więc naraz pobiera się najwyżej ``ARCHIVEHUB_MAX_ZIP_DOWNLOADS`` ZIP-ów; reszta strony działa dalej.
 """
 
+import fcntl
 import re
 import unicodedata
 import zipfile
 from datetime import datetime
 from urllib.parse import quote
+
+from django.conf import settings
 
 from .rotation import bake
 
@@ -33,15 +39,31 @@ def file_name(photo, reverse=False):
     return f"{safe_name(photo.file_stem(reverse))}.jpg"
 
 
-def ready_original(photo, reverse=False):
-    """Plik do pobrania z obrotem z galerii (obraca go od razu, jeśli worker jeszcze nie zdążył)."""
-    if photo.pending_rotation(reverse):
-        bake(photo, reverse)
+def original_file(photo, reverse=False):
+    """Plik oryginału, który dostanie rodzina (bez obracania), albo None."""
     path = photo.original_path(reverse)
     if not path.is_file():
         # Album sprzed pełnej rozdzielczości, jeszcze nie przetworzony ponownie.
         path = photo.legacy_path(reverse)
     return path if path.is_file() else None
+
+
+def download_size(photos):
+    """Przybliżony rozmiar ZIP-a z tymi zdjęciami (i rewersami), w bajtach."""
+    total = 0
+    for photo in photos:
+        for reverse in [False, True] if photo.has_reverse else [False]:
+            path = original_file(photo, reverse)
+            if path is not None:
+                total += path.stat().st_size
+    return total
+
+
+def ready_original(photo, reverse=False):
+    """Plik do pobrania z obrotem z galerii (obraca go od razu, jeśli worker jeszcze nie zdążył)."""
+    if photo.pending_rotation(reverse):
+        bake(photo, reverse)
+    return original_file(photo, reverse)
 
 
 class _Sink:
@@ -83,3 +105,37 @@ def zip_stream(photos, folder):
                         yield sink.drain()
                 yield sink.drain()
     yield sink.drain()
+
+
+def take_zip_slot():
+    """Miejsce na jeden pobierany ZIP (blokada pliku, wspólna dla wszystkich procesów serwera).
+
+    Zwraca otwarty plik, którego zamknięcie zwalnia miejsce, albo None, gdy wszystkie są zajęte.
+    Po awarii procesu system sam zdejmuje blokadę, więc miejsce nie zostaje zajęte na zawsze.
+    """
+    folder = settings.DATA_DIR / "pobieranie"
+    folder.mkdir(parents=True, exist_ok=True)
+    for number in range(settings.ARCHIVEHUB_MAX_ZIP_DOWNLOADS):
+        handle = open(folder / f"zip-{number}.lock", "w")
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            handle.close()
+            continue
+        return handle
+    return None
+
+
+class ZipDownload:
+    """Treść odpowiedzi z ZIP-em. Serwer woła ``close()`` po wysłaniu albo przerwaniu pobierania."""
+
+    def __init__(self, photos, folder, slot):
+        self._stream = zip_stream(photos, folder)
+        self._slot = slot
+
+    def __iter__(self):
+        return self._stream
+
+    def close(self):
+        self._stream.close()
+        self._slot.close()

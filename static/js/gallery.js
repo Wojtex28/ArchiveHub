@@ -290,6 +290,7 @@
 
   // Tryb zaznaczania: kliknięcie miniatury zaznacza ją zamiast otwierać, pasek na dole pobiera ZIP.
   var selectStart = document.querySelector("[data-select-start]");
+  var actions = document.querySelector("[data-gallery-actions]");
   var selectBar = document.querySelector("[data-select-bar]");
   var selectCount = document.querySelector("[data-select-count]");
   var selectDownload = document.querySelector("[data-select-download]");
@@ -308,6 +309,7 @@
     grid.classList.toggle("is-selecting", on);
     selectBar.hidden = !on;
     selectStart.hidden = on;
+    if (actions) actions.hidden = on;
     document.body.classList.toggle("has-select-bar", on);
     if (!on) boxes.forEach(function (box) { box.checked = false; });
     refreshSelection();

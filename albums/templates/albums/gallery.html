@@ -7,8 +7,10 @@
 {% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
 <p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻.</p>
 {% if photos %}
-<div class="gallery-actions">
+<div class="gallery-actions" data-gallery-actions>
+  <a class="button" href="{% url 'albums:album_download_all' album.pk %}">Pobierz cały album <span class="gallery-actions__size">(ZIP, {{ album_size|filesizeformat }})</span></a>
   <button type="button" class="button button--quiet" data-select-start hidden>Zaznacz zdjęcia do pobrania</button>
+  {% if album.originals_url %}<a class="gallery-actions__link" href="{{ album.originals_url }}" target="_blank" rel="noopener noreferrer">Oryginalne skany PNG w Google Drive ↗</a>{% endif %}
 </div>
 <form method="post" action="{% url 'albums:album_download' album.pk %}" class="gallery-form" data-select-form>
 {% csrf_token %}

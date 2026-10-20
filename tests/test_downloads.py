@@ -1,4 +1,4 @@
-"""ETAP 8: pobieranie zdjęć w pełnej rozdzielczości, pojedynczo i jako ZIP."""
+"""ETAP 8–9: pobieranie zdjęć w pełnej rozdzielczości: pojedynczo, zaznaczone i cały album (ZIP)."""
 
 import io
 import zipfile
@@ -14,6 +14,7 @@ from albums.models import Album, Photo
 @pytest.fixture
 def library(db, tmp_path, settings):
     settings.ARCHIVEHUB_ALBUMS_DIR = tmp_path / "albumy"
+    settings.DATA_DIR = tmp_path
     return tmp_path
 
 
@@ -188,3 +189,110 @@ def test_gallery_has_selection_form(karolina, family):
     assert f'action="{reverse("albums:album_download", args=[family["album"].pk])}"' in page
     assert f'name="photos" value="{family["first"].pk}"' in page
     assert "csrfmiddlewaretoken" in page
+
+
+# --- Cały album (ETAP 9) ----------------------------------------------------
+
+
+def test_whole_album_downloads_as_zip_with_reverses(karolina, family):
+    response = karolina.get(reverse("albums:album_download_all", args=[family["album"].pk]))
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/zip"
+    assert "filename*=UTF-8''Br%C4%85zowy%20album%201997%202004.zip" in response["Content-Disposition"]
+    archive = zip_of(response)
+    response.close()
+    assert archive.testzip() is None
+    assert archive.namelist() == [
+        "Brązowy album 1997 2004/img20250216_14475559_1.jpg",
+        "Brązowy album 1997 2004/img20250216_14475559_1_r.jpg",
+        "Brązowy album 1997 2004/img20250216_14475559_2.jpg",
+    ]
+
+
+def test_whole_album_skips_missing_photos(karolina, family):
+    Photo.objects.filter(pk=family["second"].pk).update(file_missing=True)
+    response = karolina.get(reverse("albums:album_download_all", args=[family["album"].pk]))
+    names = zip_of(response).namelist()
+    response.close()
+    assert len(names) == 2
+
+
+def test_whole_album_checks_permissions(karolina, family):
+    other = family["stranger"].album
+    assert karolina.get(reverse("albums:album_download_all", args=[other.pk])).status_code == 404
+    karolina.logout()
+    response = karolina.get(reverse("albums:album_download_all", args=[family["album"].pk]))
+    assert response.status_code == 302
+    assert "/logowanie/" in response["Location"]
+
+
+def test_empty_album_has_no_zip(karolina, family, group):
+    empty = Album.objects.create(folder="03_Pusty", title="Pusty")
+    empty.groups.add(group)
+    assert karolina.get(reverse("albums:album_download_all", args=[empty.pk])).status_code == 404
+
+
+def test_gallery_shows_whole_album_button_with_size(karolina, family):
+    response = karolina.get(reverse("albums:gallery", args=[family["album"].pk]))
+    url = reverse("albums:album_download_all", args=[family["album"].pk])
+    assert f'href="{url}"' in response.content.decode()
+    assert response.context["album_size"] == sum(
+        path.stat().st_size
+        for path in (
+            family["first"].original_path(),
+            family["first"].original_path(reverse=True),
+            family["second"].original_path(),
+        )
+    )
+
+
+def test_too_many_zips_at_once_asks_to_wait(karolina, family, settings):
+    settings.ARCHIVEHUB_MAX_ZIP_DOWNLOADS = 1
+    url = reverse("albums:album_download_all", args=[family["album"].pk])
+    first = karolina.get(url)
+    assert first.status_code == 200
+    busy = karolina.get(url, follow=True)
+    assert busy.redirect_chain[-1][0] == reverse("albums:gallery", args=[family["album"].pk])
+    assert "kilka osób pobiera albumy naraz" in busy.content.decode()
+    # Zakończone (albo przerwane) pobieranie zwalnia miejsce.
+    first.close()
+    second = karolina.get(url)
+    assert second.status_code == 200
+    second.close()
+
+
+def test_selected_zip_shares_the_limit(karolina, family, settings):
+    settings.ARCHIVEHUB_MAX_ZIP_DOWNLOADS = 1
+    whole = karolina.get(reverse("albums:album_download_all", args=[family["album"].pk]))
+    url = reverse("albums:album_download", args=[family["album"].pk])
+    busy = karolina.post(url, {"photos": [family["first"].pk]})
+    assert busy.status_code == 302
+    whole.close()
+
+
+# --- Link do oryginałów PNG (ETAP 9b) ---------------------------------------
+
+
+def test_gallery_shows_drive_link_only_when_set(karolina, family):
+    album = family["album"]
+    gallery = reverse("albums:gallery", args=[album.pk])
+    assert "Google Drive" not in karolina.get(gallery).content.decode()
+    album.originals_url = "https://drive.google.com/drive/folders/abc"
+    album.save()
+    page = karolina.get(gallery).content.decode()
+    assert 'href="https://drive.google.com/drive/folders/abc"' in page
+    assert 'rel="noopener noreferrer"' in page
+
+
+def test_panel_saves_drive_link_https_only(client, master, family):
+    client.force_login(master)
+    album = family["album"]
+    url = reverse("panel:album_detail", args=[album.pk])
+    data = {"title": album.title, "description": "", "originals_url": "http://example.com/x"}
+    response = client.post(url, data)
+    assert response.status_code == 200
+    assert "https://" in response.content.decode()
+    data["originals_url"] = "https://drive.google.com/drive/folders/abc"
+    assert client.post(url, data).status_code == 302
+    album.refresh_from_db()
+    assert album.originals_url == "https://drive.google.com/drive/folders/abc"

@@ -18,8 +18,9 @@ w projekcie.
 | 5 | Zarządzanie albumami: nazwa, opis, okładka, ukrywanie, kolejność | gotowe |
 | 6 | Uprawnienia: kto widzi album, jakie albumy widzi osoba, kontrola każdego pliku | gotowe |
 | 7 | Galeria: siatka miniatur, podgląd na cały ekran, awers/rewers, obracanie zdjęć | gotowe |
-| 8 | Pobieranie: pojedyncze zdjęcie w pełnej rozdzielczości, zaznaczone zdjęcia jako ZIP | **gotowe** |
-| 9+ | Cały album jako ZIP, komentarze… | zaplanowane |
+| 8 | Pobieranie: pojedyncze zdjęcie w pełnej rozdzielczości, zaznaczone zdjęcia jako ZIP | gotowe |
+| 9 | Cały album jako ZIP (limit jednoczesnych pobrań), link do skanów PNG w Google Drive | **gotowe** |
+| 10+ | Komentarze, strona główna… | zaplanowane |
 
 ## Technologie
 

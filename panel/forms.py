@@ -115,13 +115,34 @@ class LoginPhotoUploadForm(forms.Form):
 
 
 class AlbumForm(forms.ModelForm):
+    originals_url = forms.URLField(
+        label="Link do oryginałów PNG (Google Drive)",
+        required=False,
+        max_length=500,
+        assume_scheme="https",
+        help_text=(
+            "Opcjonalnie: link do folderu ze skanami PNG. Rodzina zobaczy go w galerii albumu. "
+            "Kto może otworzyć folder, ustawiasz w Google Drive."
+        ),
+    )
+
     class Meta:
         model = Album
-        fields = ["title", "description", "is_hidden"]
-        labels = {"title": "Nazwa wyświetlana", "description": "Opis", "is_hidden": "Ukryty"}
+        fields = ["title", "description", "originals_url", "is_hidden"]
+        labels = {
+            "title": "Nazwa wyświetlana",
+            "description": "Opis",
+            "is_hidden": "Ukryty",
+        }
         help_texts = {
             "title": "Tak album widzi rodzina, np. „Brązowy album ze złotą obwódką, 1997–2004”.",
             "description": "Kilka zdań pod nazwą albumu (opcjonalnie).",
             "is_hidden": "Ukryty album widzisz tylko Ty, niezależnie od uprawnień grup.",
         }
         widgets = {"description": forms.Textarea(attrs={"rows": 4})}
+
+    def clean_originals_url(self):
+        url = self.cleaned_data["originals_url"].strip()
+        if url and not url.lower().startswith("https://"):
+            raise forms.ValidationError("Link musi zaczynać się od https://")
+        return url
