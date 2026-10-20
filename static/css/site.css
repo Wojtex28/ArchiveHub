@@ -354,8 +354,14 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .icon-button { width: 2.25rem; height: 2.25rem; border: 1px solid var(--rule-strong); border-radius: 50%; background: var(--card); color: var(--ink); font-size: 1rem; cursor: pointer; }
 .icon-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .icon-button:disabled { opacity: 0.3; cursor: default; }
-.cover-button { margin-top: 0.25rem; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 0.875rem; text-decoration: underline; cursor: pointer; }
-.photo-tile__cover { margin-top: 0.25rem; }
+/* Okładka: gwiazdka w rogu miniatury. Pełna przy obecnej okładce, pusta pojawia się po najechaniu. */
+.cover-form { margin: 0; }
+.cover-mark { position: absolute; left: 0.875rem; top: 0.875rem; display: inline-grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; background: rgb(20 17 14 / 0.6); color: #fbf8f2; font-size: 1.125rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity 0.15s ease; }
+.cover-mark--current { background: var(--accent); cursor: default; opacity: 1; }
+.photo-tile:hover .cover-mark, .cover-mark:focus-visible { opacity: 1; }
+.cover-mark:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Na telefonie nie ma najechania: gwiazdka jest widoczna, ale przygaszona. */
+@media (hover: none) { .cover-mark { opacity: 0.55; } .cover-mark--current { opacity: 1; } }
 .album-cover img { display: block; max-width: 100%; max-height: 16rem; border-radius: 8px; background: #ebe3d6; }
 @media (max-width: 40rem) {
   .album-table th:nth-child(2), .album-table td:nth-child(2), .order-cell__number { display: none; }
