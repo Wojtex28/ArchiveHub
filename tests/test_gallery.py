@@ -180,11 +180,11 @@ def test_photo_page_has_counter_and_neighbours(karolina_client, albums):
     assert reverse("albums:photo", args=[album.pk, first.pk]) in page
     assert reverse("albums:photo", args=[album.pk, third.pk]) in page
     assert reverse("albums:preview", args=[second.pk]) in page
-    assert "Pokaż rewers" in page
+    assert "Pokaż </span>rewers" in page
 
     first_page = karolina_client.get(reverse("albums:photo", args=[album.pk, first.pk])).content.decode()
     assert 'rel="prev"' not in first_page and 'rel="next"' in first_page
-    assert "Pokaż rewers" not in first_page
+    assert "</span>rewers" not in first_page
 
 
 def test_photo_page_reverse_side(karolina_client, albums):
@@ -192,7 +192,7 @@ def test_photo_page_reverse_side(karolina_client, albums):
     first, second, _ = photos(album)
     page = karolina_client.get(reverse("albums:photo_reverse", args=[album.pk, second.pk])).content.decode()
     assert reverse("albums:preview_reverse", args=[second.pk]) in page
-    assert "Pokaż awers" in page
+    assert "Pokaż </span>awers" in page
     assert karolina_client.get(reverse("albums:photo_reverse", args=[album.pk, first.pk])).status_code == 404
 
 

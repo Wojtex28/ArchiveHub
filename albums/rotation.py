@@ -6,8 +6,10 @@ sama (CSS). Pliki (oryginał do pobrania, podgląd, miniaturę) obraca worker, g
 to jedno przeliczenie pliku, a nie kilka.
 """
 
+import fcntl
 import logging
 import os
+from contextlib import contextmanager
 from datetime import timedelta
 
 from django.conf import settings
@@ -59,7 +61,28 @@ def _rotate_file(path, delta, fmt, **options):
     return tmp
 
 
-def _bake(photo, reverse):
+@contextmanager
+def _photo_lock(photo):
+    """Worker i aplikacja (pobieranie) mogą chcieć obrócić te same pliki naraz; obracają po kolei."""
+    folder = photo.album.path
+    folder.mkdir(parents=True, exist_ok=True)
+    with open(folder / ".obracanie.lock", "w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def bake(photo, reverse=False, heartbeat=False):
+    """Obraca pliki zdjęcia (albo rewersu) do obrotu z galerii. Bezpieczne przy wywołaniu naraz."""
+    with _photo_lock(photo):
+        # Stan sprzed blokady mógł się zmienić: ktoś inny właśnie obrócił pliki.
+        photo.refresh_from_db()
+        _bake(photo, reverse, heartbeat)
+
+
+def _bake(photo, reverse, heartbeat):
     delta = photo.pending_rotation(reverse)
     if not delta:
         return
@@ -79,7 +102,8 @@ def _bake(photo, reverse):
             tmp = _rotate_file(path, delta, fmt, **options)
             if tmp:
                 staged.append((tmp, path))
-            touch_heartbeat()
+            if heartbeat:
+                touch_heartbeat()
     except Exception:
         for tmp, _ in staged:
             tmp.unlink(missing_ok=True)
@@ -89,12 +113,15 @@ def _bake(photo, reverse):
 
     target = photo.target_rotation(reverse)
     if reverse:
+        photo.reverse_applied_rotation = target
         Photo.objects.filter(pk=photo.pk).update(reverse_applied_rotation=target)
     else:
-        update = {"applied_rotation": target}
+        photo.applied_rotation = target
         if delta in (90, 270):
-            update.update(width=photo.height, height=photo.width)
-        Photo.objects.filter(pk=photo.pk).update(**update)
+            photo.width, photo.height = photo.height, photo.width
+        Photo.objects.filter(pk=photo.pk).update(
+            applied_rotation=target, width=photo.width, height=photo.height
+        )
     logger.info("Obrót: zapisano w plikach %s%s (%s°)", photo, " (rewers)" if reverse else "", target)
 
 
@@ -109,9 +136,9 @@ def apply_rotations(now=None):
     done = 0
     for photo in waiting:
         try:
-            _bake(photo, reverse=False)
+            bake(photo, reverse=False, heartbeat=True)
             if photo.has_reverse:
-                _bake(photo, reverse=True)
+                bake(photo, reverse=True, heartbeat=True)
             done += 1
         except Exception:
             logger.exception("Obrót: nie udało się obrócić plików %s", photo)

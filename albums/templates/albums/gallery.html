@@ -7,6 +7,11 @@
 {% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
 <p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻.</p>
 {% if photos %}
+<div class="gallery-actions">
+  <button type="button" class="button button--quiet" data-select-start hidden>Zaznacz zdjęcia do pobrania</button>
+</div>
+<form method="post" action="{% url 'albums:album_download' album.pk %}" class="gallery-form" data-select-form>
+{% csrf_token %}
 <ul class="gallery-grid" data-gallery data-album-title="{{ album.title }}" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
   <li id="zdjecie-{{ photo.pk }}">
@@ -15,16 +20,26 @@
        data-thumb="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}"
        data-rotation="{{ photo.pending_front }}"
        data-rotate-url="{% url 'albums:rotate' photo.pk %}"
+       data-download="{% url 'albums:download' photo.pk %}"
        {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-rotation="{{ photo.pending_back }}"
+       data-reverse-download="{% url 'albums:download_reverse' photo.pk %}"
        data-reverse-page="{% url 'albums:photo_reverse' album.pk photo.pk %}"{% endif %}>
       <img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {{ forloop.counter }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" decoding="async">
       {% if photo.has_reverse %}<span class="gallery-tile__badge">z rewersem</span>{% endif %}
     </a>
+    <input type="checkbox" class="gallery-select" name="photos" value="{{ photo.pk }}" aria-label="Zaznacz zdjęcie {{ forloop.counter }}">
   </li>
   {% endfor %}
 </ul>
+<div class="select-bar" data-select-bar hidden>
+  <span class="select-bar__count" data-select-count aria-live="polite">Zaznaczono: 0</span>
+  <button type="button" class="button button--quiet" data-select-all>Zaznacz wszystkie</button>
+  <button type="submit" class="button" data-select-download disabled>Pobierz ZIP</button>
+  <button type="button" class="button button--quiet" data-select-cancel>Anuluj</button>
+</div>
+</form>
 <script src="{% static 'js/gallery.js' %}" defer></script>
 {% else %}
 <div class="empty-state"><p>Ten album nie ma jeszcze zdjęć.</p></div>

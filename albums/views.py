@@ -1,12 +1,28 @@
+import logging
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseNotModified, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpResponseBadRequest,
+    HttpResponseNotModified,
+    JsonResponse,
+    StreamingHttpResponse,
+)
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import http_date
 from django.views.decorators.http import require_POST, require_safe
 from django.views.static import was_modified_since
 
+from .downloads import attachment_header, file_name, ready_original, safe_name, zip_stream
 from .models import Album, Photo
 from .rotation import rotate
+
+logger = logging.getLogger(__name__)
+
+# Tyle zdjęć można zaznaczyć do jednego ZIP-a (cały album to i tak ok. 50–200).
+MAX_SELECTED = 1000
 
 
 def _visible_photo(request, pk, reverse):
@@ -105,3 +121,37 @@ def photo_rotate(request, pk):
     return JsonResponse(
         {"rotation": photo.target_rotation(reverse), "pending": photo.pending_rotation(reverse)}
     )
+
+
+@require_safe
+@login_required
+def photo_download(request, pk, reverse=False):
+    """Oryginał w pełnej rozdzielczości do zapisania. Uprawnienia sprawdzane przy każdym pobraniu."""
+    photo = _visible_photo(request, pk, reverse)
+    path = ready_original(photo, reverse)
+    if path is None:
+        raise Http404
+    logger.info("%s pobiera %s%s", request.user, photo, " (rewers)" if reverse else "")
+    name = f"{safe_name(photo.album.title)} - {file_name(photo, reverse)}"
+    response = FileResponse(path.open("rb"), content_type="image/jpeg")
+    response["Content-Disposition"] = attachment_header(name)
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@require_POST
+@login_required
+def album_download(request, pk):
+    """Zaznaczone zdjęcia albumu jako jeden ZIP (z rewersami)."""
+    album = _visible_album(request, pk)
+    ids = [int(value) for value in request.POST.getlist("photos") if value.isdigit()][:MAX_SELECTED]
+    photos = list(album.photos.filter(pk__in=ids, file_missing=False))
+    if not photos:
+        messages.error(request, "Zaznacz co najmniej jedno zdjęcie.")
+        return redirect("albums:gallery", album.pk)
+    logger.info("%s pobiera ZIP z %s zdjęciami z albumu %s", request.user, len(photos), album.folder)
+    title = safe_name(album.title)
+    response = StreamingHttpResponse(zip_stream(photos, title), content_type="application/zip")
+    response["Content-Disposition"] = attachment_header(f"{title} ({len(photos)} zdj.).zip")
+    response["Cache-Control"] = "private, no-store"
+    return response
