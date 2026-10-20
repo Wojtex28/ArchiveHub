@@ -50,7 +50,8 @@
   {% for photo in photos %}
   <li class="photo-tile{% if photo.file_missing %} photo-tile--missing{% endif %}">
     <img src="{% url 'albums:thumb' photo.pk %}" alt="{{ photo.name }}" loading="lazy">
-    <span class="photo-tile__name">{{ photo.name }}{% if photo.has_reverse %} <span class="badge badge--muted" title="Zdjęcie ma zeskanowany rewers">rewers</span>{% endif %}{% if photo.file_missing %} <span class="badge badge--danger">brak pliku</span>{% endif %}</span>
+    <span class="photo-tile__name">{{ photo.name }}</span>
+    {% if photo.has_reverse or photo.file_missing %}<span class="photo-tile__badges">{% if photo.has_reverse %}<span class="badge badge--muted" title="Zdjęcie ma zeskanowany rewers">rewers</span>{% endif %}{% if photo.file_missing %} <span class="badge badge--danger">brak pliku</span>{% endif %}</span>{% endif %}
     {% if photo.has_reverse %}<img class="photo-tile__reverse" src="{% url 'albums:thumb_reverse' photo.pk %}" alt="Rewers {{ photo.name }}" loading="lazy">{% endif %}
     {% if photo.pk == cover.pk %}<span class="badge photo-tile__cover">okładka</span>
     {% elif not photo.file_missing %}<form method="post" action="{% url 'panel:album_set_cover' album.pk photo.pk %}">{% csrf_token %}<button type="submit" class="cover-button">Okładka</button></form>{% endif %}
