@@ -45,8 +45,8 @@ jobs:
       - name: Import albumu w kontenerze (worker, udział tylko do odczytu)
         run: |
           mkdir -p ci-import/Album_CI && chmod -R 777 ci-import
-          docker run --rm -v "$PWD/ci-import:/out" archivehub:ci \
-            python -c "from PIL import Image; Image.new('RGB', (3000, 2000), 'tan').save('/out/Album_CI/001.jpg')"
+          docker run --rm --entrypoint python -v "$PWD/ci-import:/out" archivehub:ci \
+            -c "from PIL import Image; Image.new('RGB', (3000, 2000), 'tan').save('/out/Album_CI/001.jpg')"
           for pass in 1 2; do
             docker run --rm -v ci-data:/data -v "$PWD/ci-import:/import:ro" \
               -e DJANGO_SECRET_KEY=ci-only-secret-key-not-used-anywhere-else-0123456789 \
