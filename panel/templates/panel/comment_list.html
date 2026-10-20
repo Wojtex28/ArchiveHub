@@ -1,0 +1,21 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Komentarze</h1>
+<p class="hint">Komentarze rodziny ze wszystkich albumów, od najnowszych{% if total > shown %} (pokazuję {{ shown }} z {{ total }}){% endif %}. Każdy może usunąć swój komentarz, Ty usuwasz każdy.</p>
+{% if comments %}
+<ul class="comment-admin">
+  {% for comment in comments %}
+  <li class="comment-admin__item">
+    <a class="comment-admin__thumb" href="{% url 'albums:photo' comment.photo.album_id comment.photo_id %}?komentarze=1#komentarze"><img class="rot-{{ comment.photo.pending_front }}" src="{% url 'albums:thumb' comment.photo_id %}?v={{ comment.photo.version_front }}" alt="Zdjęcie, pod którym jest komentarz" loading="lazy" width="96" height="96"></a>
+    <div class="comment-admin__body">
+      <p class="comment-admin__meta"><strong>{% if comment.author %}<a href="{% url 'panel:user_detail' comment.author_id %}">{{ comment.author.username }}</a>{% else %}konto usunięte{% endif %}</strong> · {{ comment.created_at|date:"j E Y, H:i" }} · {{ comment.photo.album.title }}</p>
+      <p class="comment-admin__text">{{ comment.text|linebreaksbr }}</p>
+    </div>
+    <form method="post" action="{% url 'panel:comment_delete' comment.pk %}">{% csrf_token %}<button type="submit" class="button button--quiet">Usuń</button></form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty-state"><p>Nie ma jeszcze komentarzy.</p></div>
+{% endif %}
+{% endblock %}

@@ -2,11 +2,12 @@
 {% block title %}Panel · {{ site_title }}{% endblock %}
 {% block main %}
 <nav class="tabs" aria-label="Panel">
-  {% url 'panel:dashboard' as u_dash %}{% url 'panel:user_list' as u_users %}{% url 'panel:album_list' as u_albums %}{% url 'panel:permissions' as u_perms %}{% url 'panel:sync' as u_sync %}{% url 'panel:code_list' as u_codes %}{% url 'panel:group_list' as u_groups %}{% url 'panel:login_photos' as u_bg %}
+  {% url 'panel:dashboard' as u_dash %}{% url 'panel:user_list' as u_users %}{% url 'panel:album_list' as u_albums %}{% url 'panel:permissions' as u_perms %}{% url 'panel:sync' as u_sync %}{% url 'panel:code_list' as u_codes %}{% url 'panel:group_list' as u_groups %}{% url 'panel:login_photos' as u_bg %}{% url 'panel:comment_list' as u_comments %}
   <a href="{{ u_dash }}" {% if request.path == u_dash %}aria-current="page"{% endif %}>Start</a>
   <a href="{{ u_users }}" {% if u_users in request.path %}aria-current="page"{% endif %}>Osoby</a>
   <a href="{{ u_albums }}" {% if u_albums in request.path %}aria-current="page"{% endif %}>Albumy</a>
   <a href="{{ u_perms }}" {% if u_perms in request.path %}aria-current="page"{% endif %}>Uprawnienia</a>
+  <a href="{{ u_comments }}" {% if u_comments in request.path %}aria-current="page"{% endif %}>Komentarze</a>
   <a href="{{ u_sync }}" {% if u_sync in request.path %}aria-current="page"{% endif %}>Synchronizacja</a>
   <a href="{{ u_codes }}" {% if u_codes in request.path %}aria-current="page"{% endif %}>Kody rodzinne</a>
   <a href="{{ u_groups }}" {% if u_groups in request.path %}aria-current="page"{% endif %}>Grupy</a>

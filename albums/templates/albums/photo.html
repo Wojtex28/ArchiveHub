@@ -3,7 +3,7 @@
 {% block title %}{{ album.title }} · zdjęcie {{ number }} · {{ site_title }}{% endblock %}
 {% block body_class %}page-viewer{% endblock %}
 {% block content %}
-<div class="viewer viewer--page" data-viewer-page>
+<div class="viewer viewer--page{% if show_comments %} has-panel{% endif %}" data-viewer-page>
   <div class="viewer__bar">
     <a class="viewer__close" href="{% url 'albums:gallery' album.pk %}#zdjecie-{{ photo.pk }}" data-close>✕<span class="visually-hidden"> Wróć do albumu</span></a>
     <span class="viewer__title">{{ album.title }}</span>
@@ -13,9 +13,10 @@
       <button type="button" class="viewer__rotate-button" data-direction="prawo" aria-label="Obróć w prawo" title="Obróć w prawo">↻</button>
     </span>
     {% if photo.has_reverse %}
-    {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}"><span class="viewer__flip-verb">Pokaż </span>awers</a>
-    {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}"><span class="viewer__flip-verb">Pokaż </span>rewers</a>{% endif %}
+    {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}{% if show_comments %}?komentarze=1{% endif %}"><span class="viewer__flip-verb">Pokaż </span>awers</a>
+    {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}{% if show_comments %}?komentarze=1{% endif %}"><span class="viewer__flip-verb">Pokaż </span>rewers</a>{% endif %}
     {% endif %}
+    <a class="viewer__comments" href="{% if show_comments %}{{ request.path }}{% else %}?komentarze=1#komentarze{% endif %}" aria-label="Komentarze ({{ comments|length }})" title="Komentarze"{% if show_comments %} aria-current="true"{% endif %}>💬<span class="viewer__comments-count">{{ comments|length }}</span></a>
     <a class="viewer__download" href="{% if reverse %}{% url 'albums:download_reverse' photo.pk %}{% else %}{% url 'albums:download' photo.pk %}{% endif %}" download title="Pobierz w pełnej rozdzielczości">⤓<span class="visually-hidden"> Pobierz w pełnej rozdzielczości</span></a>
   </div>
   <div class="viewer__stage" data-stage>
@@ -23,8 +24,9 @@
          src="{% if reverse %}{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}{% else %}{% url 'albums:preview' photo.pk %}?v={{ photo.version_front }}{% endif %}"
          alt="{% if reverse %}Rewers zdjęcia{% else %}Zdjęcie{% endif %} {{ number }} z albumu {{ album.title }}">
   </div>
-  {% if previous_pk %}<a class="viewer__nav viewer__nav--prev" href="{% url 'albums:photo' album.pk previous_pk %}" rel="prev">‹<span class="visually-hidden"> Poprzednie zdjęcie</span></a>{% endif %}
-  {% if next_pk %}<a class="viewer__nav viewer__nav--next" href="{% url 'albums:photo' album.pk next_pk %}" rel="next">›<span class="visually-hidden"> Następne zdjęcie</span></a>{% endif %}
+  {% if show_comments %}<aside class="viewer__panel" id="komentarze" aria-label="Komentarze">{% include "albums/includes/comments.html" %}</aside>{% endif %}
+  {% if previous_pk %}<a class="viewer__nav viewer__nav--prev" href="{% url 'albums:photo' album.pk previous_pk %}{% if show_comments %}?komentarze=1{% endif %}" rel="prev">‹<span class="visually-hidden"> Poprzednie zdjęcie</span></a>{% endif %}
+  {% if next_pk %}<a class="viewer__nav viewer__nav--next" href="{% url 'albums:photo' album.pk next_pk %}{% if show_comments %}?komentarze=1{% endif %}" rel="next">›<span class="visually-hidden"> Następne zdjęcie</span></a>{% endif %}
 </div>
 <script src="{% static 'js/gallery.js' %}" defer></script>
 {% endblock %}

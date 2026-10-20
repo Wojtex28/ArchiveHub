@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from accounts.models import FamilyGroup, InviteCode
 from albums.importer import import_dir, natural_key
-from albums.models import Album, ImportJob, SyncReport
+from albums.models import Album, Comment, ImportJob, SyncReport
 from albums.sync import albums_dir, sync_albums
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import LoginPhoto
@@ -451,3 +451,29 @@ def login_photo_delete(request, pk):
     delete_login_photo(get_object_or_404(LoginPhoto, pk=pk))
     messages.success(request, "Usunięto zdjęcie z tła.")
     return redirect("panel:login_photos")
+
+
+# Tyle najnowszych komentarzy pokazuje panel; starsze i tak widać pod zdjęciami.
+COMMENTS_SHOWN = 200
+
+
+@master_required
+@require_safe
+def comment_list(request):
+    """Najnowsze komentarze ze wszystkich albumów, do przeglądania i usuwania."""
+    comments = Comment.objects.select_related("author", "photo__album").order_by("-created_at", "-pk")
+    return render(
+        request,
+        "panel/comment_list.html",
+        {"comments": comments[:COMMENTS_SHOWN], "total": comments.count(), "shown": COMMENTS_SHOWN},
+    )
+
+
+@master_required
+@require_POST
+def comment_delete(request, pk):
+    comment = get_object_or_404(Comment.objects.select_related("photo__album"), pk=pk)
+    logger.info("Administrator %s usunął komentarz %s: %r", request.user, comment.pk, comment.text[:200])
+    comment.delete()
+    messages.success(request, "Usunięto komentarz.")
+    return redirect("panel:comment_list")

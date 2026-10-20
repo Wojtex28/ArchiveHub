@@ -1,0 +1,26 @@
+<div class="comments" data-comments-body>
+  <div class="comments__head">
+    <h2 class="comments__title">Komentarze{% if comments %} ({{ comments|length }}){% endif %}</h2>
+    <a class="comments__close" href="{% url 'albums:photo' photo.album_id photo.pk %}" data-comments-close>✕<span class="visually-hidden"> Zamknij komentarze</span></a>
+  </div>
+  {% if comments %}
+  <ol class="comments__list">
+    {% for comment in comments %}
+    <li class="comment" id="komentarz-{{ comment.pk }}">
+      <p class="comment__meta"><strong>{% if comment.author %}{{ comment.author.username }}{% else %}konto usunięte{% endif %}</strong> · <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|date:"j E Y, H:i" }}</time></p>
+      <p class="comment__text">{{ comment.text|linebreaksbr }}</p>
+      {% if comment.deletable %}<form method="post" action="{% url 'albums:comment_delete' comment.pk %}" class="comment__delete-form" data-comment-delete>{% csrf_token %}<button type="submit" class="comment__delete">Usuń</button></form>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="comments__empty">Nikt jeszcze nie skomentował tego zdjęcia. Może wiesz, kto na nim jest?</p>
+  {% endif %}
+  <form method="post" action="{% url 'albums:comments' photo.pk %}" class="comments__form" data-comment-form novalidate>
+    {% csrf_token %}
+    <label for="{{ comment_form.text.id_for_label }}" class="visually-hidden">{{ comment_form.text.label }}</label>
+    {{ comment_form.text }}
+    {% for error in comment_form.text.errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
+    <button type="submit" class="button">Dodaj komentarz</button>
+  </form>
+</div>
