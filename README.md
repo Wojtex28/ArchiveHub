@@ -21,8 +21,9 @@ w projekcie.
 | 8 | Pobieranie: pojedyncze zdjęcie w pełnej rozdzielczości, zaznaczone zdjęcia jako ZIP | gotowe |
 | 9 | Cały album jako ZIP (limit jednoczesnych pobrań), link do skanów PNG w Google Drive | gotowe |
 | 10 | Komentarze pod zdjęciami, moderacja w panelu | gotowe |
-| 11 | Strona główna: zdjęcia rozrzucone jak na stole, licznik albumów | **gotowe** |
-| 12+ | Responsywność, metadane, wyszukiwanie… | zaplanowane |
+| 11 | Strona główna: zdjęcia rozrzucone jak na stole, licznik albumów | gotowe |
+| 12 | Telefon i tablet: powiększanie zdjęć, układ na małych ekranach | **gotowe** |
+| 13+ | Metadane, wyszukiwanie, bezpieczeństwo i backup… | zaplanowane |
 
 ## Technologie
 

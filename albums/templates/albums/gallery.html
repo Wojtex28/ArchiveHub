@@ -5,7 +5,7 @@
 <p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
 <h1>{{ album.title }}{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</h1>
 {% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
-<p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻.</p>
+<p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻, a powiększysz dwuklikiem, kółkiem myszy albo dwoma palcami.</p>
 {% if photos %}
 <div class="gallery-actions" data-gallery-actions>
   <a class="button" href="{% url 'albums:album_download_all' album.pk %}">Pobierz cały album <span class="gallery-actions__size">(ZIP, {{ album_size|filesizeformat }})</span></a>

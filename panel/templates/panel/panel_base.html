@@ -1,4 +1,5 @@
 {% extends "app_base.html" %}
+{% load static %}
 {% block title %}Panel · {{ site_title }}{% endblock %}
 {% block main %}
 <nav class="tabs" aria-label="Panel">
@@ -14,4 +15,5 @@
   <a href="{{ u_bg }}" {% if u_bg in request.path %}aria-current="page"{% endif %}>Tło logowania</a>
 </nav>
 {% block panel %}{% endblock %}
+<script src="{% static 'js/tabs.js' %}" defer></script>
 {% endblock %}

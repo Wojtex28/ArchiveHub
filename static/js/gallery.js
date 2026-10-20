@@ -4,9 +4,12 @@
   "use strict";
 
   var SWIPE_MIN = 50; // px w poziomie, żeby przesunięcie palcem zmieniło zdjęcie
+  var ZOOM_MAX = 5;
+  var ZOOM_DOUBLE = 2.5; // dwuklik albo dwukrotne stuknięcie
+  var TAP_MS = 300;
 
-  // Przesunięcie palcem w lewo/prawo. Pionowe ruchy i powiększanie dwoma palcami zostają przeglądarce.
-  function onSwipe(element, callback) {
+  // Przesunięcie palcem w lewo/prawo. Gdy zdjęcie jest powiększone, palec je przesuwa, a nie zmienia.
+  function onSwipe(element, callback, blocked) {
     var start = null;
     element.addEventListener("pointerdown", function (event) {
       start = event.isPrimary ? { x: event.clientX, y: event.clientY } : null;
@@ -17,14 +20,164 @@
       var dx = event.clientX - start.x;
       var dy = event.clientY - start.y;
       start = null;
+      if (blocked && blocked()) return;
       if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5) callback(dx < 0 ? 1 : -1);
     });
   }
 
-  // Obraz obrócony o 90° lub 270° ma zamienione boki: ograniczenia wymiarów też trzeba zamienić.
-  function fitRotation(img, degrees) {
+  // Stan obrazu: obrót z galerii i powiększenie (skala + przesunięcie względem środka).
+  function view(img) {
+    if (!img.zoom) img.zoom = { turn: 0, scale: 1, x: 0, y: 0 };
+    return img.zoom;
+  }
+
+  function applyView(img) {
+    var state = view(img);
+    var parts = [];
+    if (state.scale !== 1) parts.push("translate(" + state.x + "px, " + state.y + "px)", "scale(" + state.scale + ")");
+    if (state.turn) parts.push("rotate(" + state.turn + "deg)");
+    img.style.transform = parts.join(" ");
+    img.parentNode.classList.toggle("is-zoomed", state.scale > 1);
+  }
+
+  // Powiększonego zdjęcia nie da się odsunąć tak, żeby za nim było puste tło.
+  function clampPan(img) {
+    var state = view(img);
     var stage = img.parentNode;
-    img.style.transform = degrees ? "rotate(" + degrees + "deg)" : "";
+    var width = img.offsetWidth;
+    var height = img.offsetHeight;
+    if (state.turn % 180) {
+      var swap = width;
+      width = height;
+      height = swap;
+    }
+    var maxX = Math.max(0, (width * state.scale - stage.clientWidth) / 2);
+    var maxY = Math.max(0, (height * state.scale - stage.clientHeight) / 2);
+    state.x = Math.min(maxX, Math.max(-maxX, state.x));
+    state.y = Math.min(maxY, Math.max(-maxY, state.y));
+  }
+
+  // Zmienia powiększenie tak, żeby punkt pod kursorem albo palcami został w tym samym miejscu.
+  function zoomAt(img, scale, clientX, clientY) {
+    var state = view(img);
+    var box = img.parentNode.getBoundingClientRect();
+    scale = Math.min(ZOOM_MAX, Math.max(1, scale));
+    var px = clientX - (box.left + box.width / 2);
+    var py = clientY - (box.top + box.height / 2);
+    state.x = px - (px - state.x) * (scale / state.scale);
+    state.y = py - (py - state.y) * (scale / state.scale);
+    state.scale = scale;
+    if (scale === 1) state.x = state.y = 0;
+    clampPan(img);
+    applyView(img);
+  }
+
+  function zoomBy(img, factor) {
+    var box = img.parentNode.getBoundingClientRect();
+    zoomAt(img, view(img).scale * factor, box.left + box.width / 2, box.top + box.height / 2);
+  }
+
+  function toggleZoom(img, clientX, clientY) {
+    zoomAt(img, view(img).scale > 1 ? 1 : ZOOM_DOUBLE, clientX, clientY);
+  }
+
+  // Powiększanie: kółko myszy, dwuklik, dwa palce, dwukrotne stuknięcie; przeciąganie przesuwa.
+  function enableZoom(stage, img) {
+    var pointers = {};
+    var count = 0;
+    var pinch = null;
+    var pan = null;
+    var lastTap = null;
+
+    function points() {
+      return Object.keys(pointers).slice(0, 2).map(function (id) { return pointers[id]; });
+    }
+
+    stage.addEventListener("pointerdown", function (event) {
+      if (event.target.closest("a, button")) return;
+      if (count === 0) stage.gesture = false;
+      pointers[event.pointerId] = { x: event.clientX, y: event.clientY, x0: event.clientX, y0: event.clientY, time: Date.now() };
+      count += 1;
+      stage.classList.add("is-gesturing");
+      if (count === 2) {
+        var pair = points();
+        pinch = { distance: Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y) || 1, scale: view(img).scale };
+        pan = null;
+        stage.gesture = true;
+      } else if (count === 1 && view(img).scale > 1) {
+        pan = { x: event.clientX, y: event.clientY };
+        stage.gesture = true;
+      }
+      if (event.pointerType === "mouse") event.preventDefault();
+    });
+
+    stage.addEventListener("pointermove", function (event) {
+      var pointer = pointers[event.pointerId];
+      if (!pointer) return;
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      if (pinch && count >= 2) {
+        var pair = points();
+        var distance = Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y);
+        zoomAt(img, pinch.scale * distance / pinch.distance, (pair[0].x + pair[1].x) / 2, (pair[0].y + pair[1].y) / 2);
+      } else if (pan) {
+        var state = view(img);
+        state.x += event.clientX - pan.x;
+        state.y += event.clientY - pan.y;
+        pan = { x: event.clientX, y: event.clientY };
+        clampPan(img);
+        applyView(img);
+      }
+    });
+
+    function release(event) {
+      var pointer = pointers[event.pointerId];
+      if (!pointer) return;
+      delete pointers[event.pointerId];
+      count -= 1;
+      if (count < 2) pinch = null;
+      if (count === 0) {
+        pan = null;
+        stage.classList.remove("is-gesturing");
+      }
+      var quick = Date.now() - pointer.time < TAP_MS;
+      var still = Math.abs(event.clientX - pointer.x0) < 10 && Math.abs(event.clientY - pointer.y0) < 10;
+      if (event.type !== "pointerup" || event.pointerType === "mouse" || !quick || !still) return;
+      if (lastTap && Date.now() - lastTap.time < TAP_MS && Math.abs(event.clientX - lastTap.x) < 30) {
+        lastTap = null;
+        stage.gesture = true;
+        toggleZoom(img, event.clientX, event.clientY);
+      } else {
+        lastTap = { time: Date.now(), x: event.clientX };
+      }
+    }
+    stage.addEventListener("pointerup", release);
+    stage.addEventListener("pointercancel", release);
+    stage.addEventListener("dblclick", function (event) { toggleZoom(img, event.clientX, event.clientY); });
+    stage.addEventListener("wheel", function (event) {
+      event.preventDefault();
+      zoomAt(img, view(img).scale * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
+    }, { passive: false });
+  }
+
+  function zoomKey(img, key) {
+    if (key === "+" || key === "=") zoomBy(img, 1.5);
+    else if (key === "-") zoomBy(img, 1 / 1.5);
+    else if (key === "0") zoomAt(img, 1, 0, 0);
+    else return false;
+    return true;
+  }
+
+  // Obraz obrócony o 90° lub 270° ma zamienione boki: ograniczenia wymiarów też trzeba zamienić.
+  // Nowe zdjęcie albo obrót zaczyna bez powiększenia; zmiana rozmiaru okna je zachowuje.
+  function fitRotation(img, degrees, keepZoom) {
+    var stage = img.parentNode;
+    var state = view(img);
+    state.turn = degrees;
+    if (!keepZoom) {
+      state.scale = 1;
+      state.x = state.y = 0;
+    }
     if (degrees % 180) {
       img.style.maxWidth = stage.clientHeight + "px";
       img.style.maxHeight = stage.clientWidth + "px";
@@ -32,6 +185,8 @@
       img.style.maxWidth = "";
       img.style.maxHeight = "";
     }
+    clampPan(img);
+    applyView(img);
   }
 
   // Obrót zapisuje się od razu. Kilka szybkich kliknięć to kilka zapisów; serwer je sumuje.
@@ -62,18 +217,21 @@
     };
     document.addEventListener("keydown", function (event) {
       if (event.altKey || event.ctrlKey || event.metaKey || isTyping(event)) return;
+      if (zoomKey(pageImg, event.key)) return;
       if (event.key === "ArrowLeft") follow("[rel=prev]");
       else if (event.key === "ArrowRight") follow("[rel=next]");
       else if (event.key === "Escape") follow("[data-close]");
     });
-    onSwipe(page.querySelector("[data-stage]"), function (step) {
-      follow(step > 0 ? "[rel=next]" : "[rel=prev]");
-    });
+    var pageStage = page.querySelector("[data-stage]");
     var pageImg = page.querySelector(".viewer__img");
+    onSwipe(pageStage, function (step) {
+      follow(step > 0 ? "[rel=next]" : "[rel=prev]");
+    }, function () { return pageStage.gesture || view(pageImg).scale > 1; });
+    enableZoom(pageStage, pageImg);
     var rotateBox = page.querySelector("[data-rotate-url]");
-    var refit = function () { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation"))); };
+    var refit = function (keepZoom) { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation")), keepZoom); };
     refit();
-    window.addEventListener("resize", refit);
+    window.addEventListener("resize", function () { refit(true); });
     rotateBox.addEventListener("click", function (event) {
       var button = event.target.closest("[data-direction]");
       if (!button) return;
@@ -183,8 +341,9 @@
         event.target.form.requestSubmit();
       }
     });
-    window.addEventListener("resize", function () { if (!viewer.hidden) fitRotation(img, rotationOf(tiles[current], reverse)); });
-    onSwipe(stage, step);
+    window.addEventListener("resize", function () { if (!viewer.hidden) fitRotation(img, rotationOf(tiles[current], reverse), true); });
+    onSwipe(stage, step, function () { return stage.gesture || view(img).scale > 1; });
+    enableZoom(stage, img);
     // Na całym dokumencie: gdy fokus zniknie z ukrytego przycisku, klawisze nadal działają.
     document.addEventListener("keydown", onKey);
   }
@@ -236,7 +395,7 @@
     panel.hidden = !open;
     viewer.classList.toggle("has-panel", open);
     showCommentCount(tiles[current]);
-    fitRotation(img, rotationOf(tiles[current], reverse));
+    fitRotation(img, rotationOf(tiles[current], reverse), true);
     if (open) {
       loadComments(tiles[current]);
       panel.focus();
@@ -403,6 +562,7 @@
     else if (event.key === "ArrowRight") step(1);
     else if (event.key === "Escape") close();
     else if (event.key === "Tab") trapFocus(event);
+    else if (zoomKey(img, event.key)) return;
     else return;
     event.preventDefault();
   }

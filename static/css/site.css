@@ -400,7 +400,7 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .viewer__flip[hidden] { display: none; }
 .viewer__close:hover, .viewer__flip:hover, .viewer__nav:hover { background: rgb(255 255 255 / 0.18); }
 .viewer :focus-visible { outline: 3px solid #f4efe6; outline-offset: 2px; }
-.viewer__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 0.5rem 0.5rem; touch-action: pan-y pinch-zoom; }
+.viewer__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 0.5rem 0.5rem; touch-action: none; }
 .viewer__img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
 .viewer__img.is-loading { filter: blur(2px); }
 .viewer__nav { position: absolute; top: 50%; transform: translateY(-50%); display: inline-grid; place-items: center; width: 3rem; height: 3rem; font-size: 2rem; line-height: 1; padding-bottom: 0.25rem; }
@@ -533,4 +533,30 @@ a.polaroid:hover, a.polaroid:focus-visible { z-index: 10; rotate: 0deg; scale: 1
 }
 @media (prefers-reduced-motion: reduce) {
   .polaroid, .landing--photos .landing__text { animation: none; }
+}
+
+/* ETAP 12: powiększanie zdjęcia w podglądzie */
+.viewer__img { cursor: zoom-in; transition: transform 0.2s ease; will-change: transform; }
+.viewer__stage.is-gesturing .viewer__img { transition: none; }
+.viewer__stage.is-zoomed .viewer__img { cursor: grab; }
+.viewer__stage.is-zoomed.is-gesturing .viewer__img { cursor: grabbing; }
+.viewer__stage.is-zoomed ~ .viewer__nav { opacity: 0.35; }
+
+/* ETAP 12: telefon i tablet */
+@media (max-width: 40rem) {
+  .app-header { gap: 0.25rem; padding-top: 0.75rem; padding-bottom: 0; }
+  /* Menu zostaje w całości widoczne (zawija się zamiast chować „Wyloguj”), tylko ciaśniej. */
+  .app-header__nav { gap: 0 1rem; font-size: 0.9375rem; }
+  .app-header__nav a, .app-header__nav .link-button { white-space: nowrap; }
+  /* Zakładki panelu w jednym wierszu, przewijane palcem; wygaszona krawędź podpowiada, że jest ich więcej. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: none; white-space: nowrap; padding: 0.625rem 0.75rem; }
+  .album-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+  .album-card { padding: 0.4rem 0.4rem 0.75rem; }
+  .album-card__title, .album-card__meta, .album-card__description { padding: 0 0.25rem; }
+  .album-card__title { font-size: 1rem; }
+  .album-card__description { font-size: 0.8125rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+  .table--matrix th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 8.5rem; background: var(--card); box-shadow: 1px 0 0 var(--rule); }
+  .thumb__actions .link-button { min-height: 2.25rem; padding: 0 0.25rem; }
 }
