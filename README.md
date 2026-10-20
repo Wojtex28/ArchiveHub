@@ -268,8 +268,12 @@ Po każdym zmergowanym etapie:
 ```bash
 cd /srv/archivehub
 git pull
-docker compose --profile tunnel up -d --build
+docker compose --profile tunnel up -d --build --force-recreate
+docker compose ps        # app i worker: IMAGE „archivehub:latest”, CREATED „… seconds ago”
 ```
+
+`--force-recreate` jest potrzebne: bez niego Docker Compose potrafi zbudować nowy obraz, a zostawić kontenery
+na starym. Wersję, która naprawdę działa, pokazuje Panel → Start (lista zmian: [CHANGELOG.md](CHANGELOG.md)).
 
 Migracje bazy uruchamiają się same przy starcie. Dane zostają w wolumenach Dockera.
 Na TrueNAS zamiast `git pull` pobierz kod ponownie (patrz [wariant TrueNAS](#wariant-truenas-scale));
@@ -326,7 +330,15 @@ i się nie nadają). Kroki 1, 4 i 7–9 bez zmian; poniżej różnice.
   curl -L https://github.com/Wojtex28/ArchiveHub/archive/refs/heads/main.tar.gz | sudo tar xz --strip-components=1
   ```
 
-  Tą samą komendą `curl … | sudo tar …` pobierasz aktualizacje; `.env` zostaje.
+  Aktualizacja na TrueNAS (`.env` zostaje):
+
+  ```bash
+  cd /mnt/<pula>/ArchiveHub     # Twój dataset
+  sudo -v
+  curl -L https://github.com/Wojtex28/ArchiveHub/archive/refs/heads/main.tar.gz | sudo tar xz --strip-components=1
+  sudo docker compose --profile tunnel up -d --build --force-recreate
+  sudo docker compose ps
+  ```
 - **TrueNAS w Hyper-V:** daj maszynie co najmniej **8 GB** pamięci **statycznej** i wyłącz
   „pamięć dynamiczną” (ZFS źle ją znosi; objaw: „Out of memory” zaraz po starcie). Zmiana tylko na wyłączonej
   maszynie: Ustawienia → Pamięć, albo w PowerShellu

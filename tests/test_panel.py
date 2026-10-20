@@ -167,3 +167,20 @@ def test_comment_like_text_is_escaped_in_panel(master_client):
     body = master_client.get(reverse("panel:group_list")).content.decode()
     assert "<script>alert(1)</script>" not in body
     assert "&lt;script&gt;" in body
+
+
+def test_dashboard_shows_version(master_client):
+    from config import __version__
+
+    page = master_client.get(reverse("panel:dashboard")).content.decode()
+    assert f"Wersja {__version__}" in page
+    assert "CHANGELOG.md" in page
+
+
+def test_changelog_has_current_version():
+    from pathlib import Path
+
+    from config import __version__
+
+    changelog = (Path(__file__).resolve().parent.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"## {__version__} (" in changelog
