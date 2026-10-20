@@ -4,8 +4,11 @@
   <h1>Synchronizacja archiwum</h1>
   <form method="post">{% csrf_token %}<button type="submit" class="button">Synchronizuj teraz</button></form>
 </div>
-<p class="hint">Synchronizacja sprawdza foldery w bibliotece zdjęć (<code>{{ albums_dir }}</code>). Każdy folder to album. Nowe foldery stają się albumami, a znikniętym albumom aplikacja tylko dopisuje „brak folderu” i niczego nie usuwa. Folder z „_” na początku nazwy trafia do archiwum jako ukryty.</p>
-<h2>Historia</h2>
+<h2>Import z udziału sieciowego</h2>
+<p class="hint">Wrzuć folder ze skanami do udziału <strong>import</strong> (<code>{{ import_dir }}</code>). Gdy jego zawartość nie zmieni się przez {{ stable_minutes }} min, aplikacja zrobi z niego album: zdjęcia do oglądania i miniatury. Rewers to plik z dopiskiem „_r”, np. <code>012.jpg</code> i <code>012_r.jpg</code>. Aplikacja niczego w udziale nie zmienia ani nie usuwa; po imporcie możesz sam skasować folder. Dorzucone później pliki trafią do tego samego albumu.</p>
+{% if imports %}{% include "panel/includes/import_table.html" %}{% else %}<p class="hint">Jeszcze nic nie importowano.</p>{% endif %}
+<h2>Synchronizacja biblioteki</h2>
+<p class="hint">Sprawdza, czy biblioteka zdjęć (<code>{{ albums_dir }}</code>) zgadza się z bazą. Albumom bez folderu i zdjęciom bez pliku aplikacja tylko dopisuje znacznik i niczego nie usuwa. Folder z „_” na początku nazwy trafia do archiwum jako ukryty.</p>
 <div class="table-wrap">
 <table class="table">
   <thead><tr><th>Kiedy</th><th>Wynik</th><th>Zmiany</th></tr></thead>
@@ -17,7 +20,8 @@
     <td>
       {% if r.new_albums %}Nowe: {{ r.new_albums|join:", " }}{% endif %}
       {% if r.missing_albums %}{% if r.new_albums %}<br>{% endif %}Brak folderu: {{ r.missing_albums|join:", " }}{% endif %}
-      {% if not r.new_albums and not r.missing_albums and not r.error %}<span class="hint">bez zmian</span>{% endif %}
+      {% if r.missing_photos %}<br>Brak plików zdjęć ({{ r.missing_photos|length }}): {{ r.missing_photos|slice:":10"|join:", " }}{% if r.missing_photos|length > 10 %}…{% endif %}{% endif %}
+      {% if not r.new_albums and not r.missing_albums and not r.missing_photos and not r.error %}<span class="hint">bez zmian</span>{% endif %}
     </td>
   </tr>
   {% empty %}

@@ -34,24 +34,23 @@ def test_sync_creates_albums_from_folders(db, library):
 
     assert report.ok
     assert report.albums_total == 2
-    assert report.photos_total == 4
+    # Zdjęcia liczą się dopiero po imporcie; luźne pliki w bibliotece nie są zdjęciami albumu.
+    assert report.photos_total == 0
     assert sorted(report.new_albums) == ["Album_01_lata_50", "_Prywatne"]
     album = Album.objects.get(folder="Album_01_lata_50")
     assert album.title == "Album 01 lata 50"
-    assert album.photo_count == 3
+    assert album.photo_count == 0
     assert not album.is_hidden
     assert Album.objects.get(folder="_Prywatne").is_hidden
 
 
-def test_sync_twice_does_not_duplicate_and_updates_counts(db, library):
-    folder = make_album_folder(library, "Wesele", photos=2)
+def test_sync_twice_does_not_duplicate(db, library):
+    make_album_folder(library, "Wesele", photos=2)
     sync_albums()
-    (folder / "999.jpg").write_bytes(b"x")
 
     report = sync_albums()
 
     assert Album.objects.count() == 1
-    assert Album.objects.get().photo_count == 3
     assert report.new_albums == []
 
 

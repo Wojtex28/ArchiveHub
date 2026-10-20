@@ -1,0 +1,25 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<p><a href="{% url 'panel:album_list' %}">← Wszystkie albumy</a></p>
+<h1>{{ album.title }}</h1>
+<p class="hint">Folder: {{ album.folder }} · zdjęć: {{ album.photo_count }}
+  {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
+  {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}</p>
+{% if photos %}
+<ul class="photo-grid">
+  {% for photo in photos %}
+  <li class="photo-tile{% if photo.file_missing %} photo-tile--missing{% endif %}">
+    <img src="{% url 'albums:thumb' photo.pk %}" alt="{{ photo.name }}" loading="lazy">
+    <span class="photo-tile__name">{{ photo.name }}{% if photo.has_reverse %} <span class="badge badge--muted" title="Zdjęcie ma zeskanowany rewers">rewers</span>{% endif %}{% if photo.file_missing %} <span class="badge badge--danger">brak pliku</span>{% endif %}</span>
+    {% if photo.has_reverse %}<img class="photo-tile__reverse" src="{% url 'albums:thumb_reverse' photo.pk %}" alt="Rewers {{ photo.name }}" loading="lazy">{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty-state"><p>Ten album nie ma jeszcze zdjęć. Wrzuć skany do folderu „{{ album.folder }}” w udziale import.</p></div>
+{% endif %}
+{% if imports %}
+<h2 class="section-title">Importy tego albumu</h2>
+{% include "panel/includes/import_table.html" with imports=imports %}
+{% endif %}
+{% endblock %}
