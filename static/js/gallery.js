@@ -21,6 +21,33 @@
     });
   }
 
+  // Obraz obrócony o 90° lub 270° ma zamienione boki: ograniczenia wymiarów też trzeba zamienić.
+  function fitRotation(img, degrees) {
+    var stage = img.parentNode;
+    img.style.transform = degrees ? "rotate(" + degrees + "deg)" : "";
+    if (degrees % 180) {
+      img.style.maxWidth = stage.clientHeight + "px";
+      img.style.maxHeight = stage.clientWidth + "px";
+    } else {
+      img.style.maxWidth = "";
+      img.style.maxHeight = "";
+    }
+  }
+
+  // Obrót zapisuje się od razu. Kilka szybkich kliknięć to kilka zapisów; serwer je sumuje.
+  function saveRotation(url, csrf, side, direction, onError) {
+    var body = new FormData();
+    body.append("side", side);
+    body.append("direction", direction);
+    fetch(url, { method: "POST", body: body, credentials: "same-origin", headers: { "X-CSRFToken": csrf } })
+      .then(function (response) { if (!response.ok) throw new Error(response.status); })
+      .catch(onError);
+  }
+
+  function turned(degrees, direction) {
+    return (degrees + (direction === "prawo" ? 90 : 270)) % 360;
+  }
+
   // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
   var page = document.querySelector("[data-viewer-page]");
   if (page) {
@@ -37,6 +64,24 @@
     onSwipe(page.querySelector("[data-stage]"), function (step) {
       follow(step > 0 ? "[rel=next]" : "[rel=prev]");
     });
+    var pageImg = page.querySelector(".viewer__img");
+    var rotateBox = page.querySelector("[data-rotate-url]");
+    var refit = function () { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation"))); };
+    refit();
+    window.addEventListener("resize", refit);
+    rotateBox.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-direction]");
+      if (!button) return;
+      var before = Number(pageImg.getAttribute("data-rotation"));
+      var direction = button.getAttribute("data-direction");
+      pageImg.setAttribute("data-rotation", turned(before, direction));
+      refit();
+      saveRotation(rotateBox.getAttribute("data-rotate-url"), rotateBox.getAttribute("data-csrf"),
+        rotateBox.getAttribute("data-side"), direction, function () {
+          pageImg.setAttribute("data-rotation", before);
+          refit();
+        });
+    });
     return;
   }
 
@@ -44,8 +89,9 @@
   if (!grid) return;
   var tiles = Array.prototype.slice.call(grid.querySelectorAll("a[data-preview]"));
   var albumTitle = grid.getAttribute("data-album-title");
+  var csrf = grid.getAttribute("data-csrf");
 
-  var viewer, img, count, flip, prevButton, nextButton, closeButton;
+  var viewer, img, count, flip, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
   var current = -1;
   var reverse = false;
   var opener = null;
@@ -77,7 +123,13 @@
     count = element("span", "viewer__count");
     flip = element("button", "viewer__flip");
     flip.type = "button";
-    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, flip);
+    var rotate = element("span", "viewer__rotate");
+    rotateLeft = button("viewer__rotate-button", "↺", "Obróć w lewo");
+    rotateRight = button("viewer__rotate-button", "↻", "Obróć w prawo");
+    rotateLeft.title = "Obróć w lewo";
+    rotateRight.title = "Obróć w prawo";
+    rotate.append(rotateLeft, rotateRight);
+    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
@@ -92,9 +144,32 @@
     prevButton.addEventListener("click", function () { step(-1); });
     nextButton.addEventListener("click", function () { step(1); });
     flip.addEventListener("click", function () { show(current, !reverse); });
+    rotateLeft.addEventListener("click", function () { turn("lewo"); });
+    rotateRight.addEventListener("click", function () { turn("prawo"); });
+    window.addEventListener("resize", function () { if (!viewer.hidden) fitRotation(img, rotationOf(tiles[current], reverse)); });
     onSwipe(stage, step);
     // Na całym dokumencie: gdy fokus zniknie z ukrytego przycisku, klawisze nadal działają.
     document.addEventListener("keydown", onKey);
+  }
+
+  function rotationOf(tile, onReverse) {
+    return Number(tile.getAttribute(onReverse ? "data-reverse-rotation" : "data-rotation")) || 0;
+  }
+
+  function setRotation(tile, onReverse, degrees) {
+    tile.setAttribute(onReverse ? "data-reverse-rotation" : "data-rotation", degrees);
+    if (!onReverse) tile.querySelector("img").className = "rot-" + degrees;
+    if (tiles[current] === tile && reverse === onReverse) fitRotation(img, degrees);
+  }
+
+  function turn(direction) {
+    var tile = tiles[current];
+    var side = reverse;
+    var before = rotationOf(tile, side);
+    setRotation(tile, side, turned(before, direction));
+    saveRotation(tile.getAttribute("data-rotate-url"), csrf, side ? "rewers" : "awers", direction, function () {
+      setRotation(tile, side, before);
+    });
   }
 
   function pageUrl(tile, onReverse) {
@@ -118,6 +193,7 @@
     img.src = tile.getAttribute(onReverse ? "data-reverse-thumb" : "data-thumb");
     img.alt = (onReverse ? "Rewers zdjęcia " : "Zdjęcie ") + (index + 1) + " z albumu " + albumTitle;
     img.classList.add("is-loading");
+    fitRotation(img, rotationOf(tile, onReverse));
     var loader = new Image();
     loader.onload = function () {
       if (current === index && reverse === onReverse) {

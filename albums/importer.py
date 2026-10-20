@@ -108,6 +108,12 @@ def convert_scan(source, photo, reverse=False):
         image = _to_displayable(scan)
         if original_side:
             image.thumbnail((original_side, original_side), Image.Resampling.LANCZOS)
+        # Obrót ustawiony przez rodzinę w galerii przeżywa ponowne przetworzenie albumu.
+        rotation = photo.target_rotation(reverse)
+        if rotation:
+            from .rotation import TRANSPOSE
+
+            image = image.transpose(TRANSPOSE[rotation])
         size = image.size
         # Profil kolorów zostaje (skanery często zapisują AdobeRGB); metadane EXIF nie.
         _save_atomic(
@@ -135,6 +141,7 @@ def convert_scan(source, photo, reverse=False):
         )
     # Stara wersja 5000 px (sprzed pełnej rozdzielczości) nie jest już potrzebna.
     photo.legacy_path(reverse).unlink(missing_ok=True)
+    setattr(photo, "reverse_applied_rotation" if reverse else "applied_rotation", rotation)
     return size
 
 
@@ -304,7 +311,7 @@ def _import_folder(job, folder, regenerate=False):
             elif reverse is not None and existing is not None and not existing.has_reverse:
                 # Rewers dorzucony później do zdjęcia, które już jest w albumie.
                 _attach_reverse(job, existing, reverse)
-                existing.save(update_fields=["has_reverse", "reverse_checksum"])
+                existing.save(update_fields=["has_reverse", "reverse_checksum", "reverse_applied_rotation"])
                 job.reverses_added += int(existing.has_reverse)
                 job.save(update_fields=["reverses_added", "skipped"])
             continue
@@ -371,7 +378,17 @@ def _regenerate(job, photo, source, reverse):
             photo.has_reverse, photo.reverse_checksum = True, old_checksum
     elif photo.has_reverse:
         job.skipped.append(f"{photo.file_stem(True)}: brak rewersu w udziale, zostaje dotychczasowa wersja")
-    photo.save(update_fields=["width", "height", "source_name", "has_reverse", "reverse_checksum"])
+    photo.save(
+        update_fields=[
+            "width",
+            "height",
+            "source_name",
+            "has_reverse",
+            "reverse_checksum",
+            "applied_rotation",
+            "reverse_applied_rotation",
+        ]
+    )
     job.save(update_fields=["photos_added", "reverses_added", "skipped"])
     touch_heartbeat()
 

@@ -1,11 +1,12 @@
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404, HttpResponseNotModified
+from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseNotModified, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.http import http_date
-from django.views.decorators.http import require_safe
+from django.views.decorators.http import require_POST, require_safe
 from django.views.static import was_modified_since
 
 from .models import Album, Photo
+from .rotation import rotate
 
 
 def _visible_photo(request, pk, reverse):
@@ -88,4 +89,19 @@ def photo_page(request, album_pk, pk, reverse=False):
             "previous_pk": ids[index - 1] if index > 0 else None,
             "next_pk": ids[index + 1] if index + 1 < len(ids) else None,
         },
+    )
+
+
+@require_POST
+@login_required
+def photo_rotate(request, pk):
+    """↺/↻ w galerii. Może każdy, kto widzi album; zapis od razu, bez potwierdzania."""
+    reverse = request.POST.get("side") == "rewers"
+    direction = request.POST.get("direction")
+    if direction not in ("lewo", "prawo"):
+        return HttpResponseBadRequest("direction: lewo albo prawo")
+    photo = _visible_photo(request, pk, reverse)
+    rotate(photo, request.user, reverse=reverse, clockwise=direction == "prawo")
+    return JsonResponse(
+        {"rotation": photo.target_rotation(reverse), "pending": photo.pending_rotation(reverse)}
     )

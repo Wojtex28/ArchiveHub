@@ -338,7 +338,10 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
 .photo-grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 1rem; }
 .photo-tile { position: relative; background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 0.5rem; }
 .photo-tile img { display: block; width: 100%; height: 9rem; object-fit: contain; background: #ebe3d6; border-radius: 4px; }
-.photo-tile__name { display: block; margin-top: 0.375rem; font-size: 0.9375rem; }
+.photo-tile { min-width: 0; }
+/* Długie nazwy plików ze skanera łamią się w dowolnym miejscu, żeby końcówka (_1, _2) była widoczna. */
+.photo-tile__name { display: block; margin-top: 0.375rem; font-size: 0.875rem; line-height: 1.35; overflow-wrap: anywhere; }
+.photo-tile__badges { display: block; margin-top: 0.25rem; }
 .photo-tile .photo-tile__reverse { position: absolute; right: 0.875rem; top: 0.875rem; width: 3.5rem; height: 3.5rem; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 6px rgb(59 51 43 / 0.25); }
 .photo-tile--missing img { opacity: 0.3; }
 details summary { cursor: pointer; color: var(--ink-quiet); }
@@ -351,8 +354,14 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .icon-button { width: 2.25rem; height: 2.25rem; border: 1px solid var(--rule-strong); border-radius: 50%; background: var(--card); color: var(--ink); font-size: 1rem; cursor: pointer; }
 .icon-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .icon-button:disabled { opacity: 0.3; cursor: default; }
-.cover-button { margin-top: 0.25rem; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 0.875rem; text-decoration: underline; cursor: pointer; }
-.photo-tile__cover { margin-top: 0.25rem; }
+/* Okładka: gwiazdka w rogu miniatury. Pełna przy obecnej okładce, pusta pojawia się po najechaniu. */
+.cover-form { margin: 0; }
+.cover-mark { position: absolute; left: 0.875rem; top: 0.875rem; display: inline-grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; background: rgb(20 17 14 / 0.6); color: #fbf8f2; font-size: 1.125rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity 0.15s ease; }
+.cover-mark--current { background: var(--accent); cursor: default; opacity: 1; }
+.photo-tile:hover .cover-mark, .cover-mark:focus-visible { opacity: 1; }
+.cover-mark:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Na telefonie nie ma najechania: gwiazdka jest widoczna, ale przygaszona. */
+@media (hover: none) { .cover-mark { opacity: 0.55; } .cover-mark--current { opacity: 1; } }
 .album-cover img { display: block; max-width: 100%; max-height: 16rem; border-radius: 8px; background: #ebe3d6; }
 @media (max-width: 40rem) {
   .album-table th:nth-child(2), .album-table td:nth-child(2), .order-cell__number { display: none; }
@@ -409,3 +418,18 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
   .viewer__nav--next { right: 0.25rem; }
 }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Obrót ustawiony w galerii, zanim worker obróci pliki. */
+.rot-90 { rotate: 90deg; }
+.rot-180 { rotate: 180deg; }
+.rot-270 { rotate: 270deg; }
+.gallery-tile img { transition: transform 0.2s ease, rotate 0.2s ease; }
+/* Prostokątne ramki: obrócony obraz musi się zmieścić (albo wypełnić okładkę). */
+.album-card__cover img.rot-90, .album-card__cover img.rot-270 { scale: 1.34; }
+.photo-tile > img.rot-90, .photo-tile > img.rot-270, .album-cover img.rot-90, .album-cover img.rot-270 { scale: 0.8; }
+.viewer__stage { overflow: hidden; }
+.viewer__rotate { display: inline-flex; gap: 0.375rem; }
+.viewer__rotate-button { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; font: inherit; font-size: 1.25rem; color: inherit; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; cursor: pointer; }
+.viewer__rotate-button:hover { background: rgb(255 255 255 / 0.18); }
+@media (max-width: 40rem) { .viewer__rotate-button { width: 2.25rem; height: 2.25rem; } }
+@media (prefers-reduced-motion: reduce) { .gallery-tile img { transition: none; } }

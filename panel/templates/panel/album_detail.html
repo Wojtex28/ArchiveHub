@@ -15,9 +15,9 @@
   <div class="card album-cover">
     <h2>Okładka</h2>
     {% if cover %}
-    <img src="{% url 'albums:thumb' cover.pk %}" alt="Okładka: {{ cover.name }}">
+    <img class="rot-{{ cover.pending_front }}" src="{% url 'albums:thumb' cover.pk %}?v={{ cover.version_front }}" alt="Okładka: {{ cover.name }}">
     <p class="hint">{% if album.cover_id %}Wybrana okładka: {{ cover.name }}.{% else %}Bez wybranej okładki pokazuje się pierwsze zdjęcie albumu.{% endif %}
-      Inną wybierzesz przyciskiem „Okładka” pod zdjęciem.</p>
+      Inną wybierzesz gwiazdką ☆ w rogu zdjęcia (pokazuje się po najechaniu myszką).</p>
     {% else %}
     <p class="hint">Okładka pojawi się po imporcie zdjęć.</p>
     {% endif %}
@@ -49,11 +49,12 @@
 <ul class="photo-grid">
   {% for photo in photos %}
   <li class="photo-tile{% if photo.file_missing %} photo-tile--missing{% endif %}">
-    <img src="{% url 'albums:thumb' photo.pk %}" alt="{{ photo.name }}" loading="lazy">
-    <span class="photo-tile__name">{{ photo.name }}{% if photo.has_reverse %} <span class="badge badge--muted" title="Zdjęcie ma zeskanowany rewers">rewers</span>{% endif %}{% if photo.file_missing %} <span class="badge badge--danger">brak pliku</span>{% endif %}</span>
-    {% if photo.has_reverse %}<img class="photo-tile__reverse" src="{% url 'albums:thumb_reverse' photo.pk %}" alt="Rewers {{ photo.name }}" loading="lazy">{% endif %}
-    {% if photo.pk == cover.pk %}<span class="badge photo-tile__cover">okładka</span>
-    {% elif not photo.file_missing %}<form method="post" action="{% url 'panel:album_set_cover' album.pk photo.pk %}">{% csrf_token %}<button type="submit" class="cover-button">Okładka</button></form>{% endif %}
+    <img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="{{ photo.name }}" loading="lazy">
+    <span class="photo-tile__name">{{ photo.name }}</span>
+    {% if photo.has_reverse or photo.file_missing %}<span class="photo-tile__badges">{% if photo.has_reverse %}<span class="badge badge--muted" title="Zdjęcie ma zeskanowany rewers">rewers</span>{% endif %}{% if photo.file_missing %} <span class="badge badge--danger">brak pliku</span>{% endif %}</span>{% endif %}
+    {% if photo.has_reverse %}<img class="photo-tile__reverse rot-{{ photo.pending_back }}" src="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}" alt="Rewers {{ photo.name }}" loading="lazy">{% endif %}
+    {% if photo.pk == cover.pk %}<span class="cover-mark cover-mark--current" title="Okładka albumu">★<span class="visually-hidden"> Okładka albumu</span></span>
+    {% elif not photo.file_missing %}<form method="post" action="{% url 'panel:album_set_cover' album.pk photo.pk %}" class="cover-form">{% csrf_token %}<button type="submit" class="cover-mark" title="Ustaw jako okładkę" aria-label="Ustaw {{ photo.name }} jako okładkę">☆</button></form>{% endif %}
   </li>
   {% endfor %}
 </ul>
