@@ -24,6 +24,13 @@ class AlbumQuerySet(models.QuerySet):
         return available.filter(groups__in=groups).distinct()
 
 
+class PhotoQuerySet(models.QuerySet):
+    def visible_to(self, user):
+        """Zdjęcia z albumów, które dana osoba może oglądać."""
+        # Każdy plik zdjęcia (miniatura, podgląd, oryginał) przechodzi przez to sprawdzenie.
+        return self.filter(album__in=Album.objects.visible_to(user))
+
+
 class Album(models.Model):
     """Album = jeden folder w bibliotece zdjęć (``ARCHIVEHUB_ALBUMS_DIR``).
 
@@ -79,6 +86,21 @@ class Album(models.Model):
     def path(self):
         return settings.ARCHIVEHUB_ALBUMS_DIR / self.folder
 
+    def viewers(self):
+        """Osoby (poza administratorem), które widzą ten album w archiwum."""
+        from django.contrib.auth import get_user_model
+
+        users = get_user_model().objects.filter(is_active=True, is_superuser=False)
+        if self.is_hidden or self.folder_missing:
+            return users.none()
+        return (
+            users.filter(
+                models.Q(family_groups__in=self.groups.all()) | models.Q(family_groups__sees_all_albums=True)
+            )
+            .distinct()
+            .order_by("username")
+        )
+
 
 class Photo(models.Model):
     """Jedno zdjęcie w albumie: wersja do oglądania (JPEG) i miniatura (WebP), opcjonalnie z rewersem.
@@ -102,6 +124,8 @@ class Photo(models.Model):
     reverse_checksum = models.CharField(max_length=64, blank=True)
     file_missing = models.BooleanField("brak pliku", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = PhotoQuerySet.as_manager()
 
     class Meta:
         ordering = ["album", "position", "pk"]

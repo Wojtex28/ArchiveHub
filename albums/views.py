@@ -3,18 +3,14 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_safe
 
-from .models import Album, Photo
+from .models import Photo
 
 
 @require_safe
 @login_required
 def photo_thumb(request, pk, reverse=False):
     """Miniatura zdjęcia. Uprawnienia sprawdzane przy każdym pliku: adres wpisany ręcznie nic nie da."""
-    photo = get_object_or_404(
-        Photo.objects.select_related("album"),
-        pk=pk,
-        album__in=Album.objects.visible_to(request.user),
-    )
+    photo = get_object_or_404(Photo.objects.visible_to(request.user).select_related("album"), pk=pk)
     if reverse and not photo.has_reverse:
         raise Http404
     try:

@@ -26,6 +26,15 @@
   </form>
 </div>
 
+<div class="card access-card">
+  <h2>Widzi albumy</h2>
+  {% if person.is_superuser %}<p class="hint">Administrator widzi wszystkie albumy, także ukryte.</p>
+  {% elif not person.is_active %}<p class="hint">Konto jest wyłączone, więc nie widzi niczego.</p>
+  {% else %}
+  <ul class="plain-list">{% for album in visible_albums %}<li><a href="{% url 'panel:album_detail' album.pk %}">{{ album.title }}</a></li>{% empty %}<li class="hint">Żadnego. Dodaj tę osobę do grupy albo nadaj grupie albumy w <a href="{% url 'panel:permissions' %}">Uprawnieniach</a>.</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+
 {% if person != user %}
 <div class="card danger-zone">
   <h2>Dostęp</h2>

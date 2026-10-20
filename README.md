@@ -15,8 +15,9 @@ w projekcie.
 | 2 | Konta, logowanie, kody rodzinne, konto administratora, podstawy panelu | gotowe |
 | 3 | Panel administratora: albumy, uprawnienia grupa × album, synchronizacja, tło logowania | gotowe |
 | 4 | Import albumów z udziału sieciowego (konwersja, miniatury, rewersy) | gotowe |
-| 5 | Zarządzanie albumami: nazwa, opis, okładka, ukrywanie, kolejność | **gotowe** |
-| 6+ | Uprawnienia (testy), galeria, pobieranie, komentarze… | zaplanowane |
+| 5 | Zarządzanie albumami: nazwa, opis, okładka, ukrywanie, kolejność | gotowe |
+| 6 | Uprawnienia: kto widzi album, jakie albumy widzi osoba, kontrola każdego pliku | **gotowe** |
+| 7+ | Galeria, pobieranie, komentarze… | zaplanowane |
 
 ## Technologie
 

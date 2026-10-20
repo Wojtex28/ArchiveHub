@@ -23,6 +23,27 @@
     {% endif %}
   </div>
 </div>
+<div class="card access-card">
+  <h2>Kto widzi ten album</h2>
+  {% if album.is_hidden %}<p class="notice">Album jest ukryty: widzisz go tylko Ty, niezależnie od grup poniżej.</p>
+  {% elif album.folder_missing %}<p class="notice">Brak folderu albumu: nikt poza Tobą go nie widzi.</p>{% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="groups">
+    <fieldset>
+      <legend>Grupy</legend>
+      {% for g in groups %}
+      <label class="check">
+        <input type="checkbox" name="groups" value="{{ g.pk }}"{% if g.sees_all_albums or g.pk in album_group_ids %} checked{% endif %}{% if g.sees_all_albums %} disabled{% endif %}>
+        <span>{{ g.name }}{% if g.sees_all_albums %} <span class="hint">(widzi wszystkie albumy)</span>{% endif %}</span>
+      </label>
+      {% empty %}<p class="hint">Nie ma jeszcze grup. Utworzysz je w zakładce <a href="{% url 'panel:group_list' %}">Grupy</a>.</p>{% endfor %}
+    </fieldset>
+    {% if groups %}<button type="submit" class="button">Zapisz</button>{% endif %}
+  </form>
+  <p class="hint">Teraz widzi: {% for person in viewers %}<a href="{% url 'panel:user_detail' person.pk %}">{{ person.username }}</a>{% if not forloop.last %}, {% endif %}{% empty %}nikt poza Tobą{% endfor %}.</p>
+</div>
+
 {% if photos %}
 <h2 class="section-title">Zdjęcia</h2>
 <ul class="photo-grid">

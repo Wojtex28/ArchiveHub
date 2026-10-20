@@ -131,7 +131,12 @@ def user_detail(request, pk):
     return render(
         request,
         "panel/user_detail.html",
-        {"person": person, "edit_form": edit_form, "password_form": password_form},
+        {
+            "person": person,
+            "edit_form": edit_form,
+            "password_form": password_form,
+            "visible_albums": Album.objects.visible_to(person),
+        },
     )
 
 
@@ -256,18 +261,30 @@ def _folder_size(path):
 def album_detail(request, pk):
     album = get_object_or_404(Album, pk=pk)
     form = AlbumForm(instance=album)
+    groups = list(FamilyGroup.objects.all())
     if request.method == "POST":
+        if request.POST.get("action") == "groups":
+            editable = {g.pk for g in groups if not g.sees_all_albums}
+            chosen = {int(v) for v in request.POST.getlist("groups") if v.isdigit() and int(v) in editable}
+            album.groups.set(chosen)
+            logger.info("Administrator %s zmienił grupy albumu %s", request.user, album.folder)
+            messages.success(request, "Zapisano, kto widzi album.")
+            return redirect("panel:album_detail", album.pk)
         form = AlbumForm(request.POST, instance=album)
         if form.is_valid():
             form.save()
             messages.success(request, "Zapisano album.")
             return redirect("panel:album_detail", album.pk)
+    album_group_ids = set(album.groups.values_list("pk", flat=True))
     return render(
         request,
         "panel/album_detail.html",
         {
             "album": album,
             "form": form,
+            "groups": groups,
+            "album_group_ids": album_group_ids,
+            "viewers": album.viewers(),
             "cover": album.cover_photo,
             "photos": album.photos.all(),
             "imports": album.imports.all()[:10],

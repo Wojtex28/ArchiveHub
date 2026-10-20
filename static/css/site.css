@@ -357,3 +357,6 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 @media (max-width: 40rem) {
   .album-table th:nth-child(2), .album-table td:nth-child(2), .order-cell__number { display: none; }
 }
+.access-card { margin-top: 1.5rem; }
+.access-card fieldset { border: 0; padding: 0; margin: 0 0 1rem; }
+.access-card legend { font-weight: 600; margin-bottom: 0.5rem; }
