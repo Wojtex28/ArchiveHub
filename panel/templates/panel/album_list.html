@@ -6,12 +6,22 @@
 </div>
 <p class="hint">Albumy powstają z folderów w bibliotece zdjęć. Kto widzi który album, ustawiasz w zakładce <a href="{% url 'panel:permissions' %}">Uprawnienia</a>.
 {% if all_groups %}Wszystkie albumy widzą też grupy: {% for g in all_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+<p class="hint">Kolejność z tej listy widzi rodzina w archiwum. Strzałkami przesuwasz album o jedno miejsce.</p>
+<form method="post" action="{% url 'panel:album_sort_by_folder' %}" class="inline-form">{% csrf_token %}
+  <button type="submit" class="button button--quiet">Ułóż według nazw folderów</button>
+</form>
 <div class="table-wrap">
-<table class="table">
-  <thead><tr><th>Album</th><th>Zdjęcia</th><th>Grupy</th></tr></thead>
+<table class="table album-table">
+  <thead><tr><th>Kolejność</th><th>Okładka</th><th>Album</th><th>Zdjęcia</th><th>Grupy</th></tr></thead>
   <tbody>
   {% for album in albums %}
-  <tr{% if album.folder_missing %} class="is-muted"{% endif %}>
+  <tr id="album-{{ album.pk }}"{% if album.folder_missing %} class="is-muted"{% endif %}>
+    <td class="order-cell">
+      <span class="order-cell__number">{{ forloop.counter }}</span>
+      <form method="post" action="{% url 'panel:album_move_up' album.pk %}">{% csrf_token %}<button type="submit" class="icon-button" aria-label="Przesuń „{{ album.title }}” w górę"{% if forloop.first %} disabled{% endif %}>↑</button></form>
+      <form method="post" action="{% url 'panel:album_move_down' album.pk %}">{% csrf_token %}<button type="submit" class="icon-button" aria-label="Przesuń „{{ album.title }}” w dół"{% if forloop.last %} disabled{% endif %}>↓</button></form>
+    </td>
+    <td>{% with cover=album.cover_photo %}{% if cover %}<img class="album-table__cover" src="{% url 'albums:thumb' cover.pk %}" alt="" loading="lazy">{% endif %}{% endwith %}</td>
     <td><a href="{% url 'panel:album_detail' album.pk %}">{{ album.title }}</a>
       {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
       {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}
@@ -20,7 +30,7 @@
     <td>{% for g in album.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">żadna</span>{% endfor %}</td>
   </tr>
   {% empty %}
-  <tr><td colspan="3" class="hint">Nie ma jeszcze albumów. Wrzuć folder ze skanami do udziału import; po kilku minutach pojawi się tutaj. Stan importu widać w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</td></tr>
+  <tr><td colspan="5" class="hint">Nie ma jeszcze albumów. Wrzuć folder ze skanami do udziału import; po kilku minutach pojawi się tutaj. Stan importu widać w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</td></tr>
   {% endfor %}
   </tbody>
 </table>

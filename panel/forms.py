@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model, password_validation
 
 from accounts.forms import validate_nick
 from accounts.models import FamilyGroup, InviteCode
+from albums.models import Album
 
 
 class GroupsField(forms.ModelMultipleChoiceField):
@@ -111,3 +112,16 @@ class LoginPhotoUploadForm(forms.Form):
         ),
     )
     photos.widget.attrs.update(accept="image/jpeg,image/png,image/webp")
+
+
+class AlbumForm(forms.ModelForm):
+    class Meta:
+        model = Album
+        fields = ["title", "description", "is_hidden"]
+        labels = {"title": "Nazwa wyświetlana", "description": "Opis", "is_hidden": "Ukryty"}
+        help_texts = {
+            "title": "Tak album widzi rodzina, np. „Brązowy album ze złotą obwódką, 1997–2004”.",
+            "description": "Kilka zdań pod nazwą albumu (opcjonalnie).",
+            "is_hidden": "Ukryty album widzisz tylko Ty, niezależnie od uprawnień grup.",
+        }
+        widgets = {"description": forms.Textarea(attrs={"rows": 4})}
