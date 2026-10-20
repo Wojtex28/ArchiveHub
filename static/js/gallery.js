@@ -1,0 +1,216 @@
+// Galeria: podgląd zdjęcia na cały ekran nad siatką miniatur.
+// Bez JavaScriptu każda miniatura prowadzi do zwykłej strony zdjęcia, więc skrypt jest tylko wygodą.
+(function () {
+  "use strict";
+
+  var SWIPE_MIN = 50; // px w poziomie, żeby przesunięcie palcem zmieniło zdjęcie
+
+  // Przesunięcie palcem w lewo/prawo. Pionowe ruchy i powiększanie dwoma palcami zostają przeglądarce.
+  function onSwipe(element, callback) {
+    var start = null;
+    element.addEventListener("pointerdown", function (event) {
+      start = event.isPrimary ? { x: event.clientX, y: event.clientY } : null;
+    });
+    element.addEventListener("pointercancel", function () { start = null; });
+    element.addEventListener("pointerup", function (event) {
+      if (!start) return;
+      var dx = event.clientX - start.x;
+      var dy = event.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5) callback(dx < 0 ? 1 : -1);
+    });
+  }
+
+  // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
+  var page = document.querySelector("[data-viewer-page]");
+  if (page) {
+    var follow = function (selector) {
+      var link = page.querySelector(selector);
+      if (link) window.location.href = link.href;
+    };
+    document.addEventListener("keydown", function (event) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key === "ArrowLeft") follow("[rel=prev]");
+      else if (event.key === "ArrowRight") follow("[rel=next]");
+      else if (event.key === "Escape") follow("[data-close]");
+    });
+    onSwipe(page.querySelector("[data-stage]"), function (step) {
+      follow(step > 0 ? "[rel=next]" : "[rel=prev]");
+    });
+    return;
+  }
+
+  var grid = document.querySelector("[data-gallery]");
+  if (!grid) return;
+  var tiles = Array.prototype.slice.call(grid.querySelectorAll("a[data-preview]"));
+  var albumTitle = grid.getAttribute("data-album-title");
+
+  var viewer, img, count, flip, prevButton, nextButton, closeButton;
+  var current = -1;
+  var reverse = false;
+  var opener = null;
+  var pushed = false;
+
+  function element(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function button(className, symbol, label) {
+    var node = element("button", className, symbol);
+    node.type = "button";
+    node.setAttribute("aria-label", label);
+    return node;
+  }
+
+  function build() {
+    viewer = element("div", "viewer");
+    viewer.setAttribute("role", "dialog");
+    viewer.setAttribute("aria-modal", "true");
+    viewer.setAttribute("aria-label", "Podgląd zdjęcia");
+    viewer.hidden = true;
+
+    var bar = element("div", "viewer__bar");
+    closeButton = button("viewer__close", "✕", "Zamknij podgląd");
+    count = element("span", "viewer__count");
+    flip = element("button", "viewer__flip");
+    flip.type = "button";
+    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, flip);
+
+    var stage = element("div", "viewer__stage");
+    img = element("img", "viewer__img");
+    stage.append(img);
+
+    prevButton = button("viewer__nav viewer__nav--prev", "‹", "Poprzednie zdjęcie");
+    nextButton = button("viewer__nav viewer__nav--next", "›", "Następne zdjęcie");
+    viewer.append(bar, stage, prevButton, nextButton);
+    document.body.append(viewer);
+
+    closeButton.addEventListener("click", close);
+    prevButton.addEventListener("click", function () { step(-1); });
+    nextButton.addEventListener("click", function () { step(1); });
+    flip.addEventListener("click", function () { show(current, !reverse); });
+    onSwipe(stage, step);
+    // Na całym dokumencie: gdy fokus zniknie z ukrytego przycisku, klawisze nadal działają.
+    document.addEventListener("keydown", onKey);
+  }
+
+  function pageUrl(tile, onReverse) {
+    return onReverse ? tile.getAttribute("data-reverse-page") : tile.href;
+  }
+
+  function preload(index) {
+    var tile = tiles[index];
+    if (tile) new Image().src = tile.getAttribute("data-preview");
+  }
+
+  function show(index, onReverse) {
+    var tile = tiles[index];
+    if (!tile) return;
+    onReverse = onReverse && tile.hasAttribute("data-reverse-preview");
+    current = index;
+    reverse = onReverse;
+
+    var full = tile.getAttribute(onReverse ? "data-reverse-preview" : "data-preview");
+    // Najpierw miniatura z pamięci przeglądarki, potem ostrzejszy podgląd, gdy się wczyta.
+    img.src = tile.getAttribute(onReverse ? "data-reverse-thumb" : "data-thumb");
+    img.alt = (onReverse ? "Rewers zdjęcia " : "Zdjęcie ") + (index + 1) + " z albumu " + albumTitle;
+    img.classList.add("is-loading");
+    var loader = new Image();
+    loader.onload = function () {
+      if (current === index && reverse === onReverse) {
+        img.src = full;
+        img.classList.remove("is-loading");
+      }
+    };
+    loader.src = full;
+
+    count.textContent = index + 1 + " / " + tiles.length + (onReverse ? " · rewers" : "");
+    flip.hidden = !tile.hasAttribute("data-reverse-preview");
+    flip.textContent = onReverse ? "Pokaż awers" : "Pokaż rewers";
+    prevButton.disabled = index === 0;
+    nextButton.disabled = index === tiles.length - 1;
+    if (!viewer.contains(document.activeElement) || document.activeElement.disabled || document.activeElement.hidden) closeButton.focus();
+    preload(index + 1);
+    preload(index - 1);
+
+    var state = { photo: index, reverse: onReverse };
+    if (pushed) history.replaceState(state, "", pageUrl(tile, onReverse));
+    else {
+      history.pushState(state, "", pageUrl(tile, onReverse));
+      pushed = true;
+    }
+  }
+
+  function open(index, trigger) {
+    if (!viewer) build();
+    opener = trigger;
+    viewer.hidden = false;
+    document.body.classList.add("viewer-open");
+    show(index, false);
+    closeButton.focus();
+  }
+
+  // Zamknięcie cofa historię, więc przycisk „wstecz” na telefonie też zamyka podgląd.
+  function close() {
+    if (pushed) history.back();
+    else hide();
+  }
+
+  function hide() {
+    if (!viewer || viewer.hidden) return;
+    viewer.hidden = true;
+    pushed = false;
+    document.body.classList.remove("viewer-open");
+    var tile = tiles[current];
+    if (tile) {
+      tile.scrollIntoView({ block: "nearest" });
+      tile.focus();
+    } else if (opener) opener.focus();
+  }
+
+  function step(direction) {
+    var next = current + direction;
+    if (next >= 0 && next < tiles.length) show(next, false);
+  }
+
+  function onKey(event) {
+    if (viewer.hidden || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "ArrowLeft") step(-1);
+    else if (event.key === "ArrowRight") step(1);
+    else if (event.key === "Escape") close();
+    else if (event.key === "Tab") trapFocus(event);
+    else return;
+    event.preventDefault();
+  }
+
+  function trapFocus(event) {
+    var focusable = Array.prototype.filter.call(viewer.querySelectorAll("button"), function (node) {
+      return !node.hidden && !node.disabled;
+    });
+    var position = focusable.indexOf(document.activeElement);
+    var next = (position + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+    focusable[next].focus();
+  }
+
+  window.addEventListener("popstate", function (event) {
+    var state = event.state;
+    if (state && typeof state.photo === "number") {
+      // „Dalej” w przeglądarce po zamknięciu podglądu otwiera go z powrotem.
+      if (!viewer) build();
+      pushed = true;
+      viewer.hidden = false;
+      document.body.classList.add("viewer-open");
+      show(state.photo, state.reverse);
+    } else hide();
+  });
+
+  grid.addEventListener("click", function (event) {
+    var tile = event.target.closest("a[data-preview]");
+    if (!tile || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    open(tiles.indexOf(tile), tile);
+  });
+})();

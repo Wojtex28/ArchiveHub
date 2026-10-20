@@ -10,14 +10,15 @@
 <ul class="album-grid">
   {% for album in albums %}
   <li class="album-card">
-    {% with cover=album.cover_photo %}<div class="album-card__cover">{% if cover %}<img src="{% url 'albums:thumb' cover.pk %}" alt="" loading="lazy">{% endif %}</div>{% endwith %}
-    <span class="album-card__title">{{ album.title }}</span>
-    {% if album.description %}<span class="album-card__description">{{ album.description|truncatewords:30 }}</span>{% endif %}
-    <span class="album-card__meta">{{ album.photo_count }} zdj.{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</span>
+    <a class="album-card__link" href="{% url 'albums:gallery' album.pk %}">
+      {% with cover=album.cover_photo %}<span class="album-card__cover">{% if cover %}<img src="{% url 'albums:thumb' cover.pk %}" alt="" loading="lazy">{% endif %}</span>{% endwith %}
+      <span class="album-card__title">{{ album.title }}</span>
+      {% if album.description %}<span class="album-card__description">{{ album.description|truncatewords:30 }}</span>{% endif %}
+      <span class="album-card__meta">{{ album.photo_count }} zdj.{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</span>
+    </a>
   </li>
   {% endfor %}
 </ul>
-<p class="hint">Oglądanie zdjęć w albumach pojawi się w kolejnych etapach.</p>
 {% else %}
 <div class="empty-state">
   <p>Nie widzisz jeszcze żadnych albumów.</p>

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ album.title }} · zdjęcie {{ number }} · {{ site_title }}{% endblock %}
+{% block body_class %}page-viewer{% endblock %}
+{% block content %}
+<div class="viewer viewer--page" data-viewer-page>
+  <div class="viewer__bar">
+    <a class="viewer__close" href="{% url 'albums:gallery' album.pk %}#zdjecie-{{ photo.pk }}" data-close>✕<span class="visually-hidden"> Wróć do albumu</span></a>
+    <span class="viewer__title">{{ album.title }}</span>
+    <span class="viewer__count">{{ number }} / {{ total }}{% if reverse %} · rewers{% endif %}</span>
+    {% if photo.has_reverse %}
+    {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}">Pokaż awers</a>
+    {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}">Pokaż rewers</a>{% endif %}
+    {% endif %}
+  </div>
+  <div class="viewer__stage" data-stage>
+    <img class="viewer__img" src="{% if reverse %}{% url 'albums:preview_reverse' photo.pk %}{% else %}{% url 'albums:preview' photo.pk %}{% endif %}"
+         alt="{% if reverse %}Rewers zdjęcia{% else %}Zdjęcie{% endif %} {{ number }} z albumu {{ album.title }}">
+  </div>
+  {% if previous_pk %}<a class="viewer__nav viewer__nav--prev" href="{% url 'albums:photo' album.pk previous_pk %}" rel="prev">‹<span class="visually-hidden"> Poprzednie zdjęcie</span></a>{% endif %}
+  {% if next_pk %}<a class="viewer__nav viewer__nav--next" href="{% url 'albums:photo' album.pk next_pk %}" rel="next">›<span class="visually-hidden"> Następne zdjęcie</span></a>{% endif %}
+</div>
+<script src="{% static 'js/gallery.js' %}" defer></script>
+{% endblock %}
