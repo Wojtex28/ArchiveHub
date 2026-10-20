@@ -1,0 +1,26 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Tło logowania</h1>
+<p class="hint">Te zdjęcia pływają pod siatką kropek na stronie logowania i można je przesuwać myszką. To tylko dekoracja: nie trafiają do żadnego albumu.</p>
+<p class="notice"><strong>Uwaga:</strong> strona logowania jest publiczna. Te zdjęcia zobaczy każdy, kto zna adres archiwum, także bez konta. Wybieraj takie, które możesz pokazać obcym.</p>
+<form method="post" enctype="multipart/form-data" novalidate class="card card--form">
+  {% csrf_token %}
+  <h2>Dodaj zdjęcia</h2>
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Wgraj</button>
+</form>
+<h2 class="section-title">Zdjęcia w tle ({{ photos|length }})</h2>
+<ul class="thumb-grid">
+  {% for photo in photos %}
+  <li class="thumb{% if not photo.is_active %} thumb--off{% endif %}">
+    <img src="{% url 'panel:login_photo_preview' photo.pk %}" alt="" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy">
+    <div class="thumb__actions">
+      <form method="post" action="{% url 'panel:login_photo_toggle' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button">{% if photo.is_active %}Ukryj{% else %}Pokazuj{% endif %}</button></form>
+      <form method="post" action="{% url 'panel:login_photo_delete' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button is-danger">Usuń</button></form>
+    </div>
+  </li>
+  {% empty %}
+  <li class="hint">Nie ma jeszcze zdjęć. Strona logowania pokazuje wtedy samą siatkę kropek.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

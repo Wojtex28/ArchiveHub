@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}page-landing{% endblock %}
 {% block content %}
+{% block backdrop %}{% endblock %}
 <main class="auth">
   <a class="auth__brand" href="{% url 'landing' %}">{{ site_title }}</a>
   <div class="card">

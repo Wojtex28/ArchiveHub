@@ -15,4 +15,11 @@ urlpatterns = [
     path("kody/<int:pk>/aktywnosc/", views.code_toggle_active, name="code_toggle_active"),
     path("grupy/", views.group_list, name="group_list"),
     path("grupy/<int:pk>/", views.group_edit, name="group_edit"),
+    path("albumy/", views.album_list, name="album_list"),
+    path("uprawnienia/", views.permissions, name="permissions"),
+    path("synchronizacja/", views.sync, name="sync"),
+    path("tlo-logowania/", views.login_photos, name="login_photos"),
+    path("tlo-logowania/<int:pk>.jpg", views.login_photo_preview, name="login_photo_preview"),
+    path("tlo-logowania/<int:pk>/pokazuj/", views.login_photo_toggle, name="login_photo_toggle"),
+    path("tlo-logowania/<int:pk>/usun/", views.login_photo_delete, name="login_photo_delete"),
 ]

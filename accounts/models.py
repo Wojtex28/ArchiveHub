@@ -8,11 +8,16 @@ from django.utils import timezone
 class FamilyGroup(models.Model):
     """Grupa osób, np. „Bereza” albo „Najbliższa rodzina”.
 
-    Kod rodzinny przypisuje do grupy; od ETAPU 6 grupy dostają dostęp do albumów.
+    Kod rodzinny przypisuje do grupy, a grupa decyduje, które albumy widać.
     """
 
     name = models.CharField("nazwa", max_length=60, unique=True)
     description = models.CharField("opis", max_length=200, blank=True)
+    sees_all_albums = models.BooleanField(
+        "widzi wszystkie albumy",
+        default=False,
+        help_text="Także albumy dodane w przyszłości, bez zaznaczania ich w tabeli uprawnień.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

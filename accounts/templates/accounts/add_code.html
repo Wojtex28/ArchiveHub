@@ -1,0 +1,13 @@
+{% extends "app_base.html" %}
+{% block title %}Kolejny kod · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--narrow{% endblock %}
+{% block main %}
+<h1>Mam kolejny kod</h1>
+<p class="lead">Każdy kod rodzinny otwiera albumy jednej grupy. Wpisz nowy kod, a dołączysz do kolejnej grupy na tym samym koncie.</p>
+<form method="post" novalidate class="card">
+  {% csrf_token %}
+  {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Dodaj kod</button>
+</form>
+{% endblock %}

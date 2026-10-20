@@ -13,6 +13,9 @@
   --danger: #a1302a;
   --danger-bg: #f8e6e2;
   --ok: #4f7a4a;
+  /* Kolory kropek tła logowania jako „r g b”, czytane przez skrypt. */
+  --grid-dot: 59 51 43;
+  --grid-dot-active: 111 47 42;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -169,7 +172,7 @@ body {
 .form-error ul { margin: 0; padding-left: 1.25rem; }
 
 .check { display: flex; align-items: center; gap: 0.5rem; min-height: 36px; font-weight: 400 !important; }
-.check input { width: 1.125rem; height: 1.125rem; }
+.check input { width: 1.125rem; height: 1.125rem; accent-color: var(--accent); }
 
 .hint { color: var(--ink-quiet); font-size: 0.9375rem; }
 .field .hint { margin: 0.375rem 0 0; }
@@ -250,6 +253,80 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
 .plain-list { list-style: none; padding: 0; }
 .plain-list li { padding: 0.375rem 0; }
 
+/* --- Tło strony logowania ------------------------------------------------ */
+
+.login-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  /* Delikatna winieta, żeby środek z formularzem był spokojniejszy. */
+  background: radial-gradient(ellipse at center, var(--paper) 0%, #ebe3d6 100%);
+}
+
+/* Osobne warstwy: zdjęcia (z własną kolejnością przy przeciąganiu) zawsze pod siatką. */
+.login-bg__photos { position: absolute; inset: 0; z-index: 0; }
+.login-bg__grid { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+
+.login-photo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 7px 7px 26px;
+  background: #fdfbf7;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgb(59 51 43 / 0.18), 0 8px 24px rgb(59 51 43 / 0.16);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  transition: opacity 600ms ease, box-shadow 200ms ease;
+  will-change: transform;
+}
+
+.login-photo.is-visible { opacity: 0.92; }
+.login-photo.is-dragging { cursor: grabbing; opacity: 1; box-shadow: 0 2px 4px rgb(59 51 43 / 0.2), 0 18px 40px rgb(59 51 43 / 0.28); }
+.login-photo img { display: block; width: 100%; height: auto; pointer-events: none; filter: sepia(0.18) saturate(0.9); }
+
+/* Formularz nad tłem; puste miejsca przepuszczają kursor do zdjęć pod spodem. */
+.page-login .auth { position: relative; z-index: 1; pointer-events: none; }
+.page-login .auth > * { pointer-events: auto; }
+.page-login .card { box-shadow: 0 2px 6px rgb(59 51 43 / 0.08), 0 20px 50px rgb(59 51 43 / 0.18); }
+.page-login .auth__brand,
+.page-login .auth__aside {
+  align-self: center;
+  padding: 0.25rem 0.875rem;
+  border-radius: 14px;
+  background: rgb(244 239 230 / 0.86);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* --- Albumy ------------------------------------------------------------- */
+
+.section-title { font: 400 1.375rem/1.3 var(--serif); margin: 2rem 0 1rem; }
+.album-grid { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 1rem; }
+.album-card { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.25rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.album-card__title { font: 400 1.125rem/1.3 var(--serif); }
+.album-card__meta { color: var(--ink-quiet); font-size: 0.9375rem; }
+
+.table--matrix th[scope="row"] { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 1rem; color: var(--ink); }
+.table--matrix td { text-align: center; vertical-align: middle; }
+.table--matrix td input { width: 1.25rem; height: 1.25rem; accent-color: var(--accent); }
+.table--matrix thead .hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.permissions .button { margin-top: 1rem; }
+
+.badge--danger { background: var(--danger); color: #fff; }
+.is-danger { color: var(--danger); }
+.notice { padding: 0.75rem 1rem; border-radius: 8px; background: #f6ecd6; border: 1px solid #e3cf9f; }
+.events li { display: flex; flex-wrap: wrap; gap: 0 0.75rem; }
+
+.thumb-grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 1rem; }
+.thumb { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 0.5rem; }
+.thumb img { display: block; width: 100%; height: 8rem; object-fit: cover; border-radius: 4px; }
+.thumb--off img { opacity: 0.35; }
+.thumb__actions { display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.9375rem; }

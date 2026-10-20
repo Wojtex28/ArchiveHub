@@ -1,0 +1,29 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<div class="heading-row">
+  <h1>Synchronizacja archiwum</h1>
+  <form method="post">{% csrf_token %}<button type="submit" class="button">Synchronizuj teraz</button></form>
+</div>
+<p class="hint">Synchronizacja sprawdza foldery w bibliotece zdjęć (<code>{{ albums_dir }}</code>). Każdy folder to album. Nowe foldery stają się albumami, a znikniętym albumom aplikacja tylko dopisuje „brak folderu” i niczego nie usuwa. Folder z „_” na początku nazwy trafia do archiwum jako ukryty.</p>
+<h2>Historia</h2>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Kiedy</th><th>Wynik</th><th>Zmiany</th></tr></thead>
+  <tbody>
+  {% for r in reports %}
+  <tr>
+    <td>{{ r.started_at|date:"j E Y, H:i" }}{% if r.triggered_by %}<br><span class="hint">{{ r.triggered_by.username }}</span>{% endif %}</td>
+    <td>{% if r.error %}<span class="is-danger">{{ r.error }}</span>{% else %}{{ r.albums_total }} albumów, {{ r.photos_total }} zdjęć{% endif %}</td>
+    <td>
+      {% if r.new_albums %}Nowe: {{ r.new_albums|join:", " }}{% endif %}
+      {% if r.missing_albums %}{% if r.new_albums %}<br>{% endif %}Brak folderu: {{ r.missing_albums|join:", " }}{% endif %}
+      {% if not r.new_albums and not r.missing_albums and not r.error %}<span class="hint">bez zmian</span>{% endif %}
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3" class="hint">Jeszcze nie było synchronizacji.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
