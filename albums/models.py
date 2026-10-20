@@ -34,6 +34,16 @@ class Album(models.Model):
     title = models.CharField("tytuł", max_length=200)
     description = models.TextField("opis", blank=True)
     is_hidden = models.BooleanField("ukryty", default=False)
+    # Kolejność w archiwum; nowy album trafia na koniec.
+    position = models.PositiveIntegerField("kolejność", default=0)
+    cover = models.ForeignKey(
+        "Photo",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="okładka",
+    )
     folder_missing = models.BooleanField("brak folderu", default=False)
     photo_count = models.PositiveIntegerField("liczba zdjęć", default=0)
     # Ustawiane w panelu; worker importu przetwarza wtedy album jeszcze raz ze skanów w udziale.
@@ -45,12 +55,25 @@ class Album(models.Model):
     objects = AlbumQuerySet.as_manager()
 
     class Meta:
-        ordering = ["folder"]
+        ordering = ["position", "folder"]
         verbose_name = "album"
         verbose_name_plural = "albumy"
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.position:
+            top = Album.objects.aggregate(top=models.Max("position"))["top"] or 0
+            self.position = top + 1
+        super().save(*args, **kwargs)
+
+    @property
+    def cover_photo(self):
+        """Okładka wybrana w panelu, a bez niej pierwsze zdjęcie albumu."""
+        if self.cover_id and not self.cover.file_missing:
+            return self.cover
+        return self.photos.filter(file_missing=False).first()
 
     @property
     def path(self):

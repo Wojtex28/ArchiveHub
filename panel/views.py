@@ -10,10 +10,11 @@ from django.db import transaction
 from django.db.models import Count, Prefetch, Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from accounts.models import FamilyGroup, InviteCode
-from albums.importer import import_dir
+from albums.importer import import_dir, natural_key
 from albums.models import Album, ImportJob, SyncReport
 from albums.sync import albums_dir, sync_albums
 from core.login_photos import delete_login_photo, save_login_photo
@@ -21,6 +22,7 @@ from core.models import LoginPhoto
 
 from .codes import suggest_code
 from .forms import (
+    AlbumForm,
     FamilyGroupForm,
     InviteCodeForm,
     LoginPhotoUploadForm,
@@ -230,7 +232,7 @@ def group_edit(request, pk):
 
 @master_required
 def album_list(request):
-    albums = Album.objects.prefetch_related("groups")
+    albums = Album.objects.prefetch_related("groups").select_related("cover")
     return render(
         request,
         "panel/album_list.html",
@@ -250,18 +252,71 @@ def _folder_size(path):
 
 
 @master_required
+@require_http_methods(["GET", "HEAD", "POST"])
 def album_detail(request, pk):
     album = get_object_or_404(Album, pk=pk)
+    form = AlbumForm(instance=album)
+    if request.method == "POST":
+        form = AlbumForm(request.POST, instance=album)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Zapisano album.")
+            return redirect("panel:album_detail", album.pk)
     return render(
         request,
         "panel/album_detail.html",
         {
             "album": album,
+            "form": form,
+            "cover": album.cover_photo,
             "photos": album.photos.all(),
             "imports": album.imports.all()[:10],
             "disk_size": _folder_size(album.path),
         },
     )
+
+
+@master_required
+@require_POST
+def album_set_cover(request, pk, photo_pk):
+    album = get_object_or_404(Album, pk=pk)
+    album.cover = get_object_or_404(album.photos, pk=photo_pk)
+    album.save(update_fields=["cover", "updated_at"])
+    messages.success(request, f"Okładka albumu: zdjęcie {album.cover.name}.")
+    return redirect("panel:album_detail", album.pk)
+
+
+def _renumber(albums):
+    for number, album in enumerate(albums, start=1):
+        if album.position != number:
+            album.position = number
+            album.save(update_fields=["position"])
+
+
+@master_required
+@require_POST
+def album_move(request, pk, direction):
+    """Przesuwa album o jedno miejsce w górę albo w dół listy."""
+    albums = list(Album.objects.all())
+    index = next((i for i, a in enumerate(albums) if a.pk == pk), None)
+    if index is None:
+        raise Http404
+    target = index - 1 if direction == "up" else index + 1
+    if 0 <= target < len(albums):
+        albums[index], albums[target] = albums[target], albums[index]
+    with transaction.atomic():
+        _renumber(albums)
+    return redirect(f"{reverse('panel:album_list')}#album-{pk}")
+
+
+@master_required
+@require_POST
+def album_sort_by_folder(request):
+    albums = sorted(Album.objects.all(), key=lambda a: natural_key(a.folder))
+    with transaction.atomic():
+        _renumber(albums)
+    messages.success(request, "Ułożono albumy według nazw folderów.")
+    return redirect("panel:album_list")
 
 
 @master_required
