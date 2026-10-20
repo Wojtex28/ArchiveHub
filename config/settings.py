@@ -46,6 +46,15 @@ DATA_DIR = Path(env("ARCHIVEHUB_DATA_DIR", str(BASE_DIR / "var")))
 
 # Biblioteka zdjęć: każdy podfolder to jeden album (synchronizacja w panelu).
 ARCHIVEHUB_ALBUMS_DIR = Path(env("ARCHIVEHUB_ALBUMS_DIR", str(DATA_DIR / "albumy")))
+# Udział sieciowy, do którego wrzucasz foldery ze skanami (w kontenerze tylko do odczytu).
+ARCHIVEHUB_IMPORT_DIR = Path(env("ARCHIVEHUB_IMPORT_DIR", str(BASE_DIR / "var" / "import")))
+# Folder trafia do importu, gdy jego zawartość nie zmienia się przez tyle minut.
+ARCHIVEHUB_IMPORT_STABLE_MINUTES = int(env("ARCHIVEHUB_IMPORT_STABLE_MINUTES", "10"))
+# Rewers ma nazwę awersu z tym dopiskiem, np. 012.jpg i 012_r.jpg.
+ARCHIVEHUB_REVERSE_SUFFIX = env("ARCHIVEHUB_REVERSE_SUFFIX", "_r")
+# Dłuższy bok wersji do oglądania i miniatury (px).
+ARCHIVEHUB_WEB_MAX_SIDE = int(env("ARCHIVEHUB_WEB_MAX_SIDE", "5000"))
+ARCHIVEHUB_THUMB_MAX_SIDE = 640
 # Zdjęcia w tle strony logowania. Wgrywane w panelu, nigdy nie trafiają do repozytorium.
 ARCHIVEHUB_LOGIN_PHOTOS_DIR = DATA_DIR / "tlo-logowania"
 

@@ -16,6 +16,7 @@ urlpatterns = [
     path("grupy/", views.group_list, name="group_list"),
     path("grupy/<int:pk>/", views.group_edit, name="group_edit"),
     path("albumy/", views.album_list, name="album_list"),
+    path("albumy/<int:pk>/", views.album_detail, name="album_detail"),
     path("uprawnienia/", views.permissions, name="permissions"),
     path("synchronizacja/", views.sync, name="sync"),
     path("tlo-logowania/", views.login_photos, name="login_photos"),

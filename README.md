@@ -13,8 +13,8 @@ w projekcie.
 | 0 | Analiza i architektura | gotowe |
 | 1 | Fundament: Django, baza, Docker, Caddy, konfiguracja, testy | gotowe |
 | 2 | Konta, logowanie, kody rodzinne, konto administratora, podstawy panelu | gotowe |
-| 3 | Panel administratora: albumy, uprawnienia grupa × album, synchronizacja, tło logowania | **gotowe** |
-| 4 | Import albumów z udziału sieciowego (konwersja, miniatury, rewersy) | następny |
+| 3 | Panel administratora: albumy, uprawnienia grupa × album, synchronizacja, tło logowania | gotowe |
+| 4 | Import albumów z udziału sieciowego (konwersja, miniatury, rewersy) | **gotowe** |
 | 5+ | Zarządzanie albumami, galeria, pobieranie, komentarze… | zaplanowane |
 
 ## Technologie
@@ -290,7 +290,9 @@ Plik `kopia-RRRR-MM-DD.sqlite3` przenieś poza serwer (np. na Google Drive).
 | Z telefonu (LTE) działa, z komputera nie | Komputer albo router pamięta DNS sprzed przełączenia na Cloudflare. PowerShell jako administrator: `ipconfig /flushdns`, zamknij przeglądarkę; w Chrome także `chrome://net-internals/#dns` → Clear host cache. Samo mija po kilku godzinach |
 | `Invalid service URL format` w Cloudflare | Adres usługi w tunelu musi mieć protokół: `http://caddy:80` |
 | Przy tunelu w Cloudflare „Unsupported” | Stara wersja cloudflared. Pobierz aktualny kod i `docker compose --profile tunnel up -d` |
-| „Out of memory” w logach serwera | Kontenery ArchiveHub mają twarde limity RAM (aplikacja 768 MB, `ARCHIVEHUB_APP_MEMORY`), więc nie zabiorą pamięci NAS-owi. Sprawdź `free -h` i `docker stats --no-stream`, co zajmuje resztę |
+| Import nie widzi folderów (`ls /import` pusty albo „Permission denied”) | Sprawdź `ARCHIVEHUB_IMPORT_PATH` w `.env` i uprawnienie `everyone@` Read na datasecie (sekcja [Import albumów](#udział-importu-na-truenas)) |
+| `worker` ma status „unhealthy” | `docker compose logs worker`. Worker po każdym przejściu i każdym zdjęciu zapisuje znacznik życia; „unhealthy” znaczy, że stoi od 10 minut |
+| „Out of memory” w logach serwera | Kontenery ArchiveHub mają twarde limity RAM (aplikacja 768 MB, `ARCHIVEHUB_APP_MEMORY`; worker 1 GB, `ARCHIVEHUB_WORKER_MEMORY`), więc nie zabiorą pamięci NAS-owi. Sprawdź `free -h` i `docker stats --no-stream`, co zajmuje resztę |
 
 Zatrzymanie: `docker compose --profile tunnel down` (dane zostają). Logi na żywo: `docker compose logs -f`.
 
@@ -321,6 +323,42 @@ i się nie nadają). Kroki 1, 4 i 7–9 bez zmian; poniżej różnice.
   maszynie: Ustawienia → Pamięć, albo w PowerShellu
   `Set-VMMemory -VMName "TrueNAS" -DynamicMemoryEnabled $false -StartupBytes 8GB`.
 
+## Import albumów
+
+Album dodajesz, kopiując jego folder do udziału sieciowego (np. `\\truenas\ArchiveImport` w Eksploratorze Windows).
+Osobny kontener `worker` co 30 sekund przegląda udział:
+
+1. Nowy folder czeka, aż przez `ARCHIVEHUB_IMPORT_STABLE_MINUTES` (domyślnie 10) minut nic się w nim nie zmieni,
+   czyli aż kopiowanie się skończy.
+2. Z każdego skanu (JPEG, TIFF, PNG) powstaje wersja do oglądania (JPEG, dłuższy bok 5000 px, bez danych EXIF)
+   i miniatura (WebP, 640 px). Trafiają do biblioteki `/data/albumy/<folder>/`.
+3. Rewers łączy się ze zdjęciem po nazwie: `012.jpg` + `012_r.jpg` (końcówka: `ARCHIVEHUB_REVERSE_SUFFIX`).
+4. Postęp i raport (dodane, pominięte, błędy) są w Panel → Synchronizacja i na stronie albumu.
+
+Zasady:
+- Udział jest podpięty **tylko do odczytu**. Aplikacja nigdy nie zmienia ani nie usuwa Twoich skanów;
+  po udanym imporcie możesz je usunąć z udziału sam (album zostaje).
+- Dorzucenie plików do folderu uruchamia import ponownie. Zdjęcia już obecne (ta sama nazwa albo ta sama
+  zawartość pliku) są pomijane, a rewers dorzucony później dołącza do istniejącego zdjęcia.
+- Folder z `_` na początku nazwy trafia do archiwum jako ukryty.
+- Nowy album nie jest widoczny dla nikogo poza masterem i grupami „widzi wszystkie albumy”,
+  dopóki nie zaznaczysz go w Panel → Uprawnienia.
+- Uszkodzony plik nie zatrzymuje importu: trafia do listy pominiętych.
+
+### Udział importu na TrueNAS
+
+1. **Datasets** → zaznacz pulę → **Add Dataset**: nazwa `ArchiveImport`, preset **SMB**. Zaznacz
+   „Create SMB Share”. Zapamiętaj ścieżkę, np. `/mnt/NASTest/ArchiveImport`.
+2. Kontener czyta pliki jako użytkownik o numerze 1000, więc musi mieć prawo odczytu:
+   **Datasets** → `ArchiveImport` → **Permissions → Edit** → **Add Item**: Who `everyone@`,
+   Permissions **Read**, Flags **Inherit**, zaznacz „Apply permissions recursively” → **Save Access Control List**.
+   Dostęp przez sieć nadal wymaga logowania do udziału SMB.
+3. W Windows: Eksplorator → `\\<adres-NAS>\ArchiveImport`, zaloguj się kontem TrueNAS z dostępem do SMB.
+4. W `.env` aplikacji (`sudo nano .env`) dopisz: `ARCHIVEHUB_IMPORT_PATH=/mnt/NASTest/ArchiveImport`,
+   potem `sudo docker compose --profile tunnel up -d`.
+5. Sprawdź: `sudo docker compose exec worker ls /import` pokazuje foldery z udziału,
+   a `sudo docker compose logs -f worker` pokazuje przebieg importu.
+
 ## Testy i jakość kodu
 
 ```bash
@@ -338,19 +376,20 @@ GitHub Actions uruchamia przy każdej zmianie: lint, testy, budowanie obrazu Doc
 config/        ustawienia (wszystko ze zmiennych środowiskowych), adresy URL
 accounts/      konta, grupy, kody rodzinne, logowanie, limit prób
 panel/         panel administratora (osoby, albumy, uprawnienia, synchronizacja, kody, grupy, tło)
-albums/        albumy, widoczność dla grup, synchronizacja z folderami
+albums/        albumy, zdjęcia, widoczność dla grup, import z udziału, synchronizacja, miniatury
 core/          strona powitalna, tło logowania, /healthz, robots.txt, nagłówki bezpieczeństwa
 templates/     szablony wspólne
 static/        CSS i JavaScript (tło logowania)
 tests/         testy (pytest)
 deploy/        Caddyfile, konfiguracja Gunicorna, skrypt startowy kontenera
-compose.yaml   usługi: app, caddy, cloudflared (profil „tunnel”)
+compose.yaml   usługi: app, worker (import), caddy, cloudflared (profil „tunnel”)
 ```
 
 ## Dane i bezpieczeństwo
 
 - Baza danych leży w wolumenie Dockera `data` (`/data/db/archivehub.sqlite3` w kontenerze),
-  obok biblioteki albumów (`/data/albumy`) i zdjęć tła logowania (`/data/tlo-logowania`).
+  obok biblioteki albumów (`/data/albumy`: wersje do oglądania i miniatury) i zdjęć tła logowania (`/data/tlo-logowania`).
+- Oryginalne skany nie są kopiowane na serwer aplikacji: worker czyta je z udziału tylko do odczytu.
 - Plik `.env`, baza i zdjęcia nigdy nie trafiają do repozytorium (`.gitignore`). Repozytorium jest publiczne.
 - Produkcja: przekierowanie na HTTPS, ciasteczka tylko przez HTTPS, HSTS, Content-Security-Policy
   bez skryptów inline, `noindex` dla wyszukiwarek, aplikacja w kontenerze działa jako zwykły użytkownik.

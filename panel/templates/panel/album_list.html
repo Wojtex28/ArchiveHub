@@ -12,7 +12,7 @@
   <tbody>
   {% for album in albums %}
   <tr{% if album.folder_missing %} class="is-muted"{% endif %}>
-    <td>{{ album.title }}
+    <td><a href="{% url 'panel:album_detail' album.pk %}">{{ album.title }}</a>
       {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
       {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}
       <br><span class="hint">folder: {{ album.folder }}</span></td>
@@ -20,7 +20,7 @@
     <td>{% for g in album.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">żadna</span>{% endfor %}</td>
   </tr>
   {% empty %}
-  <tr><td colspan="3" class="hint">Nie ma jeszcze albumów. Wrzuć foldery ze zdjęciami do biblioteki i kliknij „Synchronizuj archiwum”.</td></tr>
+  <tr><td colspan="3" class="hint">Nie ma jeszcze albumów. Wrzuć folder ze skanami do udziału import; po kilku minutach pojawi się tutaj. Stan importu widać w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</td></tr>
   {% endfor %}
   </tbody>
 </table>

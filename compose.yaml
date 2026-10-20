@@ -16,8 +16,43 @@ services:
     volumes:
       - data:/data
       - static:/srv/static
+    environment:
+      # Panel pokazuje tę ścieżkę; sam udział czyta tylko worker.
+      ARCHIVEHUB_IMPORT_DIR: /import
     # Twarde limity pamięci: przy braku RAM-u na serwerze OOM trafi w ten kontener, a nie w NAS.
     mem_limit: ${ARCHIVEHUB_APP_MEMORY:-768m}
+    restart: unless-stopped
+    logging: *logging
+
+  # Import albumów z udziału sieciowego: ten sam obraz, osobny proces.
+  # Udział jest podpięty tylko do odczytu, więc aplikacja niczego w nim nie zmieni.
+  worker:
+    image: archivehub:latest
+    command: ["python", "manage.py", "import_worker"]
+    env_file: .env
+    environment:
+      ARCHIVEHUB_IMPORT_DIR: /import
+      # Migracje robi już kontener app.
+      ARCHIVEHUB_SKIP_SETUP: "1"
+    volumes:
+      - data:/data
+      - ${ARCHIVEHUB_IMPORT_PATH:-./import}:/import:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/data/import-worker.heartbeat') < 600 else 1)"
+      interval: 60s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    # Konwersja dużego skanu potrzebuje sporo pamięci; limit chroni NAS.
+    mem_limit: ${ARCHIVEHUB_WORKER_MEMORY:-1g}
+    stop_grace_period: 30s
     restart: unless-stopped
     logging: *logging
 

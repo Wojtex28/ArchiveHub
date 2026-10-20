@@ -11,6 +11,7 @@ urlpatterns = [
     ),
     path(settings.DJANGO_ADMIN_PATH, admin.site.urls),
     path("panel/", include("panel.urls")),
+    path("", include("albums.urls")),
     path("", include("accounts.urls")),
     path("", include("core.urls")),
 ]

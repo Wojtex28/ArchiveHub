@@ -1,6 +1,7 @@
 import logging
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.views import redirect_to_login
@@ -12,7 +13,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from accounts.models import FamilyGroup, InviteCode
-from albums.models import Album, SyncReport
+from albums.importer import import_dir
+from albums.models import Album, ImportJob, SyncReport
 from albums.sync import albums_dir, sync_albums
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import LoginPhoto
@@ -52,6 +54,7 @@ def dashboard(request):
     events = [
         (person.date_joined, "join", person) for person in User.objects.order_by("-date_joined")[:8]
     ] + [(report.started_at, "sync", report) for report in SyncReport.objects.all()[:8]]
+    events += [(job.finished_at, "import", job) for job in ImportJob.objects.exclude(finished_at=None)[:8]]
     events.sort(key=lambda event: event[0], reverse=True)
     return render(
         request,
@@ -64,6 +67,9 @@ def dashboard(request):
             "group_count": FamilyGroup.objects.count(),
             "code_count": InviteCode.objects.filter(is_active=True).count(),
             "last_sync": SyncReport.objects.first(),
+            "pending_imports": ImportJob.objects.filter(
+                status__in=[ImportJob.WAITING, ImportJob.PROCESSING]
+            ).count(),
             "events": events[:8],
         },
     )
@@ -237,6 +243,20 @@ def album_list(request):
 
 
 @master_required
+def album_detail(request, pk):
+    album = get_object_or_404(Album, pk=pk)
+    return render(
+        request,
+        "panel/album_detail.html",
+        {
+            "album": album,
+            "photos": album.photos.all(),
+            "imports": album.imports.all()[:10],
+        },
+    )
+
+
+@master_required
 @require_http_methods(["GET", "HEAD", "POST"])
 def permissions(request):
     """Tabela albumy × grupy. Grupy „widzą wszystko” mają kolumnę zawsze zaznaczoną."""
@@ -278,7 +298,13 @@ def sync(request):
     return render(
         request,
         "panel/sync.html",
-        {"reports": SyncReport.objects.select_related("triggered_by")[:20], "albums_dir": albums_dir()},
+        {
+            "reports": SyncReport.objects.select_related("triggered_by")[:20],
+            "albums_dir": albums_dir(),
+            "import_dir": import_dir(),
+            "imports": ImportJob.objects.select_related("album")[:20],
+            "stable_minutes": settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES,
+        },
     )
 
 

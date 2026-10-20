@@ -9,6 +9,7 @@
   <a class="stat" href="{% url 'panel:code_list' %}"><span class="stat__value">{{ code_count }}</span><span class="stat__label">aktywnych kodów</span></a>
 </div>
 {% if inactive_count %}<p class="hint">Wyłączone konta: {{ inactive_count }}.</p>{% endif %}
+{% if pending_imports %}<p class="notice">W kolejce importu: {{ pending_imports }} {% if pending_imports == 1 %}folder{% else %}folderów{% endif %}. Szczegóły w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</p>{% endif %}
 <div class="heading-row">
   <h2>Ostatnie zdarzenia</h2>
   <form method="post" action="{% url 'panel:sync' %}">{% csrf_token %}<button type="submit" class="button button--quiet">Synchronizuj archiwum</button></form>
@@ -17,7 +18,7 @@
   {% for when, kind, item in events %}
   <li>
     <span class="hint">{{ when|date:"j E Y, H:i" }}</span>
-    <span>{% if kind == "join" %}<a href="{% url 'panel:user_detail' item.pk %}">{{ item.username }}</a> dołączył(a) do archiwum{% else %}<a href="{% url 'panel:sync' %}">Synchronizacja</a>: {% if item.error %}<span class="is-danger">błąd</span>{% else %}{{ item.albums_total }} albumów, {{ item.photos_total }} zdjęć{% if item.new_albums %}, nowe: {{ item.new_albums|length }}{% endif %}{% endif %}{% endif %}</span>
+    <span>{% if kind == "join" %}<a href="{% url 'panel:user_detail' item.pk %}">{{ item.username }}</a> dołączył(a) do archiwum{% elif kind == "import" %}Import <a href="{% if item.album %}{% url 'panel:album_detail' item.album_id %}{% else %}{% url 'panel:sync' %}{% endif %}">{{ item.folder }}</a>: {% if item.status == "failed" %}<span class="is-danger">błąd</span>{% else %}zdjęcia: {{ item.photos_added }}, rewersy: {{ item.reverses_added }}{% if item.skipped %}, pominięte: {{ item.skipped|length }}{% endif %}{% endif %}{% else %}<a href="{% url 'panel:sync' %}">Synchronizacja</a>: {% if item.error %}<span class="is-danger">błąd</span>{% else %}{{ item.albums_total }} albumów, {{ item.photos_total }} zdjęć{% if item.new_albums %}, nowe: {{ item.new_albums|length }}{% endif %}{% endif %}{% endif %}</span>
   </li>
   {% empty %}<li class="hint">Na razie nic się nie wydarzyło.</li>{% endfor %}
 </ul>

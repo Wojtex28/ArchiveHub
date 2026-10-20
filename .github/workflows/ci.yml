@@ -31,7 +31,7 @@ jobs:
         run: docker build -t archivehub:ci .
       - name: Start i healthcheck
         run: |
-          docker run -d --name ah -p 8000:8000 \
+          docker run -d --name ah -p 8000:8000 -v ci-data:/data \
             -e DJANGO_SECRET_KEY=ci-only-secret-key-not-used-anywhere-else-0123456789 \
             -e DJANGO_ALLOWED_HOSTS=archiwum.example.com \
             -e ARCHIVEHUB_SSL_REDIRECT=0 \
@@ -42,3 +42,16 @@ jobs:
           done
           docker logs ah
           exit 1
+      - name: Import albumu w kontenerze (worker, udział tylko do odczytu)
+        run: |
+          mkdir -p ci-import/Album_CI && chmod -R 777 ci-import
+          docker run --rm -v "$PWD/ci-import:/out" archivehub:ci \
+            python -c "from PIL import Image; Image.new('RGB', (3000, 2000), 'tan').save('/out/Album_CI/001.jpg')"
+          for pass in 1 2; do
+            docker run --rm -v ci-data:/data -v "$PWD/ci-import:/import:ro" \
+              -e DJANGO_SECRET_KEY=ci-only-secret-key-not-used-anywhere-else-0123456789 \
+              -e ARCHIVEHUB_IMPORT_DIR=/import -e ARCHIVEHUB_IMPORT_STABLE_MINUTES=0 -e ARCHIVEHUB_SKIP_SETUP=1 \
+              archivehub:ci python manage.py import_worker --once
+          done
+          docker exec ah python manage.py shell -c \
+            "from albums.models import Photo; p = Photo.objects.get(); assert p.web_path().is_file() and p.thumb_path().is_file(); print(p.album, p.width, p.height)"
