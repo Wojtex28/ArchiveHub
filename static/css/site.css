@@ -459,3 +459,53 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
   .viewer__download { width: 2.25rem; height: 2.25rem; }
   .select-bar__count { width: 100%; text-align: center; margin: 0; }
 }
+
+/* Komentarze (ETAP 10) */
+.gallery-tile__comments { position: absolute; right: 0.375rem; bottom: 0.375rem; padding: 0.0625rem 0.5rem; border-radius: 999px; background: rgb(20 17 14 / 0.7); color: #fbf8f2; font-size: 0.75rem; }
+.gallery-tile__comments[hidden] { display: none; }
+.gallery-grid.is-selecting .gallery-tile__comments { display: none; }
+.viewer__comments { display: inline-flex; align-items: center; gap: 0.3rem; height: 2.5rem; padding: 0 0.75rem; font: inherit; color: inherit; text-decoration: none; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.viewer__comments:hover, .viewer__comments[aria-expanded="true"], .viewer__comments[aria-current] { background: rgb(255 255 255 / 0.22); }
+.viewer__comments-count { font-variant-numeric: tabular-nums; }
+.viewer__panel { position: absolute; top: 3.25rem; right: 0; bottom: 0; width: 24rem; overflow-y: auto; overscroll-behavior: contain; background: #1f1a15; border-left: 1px solid rgb(255 255 255 / 0.12); z-index: 2; }
+.viewer__panel[hidden] { display: none; }
+.viewer__panel:focus { outline: none; }
+.viewer.has-panel .viewer__stage { margin-right: 24rem; }
+.viewer.has-panel .viewer__nav--next { right: 24.75rem; }
+.comments { padding: 1rem 1.125rem 1.5rem; }
+.comments__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.75rem; }
+.comments__close { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; color: inherit; text-decoration: none; border-radius: 999px; background: rgb(255 255 255 / 0.08); }
+.comments__close:hover { background: rgb(255 255 255 / 0.18); }
+.comments__title { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 400; color: #f4efe6; }
+.comments__list { list-style: none; margin: 0 0 1rem; padding: 0; }
+.comment { padding: 0.75rem 0; border-bottom: 1px solid rgb(255 255 255 / 0.1); }
+.comment__meta { margin: 0 0 0.25rem; font-size: 0.8125rem; color: #c9bca8; }
+.comment__meta strong { color: #f4efe6; font-weight: 600; }
+.comment__text { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.comment__delete-form { margin: 0.25rem 0 0; }
+.comment__delete { padding: 0; font: inherit; font-size: 0.8125rem; color: #e0a49c; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.comments__empty { margin: 0 0 1rem; color: #c9bca8; }
+.comments__form { display: grid; gap: 0.5rem; }
+.comments__form textarea { width: 100%; min-height: 5rem; padding: 0.625rem 0.75rem; font: inherit; color: #2c241d; background: #fbf8f2; border: 1px solid rgb(255 255 255 / 0.3); border-radius: 8px; resize: vertical; }
+.comments__form .button { justify-self: start; }
+.comments__error { margin: 0; color: #f0b3aa; }
+.viewer__panel > .comments__error { padding: 1rem 1.125rem; }
+@media (max-width: 40rem) {
+  /* Na telefonie przycisk komentarzy jest na dole ekranu, a panel wysuwa się od dołu. */
+  .viewer__comments { position: absolute; left: 50%; bottom: calc(0.75rem + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 3; background: rgb(20 17 14 / 0.75); }
+  .viewer.has-panel .viewer__comments { display: none; }
+  .viewer__panel { top: auto; left: 0; width: auto; height: 62%; border-left: 0; border-top: 1px solid rgb(255 255 255 / 0.15); border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .viewer.has-panel .viewer__stage { margin-right: 0; height: calc(38% - 3rem); flex: none; }
+  .viewer.has-panel .viewer__nav { display: none; }
+}
+.comment-admin { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.75rem; }
+.comment-admin__item { display: grid; grid-template-columns: 6rem 1fr auto; gap: 1rem; align-items: start; padding: 0.75rem; background: var(--card); border: 1px solid var(--rule); border-radius: 10px; }
+.comment-admin__thumb { display: block; width: 6rem; height: 6rem; overflow: hidden; border-radius: 6px; background: var(--rule); }
+.comment-admin__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.comment-admin__meta { margin: 0 0 0.25rem; font-size: 0.875rem; color: var(--ink-quiet); }
+.comment-admin__text { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 40rem) {
+  .comment-admin__item { grid-template-columns: 4rem 1fr; }
+  .comment-admin__thumb { width: 4rem; height: 4rem; }
+  .comment-admin__item form { grid-column: 2; }
+}

@@ -48,6 +48,11 @@
     return (degrees + (direction === "prawo" ? 90 : 270)) % 360;
   }
 
+  // Podczas pisania komentarza strzałki przesuwają kursor w tekście, a nie zmieniają zdjęcia.
+  function isTyping(event) {
+    return Boolean(event.target.closest && event.target.closest("textarea, input, select"));
+  }
+
   // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
   var page = document.querySelector("[data-viewer-page]");
   if (page) {
@@ -56,7 +61,7 @@
       if (link) window.location.href = link.href;
     };
     document.addEventListener("keydown", function (event) {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || isTyping(event)) return;
       if (event.key === "ArrowLeft") follow("[rel=prev]");
       else if (event.key === "ArrowRight") follow("[rel=next]");
       else if (event.key === "Escape") follow("[data-close]");
@@ -92,6 +97,10 @@
   var csrf = grid.getAttribute("data-csrf");
 
   var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
+  var commentsButton, commentsCount, panel;
+  var panelOpen = false;
+  var panelTile = null;
+  var commentsRequest = 0;
   var current = -1;
   var reverse = false;
   var opener = null;
@@ -133,7 +142,12 @@
     download.setAttribute("download", "");
     download.title = "Pobierz w pełnej rozdzielczości";
     download.setAttribute("aria-label", "Pobierz w pełnej rozdzielczości");
-    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip, download);
+    commentsButton = element("button", "viewer__comments", "💬");
+    commentsButton.type = "button";
+    commentsButton.title = "Komentarze";
+    commentsCount = element("span", "viewer__comments-count");
+    commentsButton.append(commentsCount);
+    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip, commentsButton, download);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
@@ -141,7 +155,11 @@
 
     prevButton = button("viewer__nav viewer__nav--prev", "‹", "Poprzednie zdjęcie");
     nextButton = button("viewer__nav viewer__nav--next", "›", "Następne zdjęcie");
-    viewer.append(bar, stage, prevButton, nextButton);
+    panel = element("aside", "viewer__panel");
+    panel.setAttribute("aria-label", "Komentarze");
+    panel.hidden = true;
+    panel.tabIndex = -1;
+    viewer.append(bar, stage, panel, prevButton, nextButton);
     document.body.append(viewer);
 
     closeButton.addEventListener("click", close);
@@ -150,6 +168,21 @@
     flip.addEventListener("click", function () { show(current, !reverse); });
     rotateLeft.addEventListener("click", function () { turn("lewo"); });
     rotateRight.addEventListener("click", function () { turn("prawo"); });
+    commentsButton.addEventListener("click", function () { setPanel(!panelOpen); });
+    panel.addEventListener("submit", sendComment);
+    panel.addEventListener("click", function (event) {
+      if (!event.target.closest("[data-comments-close]")) return;
+      event.preventDefault();
+      setPanel(false);
+      commentsButton.focus();
+    });
+    panel.addEventListener("keydown", function (event) {
+      // Ctrl+Enter (Cmd+Enter na Macu) wysyła komentarz.
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && event.target.form) {
+        event.preventDefault();
+        event.target.form.requestSubmit();
+      }
+    });
     window.addEventListener("resize", function () { if (!viewer.hidden) fitRotation(img, rotationOf(tiles[current], reverse)); });
     onSwipe(stage, step);
     // Na całym dokumencie: gdy fokus zniknie z ukrytego przycisku, klawisze nadal działają.
@@ -174,6 +207,103 @@
     saveRotation(tile.getAttribute("data-rotate-url"), csrf, side ? "rewers" : "awers", direction, function () {
       setRotation(tile, side, before);
     });
+  }
+
+  // Komentarze: panel obok zdjęcia (na telefonie od dołu), wczytywany z serwera jako gotowy HTML.
+  function commentCount(tile) {
+    return Number(tile.getAttribute("data-comments")) || 0;
+  }
+
+  function showCommentCount(tile) {
+    var number = commentCount(tile);
+    commentsCount.textContent = number;
+    commentsButton.setAttribute("aria-label", "Komentarze (" + number + ")");
+    commentsButton.setAttribute("aria-expanded", String(panelOpen));
+  }
+
+  function setCommentCount(tile, number) {
+    tile.setAttribute("data-comments", number);
+    var badge = tile.querySelector(".gallery-tile__comments");
+    if (badge) {
+      badge.hidden = !number;
+      badge.querySelector("[data-comment-count]").textContent = number;
+    }
+    if (tile === tiles[current]) showCommentCount(tile);
+  }
+
+  function setPanel(open) {
+    panelOpen = open;
+    panel.hidden = !open;
+    viewer.classList.toggle("has-panel", open);
+    showCommentCount(tiles[current]);
+    fitRotation(img, rotationOf(tiles[current], reverse));
+    if (open) {
+      loadComments(tiles[current]);
+      panel.focus();
+    }
+  }
+
+  // Treść z naszego serwera: komentarze są już escapowane w szablonie.
+  function fillPanel(tile, response, html) {
+    panel.innerHTML = html;
+    panel.removeAttribute("aria-busy");
+    var number = response.headers.get("X-Comment-Count");
+    if (number !== null) setCommentCount(tile, Number(number));
+  }
+
+  function panelError(text) {
+    var note = element("p", "comments__error", text);
+    note.setAttribute("role", "alert");
+    return note;
+  }
+
+  function loadComments(tile) {
+    var ticket = ++commentsRequest;
+    panelTile = tile;
+    panel.setAttribute("aria-busy", "true");
+    fetch(tile.getAttribute("data-comments-url"), { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      .then(function (response) {
+        if (!response.ok) throw new Error(response.status);
+        return response.text().then(function (html) {
+          if (ticket === commentsRequest) fillPanel(tile, response, html);
+        });
+      })
+      .catch(function () {
+        if (ticket !== commentsRequest) return;
+        panel.removeAttribute("aria-busy");
+        panel.replaceChildren(panelError("Nie udało się wczytać komentarzy. Zamknij panel i otwórz go jeszcze raz."));
+      });
+  }
+
+  function sendComment(event) {
+    var form = event.target;
+    event.preventDefault();
+    if (form.hasAttribute("data-comment-delete") && !window.confirm("Usunąć ten komentarz?")) return;
+    var tile = panelTile;
+    var submit = form.querySelector("button[type=submit]");
+    if (submit) submit.disabled = true;
+    var ticket = ++commentsRequest;
+    fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "fetch", "X-CSRFToken": csrf }
+    })
+      .then(function (response) {
+        // 400 to błąd w formularzu (np. pusty komentarz): serwer odsyła formularz z opisem błędu.
+        if (!response.ok && response.status !== 400) throw new Error(response.status);
+        return response.text().then(function (html) {
+          if (ticket !== commentsRequest) return;
+          fillPanel(tile, response, html);
+          var field = panel.querySelector("textarea");
+          if (field && response.status === 400) field.focus();
+        });
+      })
+      .catch(function () {
+        // Wpisany tekst zostaje w polu, można spróbować jeszcze raz.
+        if (submit) submit.disabled = false;
+        form.append(panelError("Nie udało się zapisać. Sprawdź połączenie i spróbuj ponownie."));
+      });
   }
 
   function pageUrl(tile, onReverse) {
@@ -211,6 +341,8 @@
     flip.hidden = !tile.hasAttribute("data-reverse-preview");
     flip.replaceChildren(element("span", "viewer__flip-verb", "Pokaż "), onReverse ? "awers" : "rewers");
     download.href = tile.getAttribute(onReverse ? "data-reverse-download" : "data-download");
+    showCommentCount(tile);
+    if (panelOpen && panelTile !== tile) loadComments(tile);
     prevButton.disabled = index === 0;
     nextButton.disabled = index === tiles.length - 1;
     if (!viewer.contains(document.activeElement) || document.activeElement.disabled || document.activeElement.hidden) closeButton.focus();
@@ -259,6 +391,14 @@
 
   function onKey(event) {
     if (viewer.hidden || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (isTyping(event) && event.key !== "Tab") {
+      // Escape w polu komentarza tylko z niego wychodzi, żeby nie zgubić wpisanego tekstu.
+      if (event.key === "Escape") {
+        event.preventDefault();
+        commentsButton.focus();
+      }
+      return;
+    }
     if (event.key === "ArrowLeft") step(-1);
     else if (event.key === "ArrowRight") step(1);
     else if (event.key === "Escape") close();
@@ -268,8 +408,8 @@
   }
 
   function trapFocus(event) {
-    var focusable = Array.prototype.filter.call(viewer.querySelectorAll("button, a[href]"), function (node) {
-      return !node.hidden && !node.disabled;
+    var focusable = Array.prototype.filter.call(viewer.querySelectorAll("button, a[href], textarea"), function (node) {
+      return !node.disabled && node.getClientRects().length > 0;
     });
     var position = focusable.indexOf(document.activeElement);
     var next = (position + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;

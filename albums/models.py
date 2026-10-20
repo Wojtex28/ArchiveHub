@@ -270,3 +270,35 @@ class SyncReport(models.Model):
     @property
     def ok(self):
         return not self.error
+
+
+class Comment(models.Model):
+    """Komentarz rodziny pod zdjęciem (wspólny dla awersu i rewersu), podpisany nickiem autora."""
+
+    MAX_LENGTH = 2000
+
+    photo = models.ForeignKey(
+        Photo, on_delete=models.CASCADE, related_name="comments", verbose_name="zdjęcie"
+    )
+    # Po usunięciu konta komentarz zostaje, podpisany „konto usunięte”.
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="comments",
+        verbose_name="autor",
+    )
+    text = models.TextField("treść", max_length=MAX_LENGTH)
+    created_at = models.DateTimeField("dodano", default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        verbose_name = "komentarz"
+        verbose_name_plural = "komentarze"
+
+    def __str__(self):
+        return f"{self.author or 'konto usunięte'} o {self.photo}: {self.text[:40]}"
+
+    def can_delete(self, user):
+        """Własny komentarz usuwa autor, każdy inny administrator."""
+        return user.is_superuser or (self.author_id is not None and self.author_id == user.pk)
