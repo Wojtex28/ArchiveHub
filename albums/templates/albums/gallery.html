@@ -1,0 +1,29 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}{{ album.title }} · {{ site_title }}{% endblock %}
+{% block main %}
+<p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
+<h1>{{ album.title }}{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</h1>
+{% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
+<p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie.</p>
+{% if photos %}
+<ul class="gallery-grid" data-gallery data-album-title="{{ album.title }}">
+  {% for photo in photos %}
+  <li id="zdjecie-{{ photo.pk }}">
+    <a class="gallery-tile" href="{% url 'albums:photo' album.pk photo.pk %}"
+       data-preview="{% url 'albums:preview' photo.pk %}"
+       data-thumb="{% url 'albums:thumb' photo.pk %}"
+       {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}"
+       data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}"
+       data-reverse-page="{% url 'albums:photo_reverse' album.pk photo.pk %}"{% endif %}>
+      <img src="{% url 'albums:thumb' photo.pk %}" alt="Zdjęcie {{ forloop.counter }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" decoding="async">
+      {% if photo.has_reverse %}<span class="gallery-tile__badge">z rewersem</span>{% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+<script src="{% static 'js/gallery.js' %}" defer></script>
+{% else %}
+<div class="empty-state"><p>Ten album nie ma jeszcze zdjęć.</p></div>
+{% endif %}
+{% endblock %}

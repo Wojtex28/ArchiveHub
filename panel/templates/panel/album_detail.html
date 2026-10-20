@@ -2,7 +2,7 @@
 {% block panel %}
 <p><a href="{% url 'panel:album_list' %}">← Wszystkie albumy</a></p>
 <h1>{{ album.title }}</h1>
-<p class="hint">Folder: {{ album.folder }} · zdjęć: {{ album.photo_count }}{% if disk_size is not None %} · na dysku: {{ disk_size|filesizeformat }}{% endif %}
+<p class="hint">Folder: {{ album.folder }} · zdjęć: {{ album.photo_count }}{% if disk_size is not None %} · na dysku: {{ disk_size|filesizeformat }}{% endif %} · <a href="{% url 'albums:gallery' album.pk %}">Zobacz w archiwum</a>
   {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
   {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}</p>
 <div class="grid-2">
