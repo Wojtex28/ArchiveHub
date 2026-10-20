@@ -509,3 +509,28 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
   .comment-admin__thumb { width: 4rem; height: 4rem; }
   .comment-admin__item form { grid-column: 2; }
 }
+
+/* Strona główna (ETAP 11): zdjęcia rozrzucone jak na stole */
+.landing--photos { max-width: 66rem; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 3rem; text-align: left; padding: 3rem 1.5rem; }
+.landing--photos .landing__text { animation: landing-text 0.9s 0.3s ease-out both; }
+.landing__stats { margin: -1.25rem 0 2rem; font-size: 0.9375rem; color: var(--ink-quiet); font-variant-numeric: tabular-nums; }
+.landing__table { position: relative; width: 100%; max-width: 32rem; aspect-ratio: 1; justify-self: center; }
+.polaroid { position: absolute; width: 50%; padding: 0.55rem 0.55rem 2.1rem; background: #fdfbf6; border-radius: 2px; box-shadow: 0 1px 2px rgb(59 51 43 / 0.18), 0 10px 26px rgb(59 51 43 / 0.16); transition: rotate 0.4s ease, scale 0.4s ease, box-shadow 0.4s ease; animation: polaroid-drop 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards, polaroid-float 9s ease-in-out infinite alternate; }
+.polaroid img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; background: var(--rule); filter: sepia(0.12) saturate(0.95); }
+a.polaroid:hover, a.polaroid:focus-visible { z-index: 10; rotate: 0deg; scale: 1.06; box-shadow: 0 2px 4px rgb(59 51 43 / 0.2), 0 18px 40px rgb(59 51 43 / 0.24); }
+.polaroid:nth-child(1) { left: 2%; top: 6%; rotate: -7deg; animation-delay: 0s, 0s; }
+.polaroid:nth-child(2) { left: 46%; top: 0; rotate: 6deg; animation-delay: 0.15s, -2s; }
+.polaroid:nth-child(3) { left: 24%; top: 30%; rotate: -2deg; animation-delay: 0.3s, -4s; }
+.polaroid:nth-child(4) { left: 50%; top: 44%; rotate: 9deg; animation-delay: 0.45s, -6s; }
+.polaroid:nth-child(5) { left: 0; top: 48%; rotate: 4deg; animation-delay: 0.6s, -8s; }
+@keyframes polaroid-drop { from { opacity: 0; scale: 1.12; } to { opacity: 1; scale: 1; } }
+@keyframes polaroid-float { from { translate: 0 0; } to { translate: 0 -7px; } }
+@keyframes landing-text { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 48rem) {
+  .landing--photos { grid-template-columns: 1fr; gap: 1.5rem; text-align: center; padding: 1.5rem 1rem 2.5rem; }
+  .landing__table { max-width: 22rem; }
+  .polaroid { padding: 0.4rem 0.4rem 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .polaroid, .landing--photos .landing__text { animation: none; }
+}

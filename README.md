@@ -20,8 +20,9 @@ w projekcie.
 | 7 | Galeria: siatka miniatur, podgląd na cały ekran, awers/rewers, obracanie zdjęć | gotowe |
 | 8 | Pobieranie: pojedyncze zdjęcie w pełnej rozdzielczości, zaznaczone zdjęcia jako ZIP | gotowe |
 | 9 | Cały album jako ZIP (limit jednoczesnych pobrań), link do skanów PNG w Google Drive | gotowe |
-| 10 | Komentarze pod zdjęciami, moderacja w panelu | **gotowe** |
-| 11+ | Strona główna, responsywność, metadane… | zaplanowane |
+| 10 | Komentarze pod zdjęciami, moderacja w panelu | gotowe |
+| 11 | Strona główna: zdjęcia rozrzucone jak na stole, licznik albumów | **gotowe** |
+| 12+ | Responsywność, metadane, wyszukiwanie… | zaplanowane |
 
 ## Technologie
 
