@@ -330,8 +330,9 @@ Osobny kontener `worker` co 30 sekund przegląda udział:
 
 1. Nowy folder czeka, aż przez `ARCHIVEHUB_IMPORT_STABLE_MINUTES` (domyślnie 10) minut nic się w nim nie zmieni,
    czyli aż kopiowanie się skończy.
-2. Z każdego skanu (JPEG, TIFF, PNG) powstaje wersja do oglądania (JPEG, dłuższy bok 5000 px, bez danych EXIF)
-   i miniatura (WebP, 640 px). Trafiają do biblioteki `/data/albumy/<folder>/`.
+2. Z każdego skanu (JPEG, TIFF, PNG) powstają trzy pliki w bibliotece `/data/albumy/<folder>/`:
+   `oryginaly/` (JPEG w pełnej rozdzielczości skanu, jakość 92, do pobrania), `podglad/` (JPEG 2560 px
+   do oglądania na ekranie) i `miniatury/` (WebP 640 px). Dane EXIF (np. GPS) są usuwane, profil kolorów zostaje.
 3. Rewers łączy się ze zdjęciem po nazwie: `012.jpg` + `012_r.jpg` (końcówka: `ARCHIVEHUB_REVERSE_SUFFIX`).
 4. Postęp i raport (dodane, pominięte, błędy) są w Panel → Synchronizacja i na stronie albumu.
 
@@ -344,6 +345,13 @@ Zasady:
 - Nowy album nie jest widoczny dla nikogo poza masterem i grupami „widzi wszystkie albumy”,
   dopóki nie zaznaczysz go w Panel → Uprawnienia.
 - Uszkodzony plik nie zatrzymuje importu: trafia do listy pominiętych.
+- **Przetwórz ponownie** (Panel → Albumy → album) robi wszystkie pliki albumu od nowa ze skanów w udziale,
+  np. po zmianie jakości. Nazwa, opis i uprawnienia albumu zostają. Albumy zaimportowane przed wprowadzeniem
+  pełnej rozdzielczości (wersja 5000 px) worker sam ustawia w kolejce po aktualizacji; skany muszą wtedy leżeć w udziale.
+- Strona albumu w panelu pokazuje, ile zajmuje on na dysku. Pełna rozdzielczość to zwykle 1–2 GB na album,
+  więc przed importem wszystkich albumów sprawdź wolne miejsce (`sudo zfs list -o name,used,avail`).
+- Jakość i rozmiary zmienisz w `.env`: `ARCHIVEHUB_ORIGINAL_QUALITY` (domyślnie 92),
+  `ARCHIVEHUB_ORIGINAL_MAX_SIDE` (0 = pełna rozdzielczość), `ARCHIVEHUB_PREVIEW_MAX_SIDE` (2560).
 
 ### Udział importu na TrueNAS
 
@@ -388,7 +396,7 @@ compose.yaml   usługi: app, worker (import), caddy, cloudflared (profil „tunn
 ## Dane i bezpieczeństwo
 
 - Baza danych leży w wolumenie Dockera `data` (`/data/db/archivehub.sqlite3` w kontenerze),
-  obok biblioteki albumów (`/data/albumy`: wersje do oglądania i miniatury) i zdjęć tła logowania (`/data/tlo-logowania`).
+  obok biblioteki albumów (`/data/albumy`: oryginały JPEG, podglądy i miniatury) i zdjęć tła logowania (`/data/tlo-logowania`).
 - Oryginalne skany nie są kopiowane na serwer aplikacji: worker czyta je z udziału tylko do odczytu.
 - Plik `.env`, baza i zdjęcia nigdy nie trafiają do repozytorium (`.gitignore`). Repozytorium jest publiczne.
 - Produkcja: przekierowanie na HTTPS, ciasteczka tylko przez HTTPS, HSTS, Content-Security-Policy

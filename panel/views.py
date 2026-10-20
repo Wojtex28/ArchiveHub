@@ -242,6 +242,13 @@ def album_list(request):
     )
 
 
+def _folder_size(path):
+    try:
+        return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+    except OSError:
+        return None
+
+
 @master_required
 def album_detail(request, pk):
     album = get_object_or_404(Album, pk=pk)
@@ -252,8 +259,23 @@ def album_detail(request, pk):
             "album": album,
             "photos": album.photos.all(),
             "imports": album.imports.all()[:10],
+            "disk_size": _folder_size(album.path),
         },
     )
+
+
+@master_required
+@require_POST
+def album_reprocess(request, pk):
+    album = get_object_or_404(Album, pk=pk)
+    album.reprocess_requested = True
+    album.save(update_fields=["reprocess_requested"])
+    messages.success(
+        request,
+        "Album trafi do ponownego przetworzenia w ciągu minuty. "
+        f"Skany muszą leżeć w udziale w folderze „{album.folder}”.",
+    )
+    return redirect("panel:album_detail", pk=album.pk)
 
 
 @master_required

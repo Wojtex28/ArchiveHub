@@ -5,7 +5,13 @@ import time
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from albums.importer import import_dir, reset_interrupted, scan_import_dir, touch_heartbeat
+from albums.importer import (
+    import_dir,
+    queue_legacy_albums,
+    reset_interrupted,
+    scan_import_dir,
+    touch_heartbeat,
+)
 
 logger = logging.getLogger("albums.importer")
 
@@ -24,6 +30,8 @@ class Command(BaseCommand):
 
         if reset_interrupted():
             logger.info("Import: wznawiam przerwane importy")
+        if queued := queue_legacy_albums():
+            logger.info("Import: %s album(y) do przetworzenia w pełnej rozdzielczości", queued)
         logger.info(
             "Import: pilnuję %s (folder gotowy po %s min bez zmian)",
             import_dir(),

@@ -2,7 +2,7 @@
 {% block panel %}
 <p><a href="{% url 'panel:album_list' %}">← Wszystkie albumy</a></p>
 <h1>{{ album.title }}</h1>
-<p class="hint">Folder: {{ album.folder }} · zdjęć: {{ album.photo_count }}
+<p class="hint">Folder: {{ album.folder }} · zdjęć: {{ album.photo_count }}{% if disk_size is not None %} · na dysku: {{ disk_size|filesizeformat }}{% endif %}
   {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
   {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}</p>
 {% if photos %}
@@ -17,6 +17,16 @@
 </ul>
 {% else %}
 <div class="empty-state"><p>Ten album nie ma jeszcze zdjęć. Wrzuć skany do folderu „{{ album.folder }}” w udziale import.</p></div>
+{% endif %}
+<h2 class="section-title">Przetwórz ponownie</h2>
+<p class="hint">Robi wszystkie pliki albumu od nowa ze skanów w udziale import (np. po zmianie jakości).
+  Skany muszą leżeć w folderze „{{ album.folder }}”. Opisy, kolejność i uprawnienia zostają.</p>
+{% if album.reprocess_requested %}
+<p><span class="badge badge--muted">w kolejce do ponownego przetworzenia</span></p>
+{% else %}
+<form method="post" action="{% url 'panel:album_reprocess' album.pk %}">{% csrf_token %}
+  <button type="submit" class="button button--quiet">Przetwórz ponownie</button>
+</form>
 {% endif %}
 {% if imports %}
 <h2 class="section-title">Importy tego albumu</h2>

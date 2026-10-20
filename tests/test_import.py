@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from albums.importer import folder_signature, reset_interrupted, scan_import_dir
+from albums.importer import folder_signature, queue_legacy_albums, reset_interrupted, scan_import_dir
 from albums.models import Album, ImportJob, Photo
 from albums.sync import sync_albums
 
@@ -19,7 +19,8 @@ def dirs(db, tmp_path, settings):
     settings.ARCHIVEHUB_IMPORT_DIR = tmp_path / "import"
     settings.ARCHIVEHUB_IMPORT_DIR.mkdir()
     settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES = 10
-    settings.ARCHIVEHUB_WEB_MAX_SIDE = 400
+    settings.ARCHIVEHUB_ORIGINAL_MAX_SIDE = 0
+    settings.ARCHIVEHUB_PREVIEW_MAX_SIDE = 400
     settings.ARCHIVEHUB_THUMB_MAX_SIDE = 100
     return settings
 
@@ -82,7 +83,7 @@ def test_missing_import_dir_does_nothing(dirs, tmp_path):
 # --- Konwersja i rewersy --------------------------------------------------------
 
 
-def test_import_creates_web_version_thumbnail_and_pairs_reverses(dirs):
+def test_import_creates_original_preview_thumbnail_and_pairs_reverses(dirs):
     folder = dirs.ARCHIVEHUB_IMPORT_DIR / "Album_03_1967"
     scan(folder, "10.jpg")
     scan(folder, "2.tif", size=(600, 900), fmt="TIFF")
@@ -102,15 +103,20 @@ def test_import_creates_web_version_thumbnail_and_pairs_reverses(dirs):
     assert [p.has_reverse for p in photos] == [False, True, False]
 
     second = photos[1]
-    assert (second.width, second.height) == (267, 400)
+    # Oryginał w pełnej rozdzielczości skanu.
+    assert (second.width, second.height) == (600, 900)
     assert second.source_name == "2.tif"
-    with Image.open(second.web_path()) as web:
-        assert web.format == "JPEG"
-        assert max(web.size) == 400
+    with Image.open(second.original_path()) as original:
+        assert original.format == "JPEG"
+        assert original.size == (600, 900)
+    with Image.open(second.preview_path()) as preview:
+        assert preview.format == "JPEG"
+        assert preview.size == (267, 400)
     with Image.open(second.thumb_path()) as thumb:
         assert thumb.format == "WEBP"
         assert max(thumb.size) == 100
-    assert second.web_path(reverse=True).name == "2_r.jpg"
+    assert second.original_path(reverse=True).name == "2_r.jpg"
+    assert second.preview_path(reverse=True).is_file()
     assert second.thumb_path(reverse=True).is_file()
     # Udział tylko czytany: oryginały zostają na miejscu.
     assert sorted(f.name for f in folder.iterdir()) == ["1.png", "10.jpg", "2.tif", "2_r.jpg"]
@@ -128,9 +134,9 @@ def test_exif_rotation_is_applied_and_metadata_dropped(dirs):
     import_now(dirs)
 
     photo = Photo.objects.get()
-    assert (photo.width, photo.height) == (300, 400)
-    with Image.open(photo.web_path()) as web:
-        assert not web.getexif()
+    assert (photo.width, photo.height) == (600, 800)
+    with Image.open(photo.original_path()) as original:
+        assert not original.getexif()
 
 
 def test_sixteen_bit_grayscale_scan_is_converted(dirs):
@@ -140,8 +146,8 @@ def test_sixteen_bit_grayscale_scan_is_converted(dirs):
 
     import_now(dirs)
 
-    with Image.open(Photo.objects.get().web_path()) as web:
-        assert web.mode == "L"
+    with Image.open(Photo.objects.get().original_path()) as original:
+        assert original.mode == "L"
 
 
 def test_broken_file_and_orphan_reverse_are_reported(dirs):
@@ -238,6 +244,108 @@ def test_worker_command_runs_once_and_writes_heartbeat(dirs):
     assert (dirs.DATA_DIR / "import-worker.heartbeat").is_file()
 
 
+def test_original_can_be_capped_by_setting(dirs):
+    dirs.ARCHIVEHUB_ORIGINAL_MAX_SIDE = 500
+    scan(dirs.ARCHIVEHUB_IMPORT_DIR / "Duze", "001.png", size=(1000, 800), fmt="PNG")
+    import_now(dirs)
+    assert (Photo.objects.get().width, Photo.objects.get().height) == (500, 400)
+
+
+# --- Ponowne przetworzenie --------------------------------------------------------
+
+
+def make_legacy(photo):
+    """Stan po pierwszym wydaniu importu: tylko zdjecia/ (5000 px) i miniatury/."""
+    photo.legacy_path().parent.mkdir(parents=True, exist_ok=True)
+    photo.original_path().rename(photo.legacy_path())
+    photo.preview_path().unlink()
+    if photo.has_reverse:
+        photo.original_path(True).rename(photo.legacy_path(True))
+        photo.preview_path(True).unlink()
+
+
+def test_reprocess_rebuilds_files_from_share_and_keeps_settings(dirs, group):
+    folder = dirs.ARCHIVEHUB_IMPORT_DIR / "Komunia"
+    scan(folder, "001.png", size=(1200, 900), color=(1, 1, 1), fmt="PNG")
+    scan(folder, "001_r.png", size=(1200, 900), color=(9, 9, 9), fmt="PNG")
+    scan(folder, "002.png", size=(900, 1200), color=(2, 2, 2), fmt="PNG")
+    import_now(dirs)
+    album = Album.objects.get()
+    album.title = "Komunia Janka"
+    album.save()
+    album.groups.add(group)
+    for photo in album.photos.all():
+        make_legacy(photo)
+    # Jeden skan zniknął z udziału: jego zdjęcie zostaje w starej wersji.
+    (folder / "002.png").unlink()
+
+    assert queue_legacy_albums() == 1
+    [job] = scan_import_dir()
+
+    assert job.is_reprocess and job.status == ImportJob.DONE
+    assert (job.photos_added, job.reverses_added) == (1, 1)
+    assert job.skipped == ["002.png: brak skanu w udziale, zostaje dotychczasowa wersja"]
+    album.refresh_from_db()
+    assert not album.reprocess_requested
+    assert album.title == "Komunia Janka"
+    assert list(album.groups.all()) == [group]
+    first = album.photos.get(name="001")
+    assert (first.width, first.height) == (1200, 900)
+    assert first.original_path().is_file() and first.preview_path(reverse=True).is_file()
+    assert not first.legacy_path().exists() and not first.legacy_path(reverse=True).exists()
+    second = album.photos.get(name="002")
+    assert second.legacy_path().is_file()
+    assert album.photos.count() == 2
+    # Folder bez zmian: kolejne przejście nic nie robi.
+    assert scan_import_dir() == []
+
+
+def test_reprocess_without_folder_in_share_reports_error(dirs):
+    album = Album.objects.create(folder="Zniknal", title="Zniknął", reprocess_requested=True)
+    assert [j.status for j in scan_import_dir()] == []
+    job = ImportJob.objects.get()
+    assert job.is_reprocess and job.status == ImportJob.FAILED
+    assert "Zniknal" in job.error
+    album.refresh_from_db()
+    assert not album.reprocess_requested
+
+
+def test_reprocess_waits_while_folder_is_copied(dirs):
+    folder = dirs.ARCHIVEHUB_IMPORT_DIR / "Wesele"
+    scan(folder, "001.jpg")
+    import_now(dirs)
+    scan(folder, "002.jpg", color=(3, 3, 3))
+    scan_import_dir()  # nowy plik: folder czeka na koniec kopiowania
+    Album.objects.update(reprocess_requested=True)
+
+    assert scan_import_dir() == []
+    assert Album.objects.get().reprocess_requested
+
+
+def test_panel_reprocess_button(master_client, dirs):
+    scan(dirs.ARCHIVEHUB_IMPORT_DIR / "Wesele", "001.jpg")
+    import_now(dirs)
+    album = Album.objects.get()
+    page = master_client.get(reverse("panel:album_detail", args=[album.pk])).content.decode()
+    assert "Przetwórz ponownie" in page
+    assert "na dysku" in page
+
+    response = master_client.post(reverse("panel:album_reprocess", args=[album.pk]))
+
+    assert response.status_code == 302
+    album.refresh_from_db()
+    assert album.reprocess_requested
+    assert master_client.get(reverse("panel:album_reprocess", args=[album.pk])).status_code == 405
+
+
+def test_regular_user_cannot_request_reprocess(client, make_user, dirs):
+    album = Album.objects.create(folder="Wesele", title="Wesele")
+    client.force_login(make_user("Karolina"))
+    assert client.post(reverse("panel:album_reprocess", args=[album.pk])).status_code == 404
+    album.refresh_from_db()
+    assert not album.reprocess_requested
+
+
 # --- Synchronizacja po imporcie ------------------------------------------------
 
 
@@ -246,7 +354,7 @@ def test_sync_flags_photos_with_missing_files(dirs):
     scan(dirs.ARCHIVEHUB_IMPORT_DIR / "Wesele", "002.jpg", color=(2, 2, 2))
     import_now(dirs)
     missing = Photo.objects.get(name="002")
-    missing.web_path().unlink()
+    missing.preview_path().unlink()
 
     report = sync_albums()
 
