@@ -57,7 +57,7 @@ def sync_albums(triggered_by=None):
                 album.save(update_fields=["folder_missing", "updated_at"])
 
         for photo in Photo.objects.select_related("album").filter(album__folder__in=found):
-            missing = not photo.web_path().is_file() or not photo.thumb_path().is_file()
+            missing = not photo.files_present()
             if missing:
                 report.missing_photos.append(f"{photo.album.folder}/{photo.name}")
             if photo.file_missing != missing:

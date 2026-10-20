@@ -54,4 +54,4 @@ jobs:
               archivehub:ci python manage.py import_worker --once
           done
           docker exec ah python manage.py shell -c \
-            "from albums.models import Photo; p = Photo.objects.get(); assert p.web_path().is_file() and p.thumb_path().is_file(); print(p.album, p.width, p.height)"
+            "from albums.models import Photo; p = Photo.objects.get(); assert p.files_present() and p.original_path().is_file() and (p.width, p.height) == (3000, 2000); print(p.album, p.width, p.height)"

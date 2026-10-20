@@ -36,6 +36,8 @@ class Album(models.Model):
     is_hidden = models.BooleanField("ukryty", default=False)
     folder_missing = models.BooleanField("brak folderu", default=False)
     photo_count = models.PositiveIntegerField("liczba zdjęć", default=0)
+    # Ustawiane w panelu; worker importu przetwarza wtedy album jeszcze raz ze skanów w udziale.
+    reprocess_requested = models.BooleanField("do ponownego przetworzenia", default=False)
     groups = models.ManyToManyField(FamilyGroup, blank=True, related_name="albums", verbose_name="grupy")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -58,14 +60,18 @@ class Album(models.Model):
 class Photo(models.Model):
     """Jedno zdjęcie w albumie: wersja do oglądania (JPEG) i miniatura (WebP), opcjonalnie z rewersem.
 
-    Pliki leżą w folderze albumu: ``zdjecia/<nazwa>.jpg`` i ``miniatury/<nazwa>.webp``,
-    rewers jako ``<nazwa>_r``. Oryginały skanów nie są przechowywane w bibliotece.
+    Pliki leżą w folderze albumu:
+    ``oryginaly/<nazwa>.jpg``: pełna rozdzielczość skanu, do pobrania;
+    ``podglad/<nazwa>.jpg``: do oglądania na ekranie;
+    ``miniatury/<nazwa>.webp``: do siatki zdjęć.
+    Rewers ma te same pliki z końcówką ``_r``. Skany PNG/TIFF z udziału nie są przechowywane w bibliotece.
     """
 
     album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name="photos")
     name = models.CharField("nazwa", max_length=200)
     source_name = models.CharField("plik źródłowy", max_length=255)
     position = models.PositiveIntegerField("kolejność", default=0)
+    # Rozmiar oryginału (pełna rozdzielczość).
     width = models.PositiveIntegerField()
     height = models.PositiveIntegerField()
     checksum = models.CharField("suma kontrolna", max_length=64)
@@ -86,8 +92,19 @@ class Photo(models.Model):
     def __str__(self):
         return f"{self.album.folder}/{self.name}"
 
-    def web_path(self, reverse=False):
-        return self.album.path / WEB_DIR / f"{self.file_stem(reverse)}.jpg"
+    def original_path(self, reverse=False):
+        return self.album.path / ORIGINAL_DIR / f"{self.file_stem(reverse)}.jpg"
+
+    def preview_path(self, reverse=False):
+        return self.album.path / PREVIEW_DIR / f"{self.file_stem(reverse)}.jpg"
+
+    def legacy_path(self, reverse=False):
+        """Wersja 5000 px z pierwszego wydania importu; zastępuje ją ponowne przetworzenie."""
+        return self.album.path / LEGACY_WEB_DIR / f"{self.file_stem(reverse)}.jpg"
+
+    def files_present(self):
+        has_full = self.original_path().is_file() and self.preview_path().is_file()
+        return self.thumb_path().is_file() and (has_full or self.legacy_path().is_file())
 
     def thumb_path(self, reverse=False):
         return self.album.path / THUMB_DIR / f"{self.file_stem(reverse)}.webp"
@@ -96,8 +113,10 @@ class Photo(models.Model):
         return f"{self.name}{settings.ARCHIVEHUB_REVERSE_SUFFIX}" if reverse else self.name
 
 
-WEB_DIR = "zdjecia"
+ORIGINAL_DIR = "oryginaly"
+PREVIEW_DIR = "podglad"
 THUMB_DIR = "miniatury"
+LEGACY_WEB_DIR = "zdjecia"
 
 
 class ImportJob(models.Model):
@@ -119,6 +138,7 @@ class ImportJob(models.Model):
     status = models.CharField(max_length=20, choices=STATUSES, default=WAITING)
     stable_since = models.DateTimeField(default=timezone.now)
     album = models.ForeignKey(Album, null=True, blank=True, on_delete=models.SET_NULL, related_name="imports")
+    is_reprocess = models.BooleanField("ponowne przetworzenie", default=False)
     photos_added = models.PositiveIntegerField(default=0)
     reverses_added = models.PositiveIntegerField(default=0)
     skipped = models.JSONField(default=list)

@@ -2,12 +2,14 @@
 
 Każdy folder w udziale to album. Folder trafia do importu, gdy jego zawartość
 (nazwy i rozmiary plików) nie zmienia się przez ``ARCHIVEHUB_IMPORT_STABLE_MINUTES``,
-czyli gdy kopiowanie z Windowsa na pewno się skończyło. Ze skanu powstaje wersja
-do oglądania (JPEG, dłuższy bok ``ARCHIVEHUB_WEB_MAX_SIDE``) i miniatura (WebP).
+czyli gdy kopiowanie z Windowsa na pewno się skończyło. Ze skanu powstają trzy pliki:
+oryginał do pobrania (JPEG w pełnej rozdzielczości), podgląd na ekran (JPEG,
+``ARCHIVEHUB_PREVIEW_MAX_SIDE``) i miniatura (WebP).
 
 Udział jest tylko czytany: aplikacja niczego w nim nie zmienia ani nie usuwa.
 Dorzucenie plików do zaimportowanego folderu uruchamia import ponownie;
 zdjęcia już obecne w albumie (ta sama nazwa albo ta sama suma kontrolna) są pomijane.
+„Przetwórz ponownie” w panelu robi wszystkie pliki albumu od nowa ze skanów w udziale.
 """
 
 import hashlib
@@ -23,13 +25,13 @@ from django.db.models import Max
 from django.utils import timezone
 from PIL import Image, ImageOps
 
-from .models import THUMB_DIR, WEB_DIR, Album, ImportJob, Photo
+from .models import LEGACY_WEB_DIR, ORIGINAL_DIR, PREVIEW_DIR, THUMB_DIR, Album, ImportJob, Photo
 from .sync import title_from_folder
 
 logger = logging.getLogger(__name__)
 
 SCAN_EXTENSIONS = {".jpg", ".jpeg", ".tif", ".tiff", ".png"}
-WEB_QUALITY = 85
+PREVIEW_QUALITY = 85
 THUMB_QUALITY = 80
 
 # Skany z importu są zaufane i bywają duże (np. 12000 × 9000 px); domyślny limit Pillow jest niższy.
@@ -89,28 +91,51 @@ def _save_atomic(image, target, fmt, **options):
     os.replace(tmp, target)
 
 
-def convert_scan(source, web_target, thumb_target):
-    """Tworzy wersję do oglądania i miniaturę. Zwraca rozmiar wersji do oglądania."""
-    web_side = settings.ARCHIVEHUB_WEB_MAX_SIDE
-    with Image.open(source) as original:
-        # Przy bardzo dużych JPEG-ach dekoder od razu czyta zmniejszony obraz: mniej pamięci.
-        original.draft(original.mode, (web_side, web_side))
-        icc = original.info.get("icc_profile")
-        image = _to_displayable(ImageOps.exif_transpose(original))
-        image.thumbnail((web_side, web_side), Image.Resampling.LANCZOS)
-    # Profil kolorów zostaje (skanery często zapisują AdobeRGB); metadane EXIF nie.
-    _save_atomic(
-        image, web_target, "JPEG", quality=WEB_QUALITY, optimize=True, progressive=True, icc_profile=icc
-    )
-    thumb_side = settings.ARCHIVEHUB_THUMB_MAX_SIDE
-    image.thumbnail((thumb_side, thumb_side), Image.Resampling.LANCZOS)
-    _save_atomic(image, thumb_target, "WEBP", quality=THUMB_QUALITY, method=4, icc_profile=icc)
-    return image_size(web_target)
+def convert_scan(source, photo, reverse=False):
+    """Tworzy oryginał, podgląd i miniaturę zdjęcia (albo rewersu). Zwraca rozmiar oryginału.
 
-
-def image_size(path):
-    with Image.open(path) as image:
-        return image.size
+    Skan może mieć ponad 100 Mpx, więc obraz jest w pamięci tylko raz: obrót i zmniejszanie
+    działają na miejscu, a oryginał jest zapisywany bez optymalizacji wymagającej drugiej kopii.
+    """
+    original_side = settings.ARCHIVEHUB_ORIGINAL_MAX_SIDE
+    with Image.open(source) as scan:
+        if original_side:
+            # Przy bardzo dużych JPEG-ach dekoder od razu czyta zmniejszony obraz: mniej pamięci.
+            scan.draft(scan.mode, (original_side, original_side))
+        icc = scan.info.get("icc_profile")
+        scan.load()
+        ImageOps.exif_transpose(scan, in_place=True)
+        image = _to_displayable(scan)
+        if original_side:
+            image.thumbnail((original_side, original_side), Image.Resampling.LANCZOS)
+        size = image.size
+        # Profil kolorów zostaje (skanery często zapisują AdobeRGB); metadane EXIF nie.
+        _save_atomic(
+            image,
+            photo.original_path(reverse),
+            "JPEG",
+            quality=settings.ARCHIVEHUB_ORIGINAL_QUALITY,
+            icc_profile=icc,
+        )
+        preview_side = settings.ARCHIVEHUB_PREVIEW_MAX_SIDE
+        image.thumbnail((preview_side, preview_side), Image.Resampling.LANCZOS)
+        _save_atomic(
+            image,
+            photo.preview_path(reverse),
+            "JPEG",
+            quality=PREVIEW_QUALITY,
+            optimize=True,
+            progressive=True,
+            icc_profile=icc,
+        )
+        thumb_side = settings.ARCHIVEHUB_THUMB_MAX_SIDE
+        image.thumbnail((thumb_side, thumb_side), Image.Resampling.LANCZOS)
+        _save_atomic(
+            image, photo.thumb_path(reverse), "WEBP", quality=THUMB_QUALITY, method=4, icc_profile=icc
+        )
+    # Stara wersja 5000 px (sprzed pełnej rozdzielczości) nie jest już potrzebna.
+    photo.legacy_path(reverse).unlink(missing_ok=True)
+    return size
 
 
 def touch_heartbeat():
@@ -134,7 +159,7 @@ def scan_import_dir(now=None):
     if not root.is_dir():
         return []
     stable_for = timedelta(minutes=settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES)
-    finished = []
+    finished = _run_reprocess_requests(root)
     for folder in sorted(root.iterdir(), key=lambda p: natural_key(p.name)):
         if not folder.is_dir() or folder.name.startswith("."):
             continue
@@ -161,6 +186,52 @@ def scan_import_dir(now=None):
     return finished
 
 
+def _run_reprocess_requests(root):
+    finished = []
+    for album in Album.objects.filter(reprocess_requested=True):
+        folder = root / album.folder
+        latest = ImportJob.objects.filter(folder=album.folder).first()
+        if latest is not None and latest.status == ImportJob.WAITING and folder.is_dir():
+            # Folder wciąż się kopiuje: ponowne przetworzenie poczeka na koniec kopiowania.
+            continue
+        album.reprocess_requested = False
+        album.save(update_fields=["reprocess_requested"])
+        if not folder.is_dir():
+            ImportJob.objects.create(
+                folder=album.folder,
+                album=album,
+                is_reprocess=True,
+                status=ImportJob.FAILED,
+                error=(
+                    f"W udziale nie ma folderu „{album.folder}”. Wrzuć skany ponownie i kliknij jeszcze raz."
+                ),
+                finished_at=timezone.now(),
+            )
+            continue
+        job = ImportJob.objects.create(
+            folder=album.folder,
+            album=album,
+            is_reprocess=True,
+            signature=folder_signature(_scan_files(folder)),
+        )
+        finished.append(run_import(job, folder, regenerate=True))
+    return finished
+
+
+def queue_legacy_albums():
+    """Albumy z wersjami 5000 px z pierwszego wydania importu trafiają do ponownego przetworzenia."""
+    queued = 0
+    for album in Album.objects.filter(reprocess_requested=False):
+        if any(
+            photo.legacy_path().is_file() and not photo.original_path().is_file()
+            for photo in album.photos.all()
+        ):
+            album.reprocess_requested = True
+            album.save(update_fields=["reprocess_requested"])
+            queued += 1
+    return queued
+
+
 def reset_interrupted():
     """Po restarcie: import przerwany w połowie zaczyna się od nowa (gotowe zdjęcia są pomijane)."""
     return ImportJob.objects.filter(status=ImportJob.PROCESSING).update(status=ImportJob.WAITING)
@@ -181,12 +252,12 @@ def _split_reverses(files):
     return fronts, reverses
 
 
-def run_import(job, folder):
+def run_import(job, folder, regenerate=False):
     job.status = ImportJob.PROCESSING
     job.save(update_fields=["status"])
-    logger.info("Import: zaczynam %s", folder.name)
+    logger.info("Import: zaczynam %s%s", folder.name, " (ponowne przetworzenie)" if regenerate else "")
     try:
-        _import_folder(job, folder)
+        _import_folder(job, folder, regenerate=regenerate)
         job.status = ImportJob.DONE
     except Exception as exc:
         logger.exception("Import: błąd w folderze %s", folder.name)
@@ -205,7 +276,7 @@ def run_import(job, folder):
     return job
 
 
-def _import_folder(job, folder):
+def _import_folder(job, folder, regenerate=False):
     album, created = Album.objects.get_or_create(
         folder=folder.name,
         defaults={"title": title_from_folder(folder.name), "is_hidden": folder.name.startswith("_")},
@@ -220,13 +291,17 @@ def _import_folder(job, folder):
     taken_names = {name.lower() for name in album.photos.values_list("name", flat=True)}
     taken_checksums = set(album.photos.values_list("checksum", flat=True))
     position = (album.photos.aggregate(top=Max("position"))["top"] or 0) + 1
+    regenerated = set()
 
     for key in sorted(fronts, key=natural_key):
         source = fronts[key]
         reverse = reverses.pop(key, None)
         if key in taken_names:
             existing = album.photos.filter(name__iexact=source.stem).first()
-            if reverse is not None and existing is not None and not existing.has_reverse:
+            if regenerate and existing is not None:
+                _regenerate(job, existing, source, reverse)
+                regenerated.add(existing.pk)
+            elif reverse is not None and existing is not None and not existing.has_reverse:
                 # Rewers dorzucony później do zdjęcia, które już jest w albumie.
                 _attach_reverse(job, existing, reverse)
                 existing.save(update_fields=["has_reverse", "reverse_checksum"])
@@ -241,7 +316,7 @@ def _import_folder(job, folder):
             photo = Photo(
                 album=album, name=source.stem, source_name=source.name, position=position, checksum=checksum
             )
-            photo.width, photo.height = convert_scan(source, photo.web_path(), photo.thumb_path())
+            photo.width, photo.height = convert_scan(source, photo)
         except Exception as exc:
             logger.warning("Import: nie udało się przetworzyć %s/%s: %s", folder.name, source.name, exc)
             job.skipped.append(f"{source.name}: nie udało się odczytać pliku ({exc.__class__.__name__})")
@@ -263,17 +338,48 @@ def _import_folder(job, folder):
 
     for reverse in reverses.values():
         job.skipped.append(f"{reverse.name}: rewers bez zdjęcia głównego")
+    if regenerate:
+        for photo in album.photos.exclude(pk__in=regenerated):
+            job.skipped.append(f"{photo.source_name}: brak skanu w udziale, zostaje dotychczasowa wersja")
 
     album.photo_count = album.photos.count()
     album.save(update_fields=["photo_count", "updated_at"])
-    (album.path / WEB_DIR).mkdir(parents=True, exist_ok=True)
-    (album.path / THUMB_DIR).mkdir(parents=True, exist_ok=True)
+    for name in (ORIGINAL_DIR, PREVIEW_DIR, THUMB_DIR):
+        (album.path / name).mkdir(parents=True, exist_ok=True)
+    try:
+        (album.path / LEGACY_WEB_DIR).rmdir()
+    except OSError:
+        pass  # brak folderu albo zostały w nim pliki zdjęć bez skanu w udziale
+
+
+def _regenerate(job, photo, source, reverse):
+    try:
+        photo.width, photo.height = convert_scan(source, photo)
+    except Exception as exc:
+        logger.warning("Import: nie udało się przetworzyć %s: %s", source.name, exc)
+        job.skipped.append(f"{source.name}: nie udało się odczytać pliku ({exc.__class__.__name__})")
+        return
+    photo.source_name = source.name
+    job.photos_added += 1
+    if reverse is not None:
+        had_reverse, old_checksum = photo.has_reverse, photo.reverse_checksum
+        photo.has_reverse = False
+        _attach_reverse(job, photo, reverse)
+        job.reverses_added += int(photo.has_reverse)
+        if had_reverse and not photo.has_reverse:
+            # Nieudane przetworzenie rewersu: zostaje jego dotychczasowa wersja.
+            photo.has_reverse, photo.reverse_checksum = True, old_checksum
+    elif photo.has_reverse:
+        job.skipped.append(f"{photo.file_stem(True)}: brak rewersu w udziale, zostaje dotychczasowa wersja")
+    photo.save(update_fields=["width", "height", "source_name", "has_reverse", "reverse_checksum"])
+    job.save(update_fields=["photos_added", "reverses_added", "skipped"])
+    touch_heartbeat()
 
 
 def _attach_reverse(job, photo, reverse):
     try:
         photo.reverse_checksum = file_checksum(reverse)
-        convert_scan(reverse, photo.web_path(reverse=True), photo.thumb_path(reverse=True))
+        convert_scan(reverse, photo, reverse=True)
         photo.has_reverse = True
     except Exception as exc:
         logger.warning("Import: nie udało się przetworzyć rewersu %s: %s", reverse.name, exc)

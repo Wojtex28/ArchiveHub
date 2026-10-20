@@ -53,7 +53,10 @@ ARCHIVEHUB_IMPORT_STABLE_MINUTES = int(env("ARCHIVEHUB_IMPORT_STABLE_MINUTES", "
 # Rewers ma nazwę awersu z tym dopiskiem, np. 012.jpg i 012_r.jpg.
 ARCHIVEHUB_REVERSE_SUFFIX = env("ARCHIVEHUB_REVERSE_SUFFIX", "_r")
 # Dłuższy bok wersji do oglądania i miniatury (px).
-ARCHIVEHUB_WEB_MAX_SIDE = int(env("ARCHIVEHUB_WEB_MAX_SIDE", "5000"))
+# Oryginał do pobrania: 0 = pełna rozdzielczość skanu.
+ARCHIVEHUB_ORIGINAL_MAX_SIDE = int(env("ARCHIVEHUB_ORIGINAL_MAX_SIDE", "0"))
+ARCHIVEHUB_ORIGINAL_QUALITY = int(env("ARCHIVEHUB_ORIGINAL_QUALITY", "92"))
+ARCHIVEHUB_PREVIEW_MAX_SIDE = int(env("ARCHIVEHUB_PREVIEW_MAX_SIDE", "2560"))
 ARCHIVEHUB_THUMB_MAX_SIDE = 640
 # Zdjęcia w tle strony logowania. Wgrywane w panelu, nigdy nie trafiają do repozytorium.
 ARCHIVEHUB_LOGIN_PHOTOS_DIR = DATA_DIR / "tlo-logowania"
