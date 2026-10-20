@@ -1,0 +1,51 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Opisy zdjęć</h1>
+<p class="hint">Osoby i tagi, które rodzina wpisała w opisach zdjęć. Popraw tu literówkę: zmiana nazwy działa na wszystkich zdjęciach, a nazwa, która już istnieje, łączy oba wpisy w jeden (np. „Babcia Hela” i „babcia Helena”).</p>
+<div class="named-columns">
+  {% for title, kind, items in named %}
+  <section class="named">
+    <h2>{{ title }} <span class="badge badge--muted">{{ items|length }}</span></h2>
+    {% if items %}
+    <ul class="named__list">
+      {% for item in items %}
+      <li class="named__item">
+        <form method="post" action="{% url 'panel:named_edit' kind item.pk %}" class="named__form">
+          {% csrf_token %}
+          <label class="visually-hidden" for="{{ kind }}-{{ item.pk }}">Nazwa</label>
+          <input id="{{ kind }}-{{ item.pk }}" name="name" value="{{ item.name }}" maxlength="100" required>
+          <span class="named__count">{{ item.count }} zdj.</span>
+          <button type="submit" name="action" value="rename" class="button button--quiet">Zapisz</button>
+          <button type="submit" name="action" value="delete" class="button button--quiet" formnovalidate data-confirm="Usunąć „{{ item.name }}” ze wszystkich zdjęć?">Usuń</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="hint">Jeszcze nikt nie wpisał {% if kind == "osoby" %}osób{% else %}tagów{% endif %}.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+<h2>Ostatnie zmiany opisów</h2>
+{% if changes %}
+<p class="hint">Najnowsze {{ shown }} zmian. Widać, co było przed zmianą, więc pomyłkę łatwo poprawić na stronie zdjęcia.</p>
+<ul class="comment-admin">
+  {% for change in changes %}
+  <li class="comment-admin__item">
+    <a class="comment-admin__thumb" href="{% url 'albums:photo' change.photo.album_id change.photo_id %}?komentarze=1#opis"><img class="rot-{{ change.photo.pending_front }}" src="{% url 'albums:thumb' change.photo_id %}?v={{ change.photo.version_front }}" alt="Zdjęcie, którego opis zmieniono" loading="lazy" width="96" height="96"></a>
+    <div class="comment-admin__body">
+      <p class="comment-admin__meta"><strong>{% if change.user %}<a href="{% url 'panel:user_detail' change.user_id %}">{{ change.user.username }}</a>{% else %}konto usunięte{% endif %}</strong> · {{ change.created_at|date:"j E Y, H:i" }} · {{ change.photo.album.title }}</p>
+      <dl class="change-rows">
+        {% for label, before, after in change.rows %}
+        <div><dt>{{ label }}</dt><dd>{% if before %}<del>{{ before|truncatechars:120 }}</del> → {% endif %}{% if after %}<ins>{{ after|truncatechars:120 }}</ins>{% else %}<em>usunięto</em>{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty-state"><p>Nikt jeszcze nie zmieniał opisów.</p></div>
+{% endif %}
+{% endblock %}

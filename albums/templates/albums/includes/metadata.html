@@ -1,0 +1,34 @@
+<section class="metadata" id="opis" aria-labelledby="opis-tytul">
+  <h2 class="panel-section__title" id="opis-tytul">Opis zdjęcia</h2>
+  {% if has_metadata %}
+  <dl class="metadata__list">
+    {% if photo.date_text %}<div class="metadata__row"><dt>Kiedy</dt><dd>{{ photo.date_text }}</dd></div>{% endif %}
+    {% if photo.place %}<div class="metadata__row"><dt>Gdzie</dt><dd>{{ photo.place }}</dd></div>{% endif %}
+    {% if photo_people %}<div class="metadata__row"><dt>Kto</dt><dd><ul class="chips">{% for person in photo_people %}<li class="chip">{{ person.name }}</li>{% endfor %}</ul></dd></div>{% endif %}
+    {% if photo_tags %}<div class="metadata__row"><dt>Tagi</dt><dd><ul class="chips">{% for tag in photo_tags %}<li class="chip chip--tag">#{{ tag.name }}</li>{% endfor %}</ul></dd></div>{% endif %}
+  </dl>
+  {% if photo.description %}<p class="metadata__description">{{ photo.description|linebreaksbr }}</p>{% endif %}
+  {% if photo.described_at %}<p class="metadata__meta">Ostatnia zmiana: {% if photo.described_by %}{{ photo.described_by.username }}{% else %}konto usunięte{% endif %}, <time datetime="{{ photo.described_at|date:'c' }}">{{ photo.described_at|date:"j E Y, H:i" }}</time></p>{% endif %}
+  {% else %}
+  <p class="metadata__empty">Nikt jeszcze nie opisał tego zdjęcia. Wiesz, kiedy i gdzie je zrobiono albo kto na nim jest?</p>
+  {% endif %}
+  <details class="metadata__edit"{% if metadata_open %} open{% endif %}>
+    <summary class="metadata__toggle">{% if has_metadata %}Popraw opis{% else %}Dodaj opis{% endif %}</summary>
+    <form method="post" action="{% url 'albums:metadata' photo.pk %}" class="metadata__form" data-metadata-form novalidate>
+      {% csrf_token %}
+      {% for error in metadata_form.non_field_errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
+      {% for field in metadata_form %}
+      <div class="metadata__field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
+        {% if field.help_text %}<p class="metadata__help">{{ field.help_text }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="button">Zapisz opis</button>
+    </form>
+  </details>
+  <datalist id="osoby-podpowiedzi">{% for name in suggestions.people %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  <datalist id="tagi-podpowiedzi">{% for name in suggestions.tags %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  <datalist id="miejsca-podpowiedzi">{% for name in suggestions.places %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+</section>

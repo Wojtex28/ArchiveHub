@@ -208,6 +208,26 @@
     return Boolean(event.target.closest && event.target.closest("textarea, input, select"));
   }
 
+  // Osoby i tagi wpisuje się po przecinku, a podpowiedzi (datalist) dotyczą ostatniej wpisywanej nazwy.
+  function suggestNames(event) {
+    var input = event.target;
+    if (!input.matches || !input.matches("[data-list-input]") || !input.list) return;
+    var list = input.list;
+    if (!list.names) list.names = Array.prototype.map.call(list.options, function (option) { return option.value; });
+    var cut = input.value.lastIndexOf(",");
+    var prefix = cut < 0 ? "" : input.value.slice(0, cut + 1) + " ";
+    var chosen = prefix.split(",").map(function (name) { return name.trim().toLowerCase(); });
+    list.replaceChildren.apply(list, list.names.filter(function (name) {
+      return chosen.indexOf(name.toLowerCase()) < 0;
+    }).map(function (name) {
+      var option = document.createElement("option");
+      option.value = prefix + name;
+      return option;
+    }));
+  }
+  document.addEventListener("input", suggestNames);
+  document.addEventListener("focusin", suggestNames);
+
   // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
   var page = document.querySelector("[data-viewer-page]");
   if (page) {
@@ -255,7 +275,7 @@
   var csrf = grid.getAttribute("data-csrf");
 
   var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
-  var commentsButton, commentsCount, panel;
+  var commentsButton, commentsCount, panel, caption;
   var panelOpen = false;
   var panelTile = null;
   var commentsRequest = 0;
@@ -302,7 +322,7 @@
     download.setAttribute("aria-label", "Pobierz w pełnej rozdzielczości");
     commentsButton = element("button", "viewer__comments", "💬");
     commentsButton.type = "button";
-    commentsButton.title = "Komentarze";
+    commentsButton.title = "Opis i komentarze";
     commentsCount = element("span", "viewer__comments-count");
     commentsButton.append(commentsCount);
     bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip, commentsButton, download);
@@ -310,14 +330,16 @@
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
     stage.append(img);
+    caption = element("p", "viewer__caption");
+    caption.hidden = true;
 
     prevButton = button("viewer__nav viewer__nav--prev", "‹", "Poprzednie zdjęcie");
     nextButton = button("viewer__nav viewer__nav--next", "›", "Następne zdjęcie");
     panel = element("aside", "viewer__panel");
-    panel.setAttribute("aria-label", "Komentarze");
+    panel.setAttribute("aria-label", "Opis i komentarze");
     panel.hidden = true;
     panel.tabIndex = -1;
-    viewer.append(bar, stage, panel, prevButton, nextButton);
+    viewer.append(bar, stage, caption, panel, prevButton, nextButton);
     document.body.append(viewer);
 
     closeButton.addEventListener("click", close);
@@ -327,7 +349,7 @@
     rotateLeft.addEventListener("click", function () { turn("lewo"); });
     rotateRight.addEventListener("click", function () { turn("prawo"); });
     commentsButton.addEventListener("click", function () { setPanel(!panelOpen); });
-    panel.addEventListener("submit", sendComment);
+    panel.addEventListener("submit", sendPanelForm);
     panel.addEventListener("click", function (event) {
       if (!event.target.closest("[data-comments-close]")) return;
       event.preventDefault();
@@ -376,7 +398,7 @@
   function showCommentCount(tile) {
     var number = commentCount(tile);
     commentsCount.textContent = number;
-    commentsButton.setAttribute("aria-label", "Komentarze (" + number + ")");
+    commentsButton.setAttribute("aria-label", "Opis i komentarze (" + number + ")");
     commentsButton.setAttribute("aria-expanded", String(panelOpen));
   }
 
@@ -402,12 +424,23 @@
     }
   }
 
-  // Treść z naszego serwera: komentarze są już escapowane w szablonie.
+  function showCaption(tile) {
+    var text = tile.getAttribute("data-caption") || "";
+    caption.textContent = text;
+    caption.hidden = !text;
+  }
+
+  // Treść z naszego serwera: komentarze i opis są już escapowane w szablonie.
   function fillPanel(tile, response, html) {
     panel.innerHTML = html;
     panel.removeAttribute("aria-busy");
     var number = response.headers.get("X-Comment-Count");
     if (number !== null) setCommentCount(tile, Number(number));
+    var body = panel.querySelector("[data-photo-panel]");
+    if (body) {
+      tile.setAttribute("data-caption", body.getAttribute("data-caption"));
+      if (tile === tiles[current]) showCaption(tile);
+    }
   }
 
   function panelError(text) {
@@ -430,11 +463,12 @@
       .catch(function () {
         if (ticket !== commentsRequest) return;
         panel.removeAttribute("aria-busy");
-        panel.replaceChildren(panelError("Nie udało się wczytać komentarzy. Zamknij panel i otwórz go jeszcze raz."));
+        panel.replaceChildren(panelError("Nie udało się wczytać opisu i komentarzy. Zamknij panel i otwórz go jeszcze raz."));
       });
   }
 
-  function sendComment(event) {
+  // Komentarz, usunięcie komentarza albo opis: serwer odsyła cały panel na nowo.
+  function sendPanelForm(event) {
     var form = event.target;
     event.preventDefault();
     if (form.hasAttribute("data-comment-delete") && !window.confirm("Usunąć ten komentarz?")) return;
@@ -454,8 +488,13 @@
         return response.text().then(function (html) {
           if (ticket !== commentsRequest) return;
           fillPanel(tile, response, html);
-          var field = panel.querySelector("textarea");
-          if (field && response.status === 400) field.focus();
+          // Po zapisaniu opisu widać go od góry panelu.
+          if (response.status !== 400) {
+            if (form.hasAttribute("data-metadata-form")) panel.scrollTop = 0;
+            return;
+          }
+          var field = panel.querySelector("[aria-invalid=true]") || panel.querySelector("[data-comment-form] textarea");
+          if (field) field.focus();
         });
       })
       .catch(function () {
@@ -501,6 +540,7 @@
     flip.replaceChildren(element("span", "viewer__flip-verb", "Pokaż "), onReverse ? "awers" : "rewers");
     download.href = tile.getAttribute(onReverse ? "data-reverse-download" : "data-download");
     showCommentCount(tile);
+    showCaption(tile);
     if (panelOpen && panelTile !== tile) loadComments(tile);
     prevButton.disabled = index === 0;
     nextButton.disabled = index === tiles.length - 1;

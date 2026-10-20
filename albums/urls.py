@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import comments, views
+from . import comments, metadata, views
 
 app_name = "albums"
 
@@ -19,6 +19,7 @@ urlpatterns = [
     path("archiwum/<int:pk>/pobierz-caly/", views.album_download_all, name="album_download_all"),
     path("zdjecia/<int:pk>/obroc/", views.photo_rotate, name="rotate"),
     path("zdjecia/<int:pk>/komentarze/", comments.photo_comments, name="comments"),
+    path("zdjecia/<int:pk>/opis/", metadata.photo_metadata, name="metadata"),
     path("komentarze/<int:pk>/usun/", comments.comment_delete, name="comment_delete"),
     path("zdjecia/<int:pk>/pobierz/", views.photo_download, name="download"),
     path(

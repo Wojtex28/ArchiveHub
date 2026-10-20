@@ -16,7 +16,6 @@ from django.utils.http import http_date
 from django.views.decorators.http import require_POST, require_safe
 from django.views.static import was_modified_since
 
-from .comments import comments_context
 from .downloads import (
     ZipDownload,
     attachment_header,
@@ -27,6 +26,7 @@ from .downloads import (
     take_zip_slot,
 )
 from .models import Album, Photo
+from .photo_panel import panel_context
 from .rotation import rotate
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,11 @@ def _visible_album(request, pk):
 @login_required
 def album_gallery(request, pk):
     album = _visible_album(request, pk)
-    photos = list(album.photos.filter(file_missing=False).annotate(comment_count=Count("comments")))
+    photos = list(
+        album.photos.filter(file_missing=False)
+        .annotate(comment_count=Count("comments"))
+        .prefetch_related("people")
+    )
     return render(
         request,
         "albums/gallery.html",
@@ -102,8 +106,8 @@ def photo_page(request, album_pk, pk, reverse=False):
     return render_photo_page(request, album_pk, pk, reverse)
 
 
-def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None):
-    """Strona zdjęcia; z ``comment_form`` także po nieudanym dodaniu komentarza bez JavaScriptu."""
+def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None, metadata_form=None):
+    """Strona zdjęcia; z formularzem także po nieudanym zapisie komentarza albo opisu bez JavaScriptu."""
     album = _visible_album(request, album_pk)
     ids = list(album.photos.filter(file_missing=False).values_list("pk", flat=True))
     if pk not in ids:
@@ -112,12 +116,13 @@ def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None):
     if reverse and not photo.has_reverse:
         raise Http404
     index = ids.index(pk)
-    show_comments = "komentarze" in request.GET or comment_form is not None
+    failed = comment_form is not None or metadata_form is not None
+    show_comments = "komentarze" in request.GET or failed
     return render(
         request,
         "albums/photo.html",
         {
-            **comments_context(request, photo, comment_form),
+            **panel_context(request, photo, comment_form, metadata_form),
             "show_comments": show_comments,
             "album": album,
             "photo": photo,
@@ -127,7 +132,7 @@ def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None):
             "previous_pk": ids[index - 1] if index > 0 else None,
             "next_pk": ids[index + 1] if index + 1 < len(ids) else None,
         },
-        status=400 if comment_form is not None else 200,
+        status=400 if failed else 200,
     )
 
 

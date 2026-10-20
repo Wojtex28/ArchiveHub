@@ -193,7 +193,7 @@ def test_photo_page_comment_panel_only_when_asked(karolina, family):
     Comment.objects.create(photo=photo, author=family["adam"], text="widać dopiero po otwarciu")
     closed = karolina.get(url).content.decode()
     assert "widać dopiero po otwarciu" not in closed
-    assert 'aria-label="Komentarze (1)"' in closed
+    assert 'aria-label="Opis i komentarze (1)"' in closed
     opened = karolina.get(url + "?komentarze=1").content.decode()
     assert "widać dopiero po otwarciu" in opened
     # Następne zdjęcie otwiera się z panelem komentarzy.

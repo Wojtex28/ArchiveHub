@@ -15,7 +15,8 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from accounts.models import FamilyGroup, InviteCode
 from albums.importer import import_dir, natural_key
-from albums.models import Album, Comment, ImportJob, SyncReport
+from albums.metadata import change_rows
+from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncReport, Tag, name_key
 from albums.sync import albums_dir, sync_albums
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import LoginPhoto
@@ -477,3 +478,63 @@ def comment_delete(request, pk):
     comment.delete()
     messages.success(request, "Usunięto komentarz.")
     return redirect("panel:comment_list")
+
+
+CHANGES_SHOWN = 100
+NAMED = {"osoby": Person, "tagi": Tag}
+
+
+@master_required
+@require_safe
+def descriptions(request):
+    """Osoby i tagi z opisów zdjęć (do poprawiania literówek) i ostatnie zmiany opisów."""
+    changes = PhotoChange.objects.select_related("user", "photo__album").order_by("-created_at", "-pk")
+    changes = list(changes[:CHANGES_SHOWN])
+    for change in changes:
+        change.rows = change_rows(change)
+    return render(
+        request,
+        "panel/descriptions.html",
+        {
+            "named": [
+                ("Osoby", "osoby", list(Person.objects.annotate(count=Count("photos")))),
+                ("Tagi", "tagi", list(Tag.objects.annotate(count=Count("photos")))),
+            ],
+            "changes": changes,
+            "shown": CHANGES_SHOWN,
+        },
+    )
+
+
+@master_required
+@require_POST
+@transaction.atomic
+def named_edit(request, kind, pk):
+    """Zmiana nazwy osoby albo tagu. Nazwa, która już istnieje, łączy oba wpisy w jeden."""
+    model = NAMED.get(kind)
+    if model is None:
+        raise Http404
+    item = get_object_or_404(model, pk=pk)
+    if request.POST.get("action") == "delete":
+        logger.info("Administrator %s usunął %s %r", request.user, model._meta.verbose_name, item.name)
+        item.delete()
+        messages.success(request, f"Usunięto „{item.name}” ze wszystkich zdjęć.")
+        return redirect("panel:descriptions")
+    name = " ".join(request.POST.get("name", "").split())
+    if not name or len(name) > model.MAX_LENGTH:
+        messages.error(request, "Wpisz nazwę (najwyżej 100 znaków).")
+        return redirect("panel:descriptions")
+    other = model.objects.filter(key=name_key(name)).exclude(pk=item.pk).first()
+    if other:
+        for photo in item.photos.all():
+            photo_items = getattr(photo, "people" if model is Person else "tags")
+            photo_items.add(other)
+        logger.info("Administrator %s połączył %r z %r", request.user, item.name, other.name)
+        messages.success(request, f"Połączono „{item.name}” z „{other.name}”.")
+        item.delete()
+    else:
+        old = item.name
+        item.name = name
+        item.save()
+        messages.success(request, f"Zmieniono „{old}” na „{name}”.")
+    return redirect("panel:descriptions")

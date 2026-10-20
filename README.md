@@ -23,7 +23,8 @@ w projekcie.
 | 10 | Komentarze pod zdjęciami, moderacja w panelu | gotowe |
 | 11 | Strona główna: zdjęcia rozrzucone jak na stole, licznik albumów | gotowe |
 | 12 | Telefon i tablet: powiększanie zdjęć, układ na małych ekranach | **gotowe** |
-| 13+ | Metadane, wyszukiwanie, bezpieczeństwo i backup… | zaplanowane |
+| 13 | Opisy zdjęć: data (także przybliżona), miejsce, osoby, tagi, historia zmian | **gotowe** |
+| 14+ | Wyszukiwanie, bezpieczeństwo i backup… | zaplanowane |
 
 ## Technologie
 
