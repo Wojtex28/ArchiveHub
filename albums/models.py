@@ -123,6 +123,16 @@ class Photo(models.Model):
     has_reverse = models.BooleanField("ma rewers", default=False)
     reverse_checksum = models.CharField(max_length=64, blank=True)
     file_missing = models.BooleanField("brak pliku", default=False)
+    # Obrót zgodnie z ruchem wskazówek zegara (0, 90, 180, 270), ustawiany przez rodzinę w galerii.
+    # *_applied: obrót, który worker zapisał już w plikach. Różnicę do tego czasu dokłada przeglądarka (CSS).
+    rotation = models.PositiveSmallIntegerField("obrót", default=0)
+    applied_rotation = models.PositiveSmallIntegerField(default=0)
+    reverse_rotation = models.PositiveSmallIntegerField("obrót rewersu", default=0)
+    reverse_applied_rotation = models.PositiveSmallIntegerField(default=0)
+    rotated_at = models.DateTimeField(null=True, blank=True)
+    rotated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = PhotoQuerySet.as_manager()
@@ -155,6 +165,36 @@ class Photo(models.Model):
 
     def thumb_path(self, reverse=False):
         return self.album.path / THUMB_DIR / f"{self.file_stem(reverse)}.webp"
+
+    def target_rotation(self, reverse=False):
+        return self.reverse_rotation if reverse else self.rotation
+
+    def baked_rotation(self, reverse=False):
+        return self.reverse_applied_rotation if reverse else self.applied_rotation
+
+    def pending_rotation(self, reverse=False):
+        """Obrót, którego jeszcze nie ma w plikach: tyle obraca obraz przeglądarka."""
+        return (self.target_rotation(reverse) - self.baked_rotation(reverse)) % 360
+
+    @property
+    def pending_front(self):
+        return self.pending_rotation()
+
+    @property
+    def pending_back(self):
+        return self.pending_rotation(reverse=True)
+
+    def file_version(self, reverse=False):
+        # Dopisywane do adresów plików: po obróceniu pliku przeglądarka nie pokaże starej wersji z pamięci.
+        return self.baked_rotation(reverse)
+
+    @property
+    def version_front(self):
+        return self.file_version()
+
+    @property
+    def version_back(self):
+        return self.file_version(reverse=True)
 
     def file_stem(self, reverse=False):
         return f"{self.name}{settings.ARCHIVEHUB_REVERSE_SUFFIX}" if reverse else self.name

@@ -8,13 +8,18 @@
     <a class="viewer__close" href="{% url 'albums:gallery' album.pk %}#zdjecie-{{ photo.pk }}" data-close>✕<span class="visually-hidden"> Wróć do albumu</span></a>
     <span class="viewer__title">{{ album.title }}</span>
     <span class="viewer__count">{{ number }} / {{ total }}{% if reverse %} · rewers{% endif %}</span>
+    <span class="viewer__rotate" data-rotate-url="{% url 'albums:rotate' photo.pk %}" data-side="{% if reverse %}rewers{% else %}awers{% endif %}" data-csrf="{{ csrf_token }}">
+      <button type="button" class="viewer__rotate-button" data-direction="lewo" aria-label="Obróć w lewo" title="Obróć w lewo">↺</button>
+      <button type="button" class="viewer__rotate-button" data-direction="prawo" aria-label="Obróć w prawo" title="Obróć w prawo">↻</button>
+    </span>
     {% if photo.has_reverse %}
     {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}">Pokaż awers</a>
     {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}">Pokaż rewers</a>{% endif %}
     {% endif %}
   </div>
   <div class="viewer__stage" data-stage>
-    <img class="viewer__img" src="{% if reverse %}{% url 'albums:preview_reverse' photo.pk %}{% else %}{% url 'albums:preview' photo.pk %}{% endif %}"
+    <img class="viewer__img" data-rotation="{% if reverse %}{{ photo.pending_back }}{% else %}{{ photo.pending_front }}{% endif %}"
+         src="{% if reverse %}{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}{% else %}{% url 'albums:preview' photo.pk %}?v={{ photo.version_front }}{% endif %}"
          alt="{% if reverse %}Rewers zdjęcia{% else %}Zdjęcie{% endif %} {{ number }} z albumu {{ album.title }}">
   </div>
   {% if previous_pk %}<a class="viewer__nav viewer__nav--prev" href="{% url 'albums:photo' album.pk previous_pk %}" rel="prev">‹<span class="visually-hidden"> Poprzednie zdjęcie</span></a>{% endif %}

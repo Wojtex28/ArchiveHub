@@ -21,7 +21,7 @@
       <form method="post" action="{% url 'panel:album_move_up' album.pk %}">{% csrf_token %}<button type="submit" class="icon-button" aria-label="Przesuń „{{ album.title }}” w górę"{% if forloop.first %} disabled{% endif %}>↑</button></form>
       <form method="post" action="{% url 'panel:album_move_down' album.pk %}">{% csrf_token %}<button type="submit" class="icon-button" aria-label="Przesuń „{{ album.title }}” w dół"{% if forloop.last %} disabled{% endif %}>↓</button></form>
     </td>
-    <td>{% with cover=album.cover_photo %}{% if cover %}<img class="album-table__cover" src="{% url 'albums:thumb' cover.pk %}" alt="" loading="lazy">{% endif %}{% endwith %}</td>
+    <td>{% with cover=album.cover_photo %}{% if cover %}<img class="album-table__cover rot-{{ cover.pending_front }}" src="{% url 'albums:thumb' cover.pk %}?v={{ cover.version_front }}" alt="" loading="lazy">{% endif %}{% endwith %}</td>
     <td><a href="{% url 'panel:album_detail' album.pk %}">{{ album.title }}</a>
       {% if album.is_hidden %}<span class="badge badge--muted">ukryty</span>{% endif %}
       {% if album.folder_missing %}<span class="badge badge--danger">brak folderu</span>{% endif %}

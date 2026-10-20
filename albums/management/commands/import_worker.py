@@ -12,12 +12,16 @@ from albums.importer import (
     scan_import_dir,
     touch_heartbeat,
 )
+from albums.rotation import apply_rotations
 
 logger = logging.getLogger("albums.importer")
 
 
 class Command(BaseCommand):
-    help = "Pilnuje udziału import: gotowe foldery zamienia w albumy. Działa w osobnym kontenerze."
+    help = (
+        "Pilnuje udziału import: gotowe foldery zamienia w albumy. Obraca też pliki zdjęć obróconych"
+        " w galerii. Działa w osobnym kontenerze."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument("--once", action="store_true", help="Jedno przejście i koniec.")
@@ -42,6 +46,10 @@ class Command(BaseCommand):
                 scan_import_dir()
             except Exception:
                 logger.exception("Import: nieoczekiwany błąd przejścia")
+            try:
+                apply_rotations()
+            except Exception:
+                logger.exception("Obrót: nieoczekiwany błąd przejścia")
             touch_heartbeat()
             if once:
                 break

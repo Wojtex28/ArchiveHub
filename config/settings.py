@@ -52,6 +52,8 @@ ARCHIVEHUB_IMPORT_DIR = Path(env("ARCHIVEHUB_IMPORT_DIR", str(BASE_DIR / "var" /
 ARCHIVEHUB_IMPORT_STABLE_MINUTES = int(env("ARCHIVEHUB_IMPORT_STABLE_MINUTES", "10"))
 # Rewers ma nazwę awersu z tym dopiskiem, np. 012.jpg i 012_r.jpg.
 ARCHIVEHUB_REVERSE_SUFFIX = env("ARCHIVEHUB_REVERSE_SUFFIX", "_r")
+# Po tylu sekundach od ostatniego kliknięcia ↺/↻ worker obraca pliki zdjęcia.
+ARCHIVEHUB_ROTATION_DELAY_SECONDS = int(env("ARCHIVEHUB_ROTATION_DELAY_SECONDS", "30"))
 # Dłuższy bok wersji do oglądania i miniatury (px).
 # Oryginał do pobrania: 0 = pełna rozdzielczość skanu.
 ARCHIVEHUB_ORIGINAL_MAX_SIDE = int(env("ARCHIVEHUB_ORIGINAL_MAX_SIDE", "0"))
