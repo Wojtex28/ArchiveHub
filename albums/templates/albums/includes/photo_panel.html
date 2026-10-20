@@ -1,0 +1,8 @@
+<div class="photo-panel" data-photo-panel data-caption="{{ photo.caption }}">
+  <div class="photo-panel__head">
+    <p class="photo-panel__title">Opis i komentarze</p>
+    <a class="photo-panel__close" href="{% url 'albums:photo' photo.album_id photo.pk %}" data-comments-close>✕<span class="visually-hidden"> Zamknij panel</span></a>
+  </div>
+  {% include "albums/includes/metadata.html" %}
+  {% include "albums/includes/comments.html" %}
+</div>

@@ -5,7 +5,7 @@
 <p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
 <h1>{{ album.title }}{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</h1>
 {% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
-<p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻, a powiększysz dwuklikiem, kółkiem myszy albo dwoma palcami.</p>
+<p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻, a powiększysz dwuklikiem, kółkiem myszy albo dwoma palcami. Pod 💬 dopiszesz, kiedy i gdzie zrobiono zdjęcie i kto na nim jest.</p>
 {% if photos %}
 <div class="gallery-actions" data-gallery-actions>
   <a class="button" href="{% url 'albums:album_download_all' album.pk %}">Pobierz cały album <span class="gallery-actions__size">(ZIP, {{ album_size|filesizeformat }})</span></a>
@@ -25,6 +25,7 @@
        data-download="{% url 'albums:download' photo.pk %}"
        data-comments-url="{% url 'albums:comments' photo.pk %}"
        data-comments="{{ photo.comment_count }}"
+       data-caption="{{ photo.caption }}"
        {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-rotation="{{ photo.pending_back }}"

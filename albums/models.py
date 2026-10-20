@@ -137,6 +137,19 @@ class Photo(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Opis od rodziny (ETAP 13). Datę wpisuje się po ludzku (albums.dates), zakres lat służy do szukania.
+    description = models.TextField("opis", max_length=2000, blank=True)
+    date_text = models.CharField("data", max_length=60, blank=True)
+    year_from = models.PositiveSmallIntegerField("rok od", null=True, blank=True, db_index=True)
+    year_to = models.PositiveSmallIntegerField("rok do", null=True, blank=True)
+    place = models.CharField("miejsce", max_length=200, blank=True)
+    people = models.ManyToManyField("Person", blank=True, related_name="photos", verbose_name="osoby")
+    tags = models.ManyToManyField("Tag", blank=True, related_name="photos", verbose_name="tagi")
+    described_at = models.DateTimeField(null=True, blank=True)
+    described_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
     objects = PhotoQuerySet.as_manager()
 
     class Meta:
@@ -200,6 +213,15 @@ class Photo(models.Model):
 
     def file_stem(self, reverse=False):
         return f"{self.name}{settings.ARCHIVEHUB_REVERSE_SUFFIX}" if reverse else self.name
+
+    def caption(self):
+        """Krótki podpis pod zdjęciem: data · miejsce · osoby (z prefetch_related("people") bez zapytań)."""
+        names = ", ".join(person.name for person in self.people.all())
+        return " · ".join(part for part in (self.date_text, self.place, names) if part)
+
+    @property
+    def is_described(self):
+        return bool(self.described_at)
 
 
 ORIGINAL_DIR = "oryginaly"
@@ -302,3 +324,69 @@ class Comment(models.Model):
     def can_delete(self, user):
         """Własny komentarz usuwa autor, każdy inny administrator."""
         return user.is_superuser or (self.author_id is not None and self.author_id == user.pk)
+
+
+class NamedQuerySet(models.QuerySet):
+    def get_or_create_named(self, name):
+        """Ta sama nazwa bez względu na wielkość liter (także „Ł” i „ł”) to ten sam wpis."""
+        name = " ".join(name.split())
+        found = self.filter(key=name_key(name)).first()
+        return found or self.create(name=name)
+
+
+def name_key(name):
+    return " ".join(name.split()).casefold()
+
+
+class NamedModel(models.Model):
+    """Osoba albo tag: nazwa do wyświetlenia i klucz bez wielkości liter (SQLite nie zna polskich liter)."""
+
+    MAX_LENGTH = 100
+
+    name = models.CharField("nazwa", max_length=MAX_LENGTH)
+    key = models.CharField(max_length=MAX_LENGTH, unique=True, editable=False)
+
+    objects = NamedQuerySet.as_manager()
+
+    class Meta:
+        abstract = True
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.name = " ".join(self.name.split())
+        self.key = name_key(self.name)
+        super().save(*args, **kwargs)
+
+
+class Person(NamedModel):
+    """Osoba rozpoznana przez rodzinę na zdjęciach (bez rozpoznawania twarzy)."""
+
+    class Meta(NamedModel.Meta):
+        verbose_name = "osoba"
+        verbose_name_plural = "osoby"
+
+
+class Tag(NamedModel):
+    class Meta(NamedModel.Meta):
+        verbose_name = "tag"
+        verbose_name_plural = "tagi"
+
+
+class PhotoChange(models.Model):
+    """Jedna zmiana opisu zdjęcia: kto, kiedy i co (``{"pole": [przed, po]}``). Pozwala cofnąć pomyłkę."""
+
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name="changes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "zmiana opisu"
+        verbose_name_plural = "zmiany opisów"
+
+    def __str__(self):
+        return f"{self.user or 'konto usunięte'}: {self.photo} ({', '.join(self.changes)})"

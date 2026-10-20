@@ -1,8 +1,5 @@
-<div class="comments" data-comments-body>
-  <div class="comments__head">
-    <h2 class="comments__title">Komentarze{% if comments %} ({{ comments|length }}){% endif %}</h2>
-    <a class="comments__close" href="{% url 'albums:photo' photo.album_id photo.pk %}" data-comments-close>✕<span class="visually-hidden"> Zamknij komentarze</span></a>
-  </div>
+<section class="comments" id="komentarze-lista" aria-label="Komentarze">
+  <h2 class="panel-section__title">Komentarze{% if comments %} ({{ comments|length }}){% endif %}</h2>
   {% if comments %}
   <ol class="comments__list">
     {% for comment in comments %}
@@ -23,4 +20,4 @@
     {% for error in comment_form.text.errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
     <button type="submit" class="button">Dodaj komentarz</button>
   </form>
-</div>
+</section>

@@ -472,11 +472,13 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .viewer__panel:focus { outline: none; }
 .viewer.has-panel .viewer__stage { margin-right: 24rem; }
 .viewer.has-panel .viewer__nav--next { right: 24.75rem; }
-.comments { padding: 1rem 1.125rem 1.5rem; }
-.comments__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.75rem; }
-.comments__close { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; color: inherit; text-decoration: none; border-radius: 999px; background: rgb(255 255 255 / 0.08); }
-.comments__close:hover { background: rgb(255 255 255 / 0.18); }
-.comments__title { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 400; color: #f4efe6; }
+.photo-panel { padding: 0.75rem 1.125rem 1.5rem; }
+.photo-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.25rem; }
+.photo-panel__title { margin: 0; font-size: 0.8125rem; letter-spacing: 0.06em; text-transform: uppercase; color: #c9bca8; }
+.photo-panel__close { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; color: inherit; text-decoration: none; border-radius: 999px; background: rgb(255 255 255 / 0.08); }
+.photo-panel__close:hover { background: rgb(255 255 255 / 0.18); }
+.panel-section__title { margin: 0 0 0.75rem; font-family: var(--serif); font-size: 1.25rem; font-weight: 400; color: #f4efe6; }
+.comments { padding-top: 1.25rem; }
 .comments__list { list-style: none; margin: 0 0 1rem; padding: 0; }
 .comment { padding: 0.75rem 0; border-bottom: 1px solid rgb(255 255 255 / 0.1); }
 .comment__meta { margin: 0 0 0.25rem; font-size: 0.8125rem; color: #c9bca8; }
@@ -497,6 +499,41 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
   .viewer__panel { top: auto; left: 0; width: auto; height: 62%; border-left: 0; border-top: 1px solid rgb(255 255 255 / 0.15); border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
   .viewer.has-panel .viewer__stage { margin-right: 0; height: calc(38% - 3rem); flex: none; }
   .viewer.has-panel .viewer__nav { display: none; }
+}
+
+/* Opis zdjęcia (ETAP 13) */
+.metadata { padding-bottom: 1.25rem; border-bottom: 1px solid rgb(255 255 255 / 0.14); }
+.metadata__list { margin: 0 0 0.75rem; display: grid; gap: 0.5rem; }
+.metadata__row { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.75rem; align-items: baseline; }
+.metadata__row dt { font-size: 0.8125rem; color: #c9bca8; }
+.metadata__row dd { margin: 0; overflow-wrap: anywhere; }
+.metadata__description { margin: 0 0 0.75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.metadata__meta { margin: 0 0 0.75rem; font-size: 0.8125rem; color: #a99c89; }
+.metadata__empty { margin: 0 0 0.75rem; color: #c9bca8; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.chip { padding: 0.0625rem 0.625rem; border-radius: 999px; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.16); font-size: 0.9375rem; }
+.chip--tag { background: rgb(111 47 42 / 0.45); }
+.metadata__edit .metadata__toggle { color: #f4efe6; }
+.metadata__toggle { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1rem; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.25); background: rgb(255 255 255 / 0.08); cursor: pointer; list-style: none; }
+.metadata__toggle::-webkit-details-marker { display: none; }
+.metadata__toggle::before { content: "✎"; margin-right: 0.5rem; }
+.metadata__toggle:hover { background: rgb(255 255 255 / 0.18); }
+.metadata__edit[open] .metadata__toggle { margin-bottom: 0.75rem; }
+.metadata__form { display: grid; gap: 0.75rem; }
+.metadata__field { display: grid; gap: 0.25rem; }
+.metadata__field label { font-size: 0.875rem; color: #e6dccd; }
+.metadata__field input, .metadata__field textarea { width: 100%; padding: 0.5rem 0.75rem; font: inherit; color: #2c241d; background: #fbf8f2; border: 1px solid rgb(255 255 255 / 0.3); border-radius: 8px; }
+.metadata__field textarea { min-height: 4.5rem; resize: vertical; }
+.metadata__field [aria-invalid="true"] { border-color: #f0b3aa; box-shadow: 0 0 0 2px rgb(240 179 170 / 0.5); }
+.metadata__help { margin: 0; font-size: 0.8125rem; color: #a99c89; }
+.metadata__form .button { justify-self: start; }
+.viewer__caption { margin: 0; padding: 0.25rem 4rem 0.625rem; text-align: center; font-size: 0.9375rem; color: #e6dccd; overflow-wrap: anywhere; }
+.viewer__caption[hidden] { display: none; }
+.viewer.has-panel .viewer__caption { margin-right: 24rem; }
+@media (max-width: 40rem) {
+  .viewer__stage { order: 1; }
+  .viewer__caption { padding: 0.125rem 0.75rem 0.375rem; font-size: 0.875rem; }
+  .viewer.has-panel .viewer__caption { display: none; }
 }
 .comment-admin { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.75rem; }
 .comment-admin__item { display: grid; grid-template-columns: 6rem 1fr auto; gap: 1rem; align-items: start; padding: 0.75rem; background: var(--card); border: 1px solid var(--rule); border-radius: 10px; }
@@ -560,3 +597,18 @@ a.polaroid:hover, a.polaroid:focus-visible { z-index: 10; rotate: 0deg; scale: 1
   .table--matrix th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 8.5rem; background: var(--card); box-shadow: 1px 0 0 var(--rule); }
   .thumb__actions .link-button { min-height: 2.25rem; padding: 0 0.25rem; }
 }
+
+/* Panel: osoby, tagi i historia opisów (ETAP 13) */
+.named-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 1.5rem; margin: 1rem 0 2rem; }
+.named h2 { margin-top: 0; }
+.named__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.named__form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.named__form input { flex: 1 1 10rem; min-width: 0; padding: 0.375rem 0.625rem; font: inherit; border: 1px solid var(--rule-strong); border-radius: 6px; background: #fff; }
+.named__form .button { padding: 0.375rem 0.875rem; font-size: 0.9375rem; }
+.named__count { font-size: 0.875rem; color: var(--ink-quiet); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.change-rows { margin: 0.25rem 0 0; display: grid; gap: 0.125rem; font-size: 0.9375rem; }
+.change-rows div { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.5rem; }
+.change-rows dt { color: var(--ink-quiet); }
+.change-rows dd { margin: 0; overflow-wrap: anywhere; }
+.change-rows del { color: var(--ink-quiet); }
+.change-rows ins { text-decoration: none; background: #e7efd9; }
