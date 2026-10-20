@@ -13,9 +13,10 @@
       <button type="button" class="viewer__rotate-button" data-direction="prawo" aria-label="Obróć w prawo" title="Obróć w prawo">↻</button>
     </span>
     {% if photo.has_reverse %}
-    {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}">Pokaż awers</a>
-    {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}">Pokaż rewers</a>{% endif %}
+    {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}"><span class="viewer__flip-verb">Pokaż </span>awers</a>
+    {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}"><span class="viewer__flip-verb">Pokaż </span>rewers</a>{% endif %}
     {% endif %}
+    <a class="viewer__download" href="{% if reverse %}{% url 'albums:download_reverse' photo.pk %}{% else %}{% url 'albums:download' photo.pk %}{% endif %}" download title="Pobierz w pełnej rozdzielczości">⤓<span class="visually-hidden"> Pobierz w pełnej rozdzielczości</span></a>
   </div>
   <div class="viewer__stage" data-stage>
     <img class="viewer__img" data-rotation="{% if reverse %}{{ photo.pending_back }}{% else %}{{ photo.pending_front }}{% endif %}"

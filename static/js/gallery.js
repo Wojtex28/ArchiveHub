@@ -91,7 +91,7 @@
   var albumTitle = grid.getAttribute("data-album-title");
   var csrf = grid.getAttribute("data-csrf");
 
-  var viewer, img, count, flip, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
+  var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
   var current = -1;
   var reverse = false;
   var opener = null;
@@ -129,7 +129,11 @@
     rotateLeft.title = "Obróć w lewo";
     rotateRight.title = "Obróć w prawo";
     rotate.append(rotateLeft, rotateRight);
-    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip);
+    download = element("a", "viewer__download", "⤓");
+    download.setAttribute("download", "");
+    download.title = "Pobierz w pełnej rozdzielczości";
+    download.setAttribute("aria-label", "Pobierz w pełnej rozdzielczości");
+    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip, download);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
@@ -205,7 +209,8 @@
 
     count.textContent = index + 1 + " / " + tiles.length + (onReverse ? " · rewers" : "");
     flip.hidden = !tile.hasAttribute("data-reverse-preview");
-    flip.textContent = onReverse ? "Pokaż awers" : "Pokaż rewers";
+    flip.replaceChildren(element("span", "viewer__flip-verb", "Pokaż "), onReverse ? "awers" : "rewers");
+    download.href = tile.getAttribute(onReverse ? "data-reverse-download" : "data-download");
     prevButton.disabled = index === 0;
     nextButton.disabled = index === tiles.length - 1;
     if (!viewer.contains(document.activeElement) || document.activeElement.disabled || document.activeElement.hidden) closeButton.focus();
@@ -263,7 +268,7 @@
   }
 
   function trapFocus(event) {
-    var focusable = Array.prototype.filter.call(viewer.querySelectorAll("button"), function (node) {
+    var focusable = Array.prototype.filter.call(viewer.querySelectorAll("button, a[href]"), function (node) {
       return !node.hidden && !node.disabled;
     });
     var position = focusable.indexOf(document.activeElement);
@@ -283,10 +288,55 @@
     } else hide();
   });
 
+  // Tryb zaznaczania: kliknięcie miniatury zaznacza ją zamiast otwierać, pasek na dole pobiera ZIP.
+  var selectStart = document.querySelector("[data-select-start]");
+  var actions = document.querySelector("[data-gallery-actions]");
+  var selectBar = document.querySelector("[data-select-bar]");
+  var selectCount = document.querySelector("[data-select-count]");
+  var selectDownload = document.querySelector("[data-select-download]");
+  var boxes = Array.prototype.slice.call(grid.querySelectorAll(".gallery-select"));
+  var selecting = false;
+
+  function refreshSelection() {
+    var chosen = boxes.filter(function (box) { return box.checked; }).length;
+    selectCount.textContent = "Zaznaczono: " + chosen;
+    selectDownload.disabled = chosen === 0;
+    boxes.forEach(function (box) { box.parentNode.classList.toggle("is-selected", box.checked); });
+  }
+
+  function setSelecting(on) {
+    selecting = on;
+    grid.classList.toggle("is-selecting", on);
+    selectBar.hidden = !on;
+    selectStart.hidden = on;
+    if (actions) actions.hidden = on;
+    document.body.classList.toggle("has-select-bar", on);
+    if (!on) boxes.forEach(function (box) { box.checked = false; });
+    refreshSelection();
+  }
+
+  if (selectStart) {
+    selectStart.hidden = false;
+    selectStart.addEventListener("click", function () { setSelecting(true); });
+    document.querySelector("[data-select-cancel]").addEventListener("click", function () { setSelecting(false); });
+    document.querySelector("[data-select-all]").addEventListener("click", function () {
+      var all = boxes.every(function (box) { return box.checked; });
+      boxes.forEach(function (box) { box.checked = !all; });
+      refreshSelection();
+    });
+    grid.addEventListener("change", refreshSelection);
+  }
+
   grid.addEventListener("click", function (event) {
     var tile = event.target.closest("a[data-preview]");
     if (!tile || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
+    if (selecting) {
+      var box = tile.parentNode.querySelector(".gallery-select");
+      box.checked = !box.checked;
+      refreshSelection();
+      return;
+    }
     open(tiles.indexOf(tile), tile);
   });
 })();

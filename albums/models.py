@@ -41,6 +41,8 @@ class Album(models.Model):
     title = models.CharField("tytuł", max_length=200)
     description = models.TextField("opis", blank=True)
     is_hidden = models.BooleanField("ukryty", default=False)
+    # Folder z oryginalnymi skanami PNG na Google Drive (udostępnianie ustawia się w Drive).
+    originals_url = models.URLField("link do oryginałów PNG", max_length=500, blank=True)
     # Kolejność w archiwum; nowy album trafia na koniec.
     position = models.PositiveIntegerField("kolejność", default=0)
     cover = models.ForeignKey(
