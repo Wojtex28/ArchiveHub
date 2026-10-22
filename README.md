@@ -24,7 +24,8 @@ w projekcie.
 | 11 | Strona główna: zdjęcia rozrzucone jak na stole, licznik albumów | gotowe |
 | 12 | Telefon i tablet: powiększanie zdjęć, układ na małych ekranach | **gotowe** |
 | 13 | Opisy zdjęć: data (także przybliżona), miejsce, osoby, tagi, historia zmian | **gotowe** |
-| 14+ | Wyszukiwanie, bezpieczeństwo i backup… | zaplanowane |
+| 14 | Wyszukiwanie: tekst bez polskich znaków, osoba, tag, miejsce, lata, album, zdjęcia bez opisu | **gotowe** |
+| 15+ | Bezpieczeństwo i backup, produkcja… | zaplanowane |
 
 ## Technologie
 

@@ -149,6 +149,8 @@ class Photo(models.Model):
     described_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
+    # Opis, osoby, tagi i komentarze małymi literami, bez polskich znaków (albums.search).
+    search_text = models.TextField(blank=True, editable=False)
 
     objects = PhotoQuerySet.as_manager()
 

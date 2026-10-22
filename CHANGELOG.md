@@ -15,6 +15,26 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.14.0 (2026-10-22) · ETAP 14: wyszukiwanie
+
+### Dodane
+- **Strona „Szukaj”** w menu górnym:
+  - jedno pole tekstowe przeszukuje opisy, daty, miejsca, osoby, tagi, komentarze i nazwy albumów;
+  - wielkość liter i polskie znaki nie mają znaczenia: „berezow” znajdzie „Berezów”, „lucja” znajdzie „Łucja”;
+  - kilka słów zawęża wyniki: „jan wesele” to zdjęcia, na których są oba słowa.
+- **Filtry** (pod „Więcej filtrów”): osoba, tag, miejsce, od roku, do roku, album i „Tylko zdjęcia bez opisu”. Pola podpowiadają nazwy, które już są w archiwum.
+- **Lata działają z datami przybliżonymi:** „ok. 1965” pojawi się przy szukaniu lat 60.
+- **Wyniki** są od najstarszych, a zdjęcia bez daty na końcu. Strony mają po 60 zdjęć.
+  - Kliknięcie otwiera ten sam podgląd co w albumie: strzałki przechodzą po wynikach, a pasek pokazuje album danego zdjęcia.
+  - Działają obracanie, pobieranie, opis i komentarze.
+- **Pusta strona wyszukiwania** podpowiada:
+  - dziesięciolecia, osoby i tagi z liczbą zdjęć (klik od razu szuka);
+  - link „Zdjęcia bez opisu: N”, żeby rodzina wiedziała, co jeszcze opisać.
+- **Opis zdjęcia prowadzi do wyszukiwania:** klik w osobę, tag, miejsce albo datę w panelu „Opis i komentarze” pokazuje wszystkie takie zdjęcia.
+
+### Bezpieczeństwo
+- Wyniki, podpowiedzi i liczby obejmują tylko albumy, które dana osoba widzi.
+
 ## 0.13.1 (2026-10-20)
 
 Porządki po pierwszym pełnym wdrożeniu etapów 7–13.

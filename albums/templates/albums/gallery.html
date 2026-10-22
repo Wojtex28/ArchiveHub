@@ -16,27 +16,7 @@
 {% csrf_token %}
 <ul class="gallery-grid" data-gallery data-album-title="{{ album.title }}" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
-  <li id="zdjecie-{{ photo.pk }}">
-    <a class="gallery-tile" href="{% url 'albums:photo' album.pk photo.pk %}"
-       data-preview="{% url 'albums:preview' photo.pk %}?v={{ photo.version_front }}"
-       data-thumb="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}"
-       data-rotation="{{ photo.pending_front }}"
-       data-rotate-url="{% url 'albums:rotate' photo.pk %}"
-       data-download="{% url 'albums:download' photo.pk %}"
-       data-comments-url="{% url 'albums:comments' photo.pk %}"
-       data-comments="{{ photo.comment_count }}"
-       data-caption="{{ photo.caption }}"
-       {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}"
-       data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}"
-       data-reverse-rotation="{{ photo.pending_back }}"
-       data-reverse-download="{% url 'albums:download_reverse' photo.pk %}"
-       data-reverse-page="{% url 'albums:photo_reverse' album.pk photo.pk %}"{% endif %}>
-      <img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {{ forloop.counter }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" decoding="async">
-      {% if photo.has_reverse %}<span class="gallery-tile__badge">z rewersem</span>{% endif %}
-      <span class="gallery-tile__comments" {% if not photo.comment_count %}hidden{% endif %}>💬 <span data-comment-count>{{ photo.comment_count }}</span><span class="visually-hidden"> komentarzy</span></span>
-    </a>
-    <input type="checkbox" class="gallery-select" name="photos" value="{{ photo.pk }}" aria-label="Zaznacz zdjęcie {{ forloop.counter }}">
-  </li>
+  {% include "albums/includes/photo_tile.html" with number=forloop.counter selectable=True %}
   {% endfor %}
 </ul>
 <div class="select-bar" data-select-bar hidden>
