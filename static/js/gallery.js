@@ -275,7 +275,7 @@
   var csrf = grid.getAttribute("data-csrf");
 
   var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
-  var commentsButton, commentsCount, panel, caption;
+  var commentsButton, commentsCount, panel, caption, title;
   var panelOpen = false;
   var panelTile = null;
   var commentsRequest = 0;
@@ -325,7 +325,8 @@
     commentsButton.title = "Opis i komentarze";
     commentsCount = element("span", "viewer__comments-count");
     commentsButton.append(commentsCount);
-    bar.append(closeButton, element("span", "viewer__title", albumTitle), count, rotate, flip, commentsButton, download);
+    title = element("span", "viewer__title", albumTitle);
+    bar.append(closeButton, title, count, rotate, flip, commentsButton, download);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
@@ -523,7 +524,10 @@
     var full = tile.getAttribute(onReverse ? "data-reverse-preview" : "data-preview");
     // Najpierw miniatura z pamięci przeglądarki, potem ostrzejszy podgląd, gdy się wczyta.
     img.src = tile.getAttribute(onReverse ? "data-reverse-thumb" : "data-thumb");
-    img.alt = (onReverse ? "Rewers zdjęcia " : "Zdjęcie ") + (index + 1) + " z albumu " + albumTitle;
+    // W wynikach wyszukiwania każde zdjęcie może być z innego albumu.
+    var album = tile.getAttribute("data-album-title") || albumTitle;
+    title.textContent = album;
+    img.alt = (onReverse ? "Rewers zdjęcia " : "Zdjęcie ") + (index + 1) + " z albumu " + album;
     img.classList.add("is-loading");
     fitRotation(img, rotationOf(tile, onReverse));
     var loader = new Image();

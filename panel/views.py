@@ -17,7 +17,9 @@ from accounts.models import FamilyGroup, InviteCode
 from albums.importer import import_dir, natural_key
 from albums.metadata import change_rows
 from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncReport, Tag, name_key
+from albums.search import refresh_search_text
 from albums.sync import albums_dir, sync_albums
+from config import __version__
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import LoginPhoto
 
@@ -74,6 +76,7 @@ def dashboard(request):
                 status__in=[ImportJob.WAITING, ImportJob.PROCESSING]
             ).count(),
             "events": events[:8],
+            "version": __version__,
         },
     )
 
@@ -515,9 +518,12 @@ def named_edit(request, kind, pk):
     if model is None:
         raise Http404
     item = get_object_or_404(model, pk=pk)
+    # Nazwa jest w tekście do wyszukiwania tych zdjęć, więc po każdej zmianie trzeba go przeliczyć.
+    photo_ids = list(item.photos.values_list("pk", flat=True))
     if request.POST.get("action") == "delete":
         logger.info("Administrator %s usunął %s %r", request.user, model._meta.verbose_name, item.name)
         item.delete()
+        refresh_search_text(photo_ids)
         messages.success(request, f"Usunięto „{item.name}” ze wszystkich zdjęć.")
         return redirect("panel:descriptions")
     name = " ".join(request.POST.get("name", "").split())
@@ -537,4 +543,5 @@ def named_edit(request, kind, pk):
         item.name = name
         item.save()
         messages.success(request, f"Zmieniono „{old}” na „{name}”.")
+    refresh_search_text(photo_ids)
     return redirect("panel:descriptions")

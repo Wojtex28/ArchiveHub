@@ -1,0 +1,85 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}Szukaj · {{ site_title }}{% endblock %}
+{% block main %}
+<h1>Szukaj zdjęć</h1>
+<form method="get" action="{% url 'albums:search' %}" class="search-form card" role="search">
+  <div class="search-form__main">
+    <label for="{{ form.q.id_for_label }}" class="visually-hidden">{{ form.q.label }}</label>
+    {{ form.q }}
+    <button type="submit" class="button">Szukaj</button>
+  </div>
+  {% with data=form.data %}
+  <details class="search-form__more"{% if data.osoba or data.tag or data.miejsce or data.od or data.do or data.album or data.bez_opisu or form.errors %} open{% endif %}>
+    <summary>Więcej filtrów: osoba, tag, miejsce, lata, album</summary>
+    <div class="search-form__grid">
+      {% for field in form %}{% if field.name != "q" and field.name != "bez_opisu" %}
+      <div class="field{% if field.errors %} field--error{% endif %} search-form__{{ field.name }}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      </div>
+      {% endif %}{% endfor %}
+      <div class="field search-form__bez_opisu"><label class="check">{{ form.bez_opisu }} {{ form.bez_opisu.label }}</label></div>
+    </div>
+  </details>
+  {% endwith %}
+  <datalist id="szukaj-osoby">{% for name in suggestions.people %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  <datalist id="szukaj-tagi">{% for name in suggestions.tags %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  <datalist id="szukaj-miejsca">{% for name in suggestions.places %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+</form>
+
+{% if searched %}
+<div class="heading-row search-results__head">
+  <p class="search-results__count" role="status">{% if page.paginator.count %}Znaleziono: <strong>{{ page.paginator.count }}</strong> zdj.{% if page.paginator.num_pages > 1 %} · strona {{ page.number }} z {{ page.paginator.num_pages }}{% endif %}{% else %}Nic nie znaleziono.{% endif %}</p>
+  <a href="{% url 'albums:search' %}" class="button button--quiet">Wyczyść</a>
+</div>
+{% if page.object_list %}
+<p class="hint">Od najstarszych; zdjęcia bez daty są na końcu. Kliknij zdjęcie, żeby je obejrzeć.</p>
+<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="" data-csrf="{{ csrf_token }}">
+  {% for photo in page.object_list %}
+  {% include "albums/includes/photo_tile.html" with number=forloop.counter|add:offset show_caption=True %}
+  {% endfor %}
+</ul>
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager" aria-label="Strony wyników">
+  {% if page.has_previous %}<a class="button button--quiet" href="?{{ query }}&amp;strona={{ page.previous_page_number }}" rel="prev">← Poprzednie</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="button button--quiet" href="?{{ query }}&amp;strona={{ page.next_page_number }}" rel="next">Następne →</a>{% endif %}
+</nav>
+{% endif %}
+<script src="{% static 'js/gallery.js' %}" defer></script>
+{% else %}
+<div class="empty-state"><p>Spróbuj krótszego słowa, samego imienia albo szerszego zakresu lat. Szukanie nie zwraca uwagi na wielkość liter ani polskie znaki: „berezow” znajdzie „Berezów”.</p></div>
+{% endif %}
+{% else %}
+<div class="search-overview">
+  {% if decades %}
+  <section>
+    <h2>Lata</h2>
+    <ul class="chips chips--light">{% for decade, count in decades %}<li><a class="chip" href="?od={{ decade }}&amp;do={{ decade|add:9 }}">{% if decade >= 1900 and decade < 2000 %}lata {{ decade|stringformat:"d"|slice:"2:" }}.{% else %}{{ decade }}–{{ decade|add:9 }}{% endif %} <span class="chip__count">{{ count }}</span></a></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% if top_people %}
+  <section>
+    <h2>Osoby</h2>
+    <ul class="chips chips--light">{% for person in top_people %}<li><a class="chip" href="?osoba={{ person.name|urlencode }}">{{ person.name }} <span class="chip__count">{{ person.count }}</span></a></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% if top_tags %}
+  <section>
+    <h2>Tagi</h2>
+    <ul class="chips chips--light">{% for tag in top_tags %}<li><a class="chip chip--tag" href="?tag={{ tag.name|urlencode }}">#{{ tag.name }} <span class="chip__count">{{ tag.count }}</span></a></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  <section>
+    <h2>Do opisania</h2>
+    {% if undescribed %}
+    <p>Opisanych zdjęć: {{ described }}. <a href="?bez_opisu=on">Zdjęcia bez opisu: {{ undescribed }}</a>. Może wiesz, kto na nich jest?</p>
+    {% else %}
+    <p>Wszystkie zdjęcia mają opis. Dziękujemy!</p>
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}
