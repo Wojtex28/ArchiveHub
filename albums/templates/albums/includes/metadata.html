@@ -2,10 +2,10 @@
   <h2 class="panel-section__title" id="opis-tytul">Opis zdjęcia</h2>
   {% if has_metadata %}
   <dl class="metadata__list">
-    {% if photo.date_text %}<div class="metadata__row"><dt>Kiedy</dt><dd>{{ photo.date_text }}</dd></div>{% endif %}
-    {% if photo.place %}<div class="metadata__row"><dt>Gdzie</dt><dd>{{ photo.place }}</dd></div>{% endif %}
-    {% if photo_people %}<div class="metadata__row"><dt>Kto</dt><dd><ul class="chips">{% for person in photo_people %}<li class="chip">{{ person.name }}</li>{% endfor %}</ul></dd></div>{% endif %}
-    {% if photo_tags %}<div class="metadata__row"><dt>Tagi</dt><dd><ul class="chips">{% for tag in photo_tags %}<li class="chip chip--tag">#{{ tag.name }}</li>{% endfor %}</ul></dd></div>{% endif %}
+    {% if photo.date_text %}<div class="metadata__row"><dt>Kiedy</dt><dd>{% if photo.year_from %}<a class="metadata__link" href="{% url 'albums:search' %}?od={{ photo.year_from }}&amp;do={{ photo.year_to }}" title="Zdjęcia z tych lat">{{ photo.date_text }}</a>{% else %}{{ photo.date_text }}{% endif %}</dd></div>{% endif %}
+    {% if photo.place %}<div class="metadata__row"><dt>Gdzie</dt><dd><a class="metadata__link" href="{% url 'albums:search' %}?miejsce={{ photo.place|urlencode }}" title="Wszystkie zdjęcia z tego miejsca">{{ photo.place }}</a></dd></div>{% endif %}
+    {% if photo_people %}<div class="metadata__row"><dt>Kto</dt><dd><ul class="chips">{% for person in photo_people %}<li><a class="chip" href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}" title="Wszystkie zdjęcia: {{ person.name }}">{{ person.name }}</a></li>{% endfor %}</ul></dd></div>{% endif %}
+    {% if photo_tags %}<div class="metadata__row"><dt>Tagi</dt><dd><ul class="chips">{% for tag in photo_tags %}<li><a class="chip chip--tag" href="{% url 'albums:search' %}?tag={{ tag.name|urlencode }}" title="Wszystkie zdjęcia z tagiem {{ tag.name }}">#{{ tag.name }}</a></li>{% endfor %}</ul></dd></div>{% endif %}
   </dl>
   {% if photo.description %}<p class="metadata__description">{{ photo.description|linebreaksbr }}</p>{% endif %}
   {% if photo.described_at %}<p class="metadata__meta">Ostatnia zmiana: {% if photo.described_by %}{{ photo.described_by.username }}{% else %}konto usunięte{% endif %}, <time datetime="{{ photo.described_at|date:'c' }}">{{ photo.described_at|date:"j E Y, H:i" }}</time></p>{% endif %}

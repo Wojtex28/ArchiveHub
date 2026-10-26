@@ -1,6 +1,7 @@
 {% extends "panel/panel_base.html" %}
 {% block panel %}
 <h1>Panel administratora</h1>
+<p class="hint">Wersja {{ version }} · <a href="https://github.com/Wojtex28/ArchiveHub/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">lista zmian</a></p>
 <div class="stats">
   <a class="stat" href="{% url 'panel:user_list' %}"><span class="stat__value">{{ user_count }}</span><span class="stat__label">aktywnych osób</span></a>
   <a class="stat" href="{% url 'panel:album_list' %}"><span class="stat__value">{{ album_count }}</span><span class="stat__label">albumów</span></a>

@@ -9,7 +9,7 @@ from .forms import CommentForm, MetadataForm
 from .models import Person, Photo, Tag
 
 
-def _suggestions(user):
+def suggestions_for(user):
     """Podpowiedzi tylko z albumów, które dana osoba widzi: nazwiska z innych gałęzi rodziny nie wyciekają."""
     photos = Photo.objects.visible_to(user)
     return {
@@ -34,7 +34,7 @@ def panel_context(request, photo, comment_form=None, metadata_form=None):
         "photo_people": people,
         "photo_tags": tags,
         "has_metadata": bool(photo.date_text or photo.place or photo.description or people or tags),
-        "suggestions": _suggestions(request.user),
+        "suggestions": suggestions_for(request.user),
     }
 
 

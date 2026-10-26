@@ -1,0 +1,23 @@
+  <li id="zdjecie-{{ photo.pk }}">
+    <a class="gallery-tile" href="{% url 'albums:photo' photo.album_id photo.pk %}"
+       data-preview="{% url 'albums:preview' photo.pk %}?v={{ photo.version_front }}"
+       data-thumb="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}"
+       data-rotation="{{ photo.pending_front }}"
+       data-rotate-url="{% url 'albums:rotate' photo.pk %}"
+       data-download="{% url 'albums:download' photo.pk %}"
+       data-comments-url="{% url 'albums:comments' photo.pk %}"
+       data-comments="{{ photo.comment_count }}"
+       data-caption="{{ photo.caption }}"
+       data-album-title="{{ photo.album.title }}"
+       {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}"
+       data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}"
+       data-reverse-rotation="{{ photo.pending_back }}"
+       data-reverse-download="{% url 'albums:download_reverse' photo.pk %}"
+       data-reverse-page="{% url 'albums:photo_reverse' photo.album_id photo.pk %}"{% endif %}>
+      <img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {{ number }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" decoding="async">
+      {% if photo.has_reverse %}<span class="gallery-tile__badge">z rewersem</span>{% endif %}
+      <span class="gallery-tile__comments" {% if not photo.comment_count %}hidden{% endif %}>💬 <span data-comment-count>{{ photo.comment_count }}</span><span class="visually-hidden"> komentarzy</span></span>
+    </a>
+    {% if show_caption %}<p class="gallery-tile__album">{{ photo.album.title }}</p><p class="gallery-tile__caption">{% with caption=photo.caption %}{% if caption %}{{ caption }}{% else %}<span class="hint">bez opisu</span>{% endif %}{% endwith %}</p>{% endif %}
+    {% if selectable %}<input type="checkbox" class="gallery-select" name="photos" value="{{ photo.pk }}" aria-label="Zaznacz zdjęcie {{ number }}">{% endif %}
+  </li>

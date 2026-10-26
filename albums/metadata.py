@@ -17,6 +17,7 @@ from .comments import photo_page_url, wants_fragment
 from .forms import MetadataForm
 from .models import Person, Photo, PhotoChange, Tag, name_key
 from .photo_panel import fragment
+from .search import refresh_search_text
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,7 @@ def save_metadata(photo, user, data):
     if "tags" in changes:
         _set_names(photo, "tags", Tag, after["tags"])
     PhotoChange.objects.create(photo=photo, user=user, changes=changes)
+    refresh_search_text([photo.pk])
     return changes
 
 
