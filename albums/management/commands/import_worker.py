@@ -13,6 +13,7 @@ from albums.importer import (
     touch_heartbeat,
 )
 from albums.rotation import apply_rotations
+from core.backup import run_scheduled_backup
 
 logger = logging.getLogger("albums.importer")
 
@@ -20,7 +21,7 @@ logger = logging.getLogger("albums.importer")
 class Command(BaseCommand):
     help = (
         "Pilnuje udziału import: gotowe foldery zamienia w albumy. Obraca też pliki zdjęć obróconych"
-        " w galerii. Działa w osobnym kontenerze."
+        " w galerii i raz na dobę robi kopię bazy. Działa w osobnym kontenerze."
     )
 
     def add_arguments(self, parser):
@@ -50,6 +51,10 @@ class Command(BaseCommand):
                 apply_rotations()
             except Exception:
                 logger.exception("Obrót: nieoczekiwany błąd przejścia")
+            try:
+                run_scheduled_backup()
+            except Exception:
+                logger.exception("Kopia bazy: nieoczekiwany błąd")
             touch_heartbeat()
             if once:
                 break

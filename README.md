@@ -25,7 +25,8 @@ w projekcie.
 | 12 | Telefon i tablet: powiększanie zdjęć, układ na małych ekranach | **gotowe** |
 | 13 | Opisy zdjęć: data (także przybliżona), miejsce, osoby, tagi, historia zmian | **gotowe** |
 | 14 | Wyszukiwanie: tekst bez polskich znaków, osoba, tag, miejsce, lata, album, zdjęcia bez opisu | **gotowe** |
-| 15+ | Bezpieczeństwo i backup, produkcja… | zaplanowane |
+| 15 | Bezpieczeństwo: logowanie dwuskładnikowe dla mastera, codzienna kopia bazy, snapshoty, kopia na Drive | **gotowe** |
+| 16+ | Produkcja, import wszystkich albumów… | zaplanowane |
 
 ## Technologie
 
@@ -268,6 +269,7 @@ Po każdym zmergowanym etapie:
 
 ```bash
 cd /srv/archivehub
+docker compose exec -u archivehub worker python manage.py kopia_bazy   # kopia bazy przed aktualizacją
 git pull
 docker compose --profile tunnel up -d --build --force-recreate
 docker compose ps        # app i worker: IMAGE „archivehub:latest”, CREATED „… seconds ago”
@@ -280,16 +282,74 @@ Migracje bazy uruchamiają się same przy starcie. Dane zostają w wolumenach Do
 Na TrueNAS zamiast `git pull` pobierz kod ponownie (patrz [wariant TrueNAS](#wariant-truenas-scale));
 plik `.env` zostaje nietknięty.
 
-### Kopia zapasowa bazy (na razie ręcznie)
+### Kopie zapasowe
 
-Pełne kopie zapasowe dojdą w późniejszym etapie. Do tego czasu, przed każdą aktualizacją:
+Co chroni co:
+
+| Dane | Gdzie są | Kopia |
+| --- | --- | --- |
+| Baza (konta, grupy, kody, opisy, komentarze, uprawnienia) | wolumen `data`, `/data/db` | worker codziennie po 3:00 → folder `kopie/` obok `compose.yaml`; snapshoty ZFS i Google Drive (niżej) |
+| Zdjęcia tła logowania | `/data/tlo-logowania` | razem z kopią bazy, w `kopie/tlo-logowania/` |
+| Kod i `.env` | katalog aplikacji (dataset `ArchiveHub`) | snapshoty ZFS; kod jest też na GitHubie |
+| Biblioteka albumów (JPEG, podglądy, miniatury) | wolumen `data`, `/data/albumy` | nie jest kopiowana: odtwarza się ją importem ze skanów PNG, które leżą na Google Drive |
+
+**Codzienna kopia bazy** powstaje sama: worker raz na dobę, po godzinie `ARCHIVEHUB_BACKUP_HOUR` (domyślnie 3),
+robi spójną kopię bazy na żywo, sprawdza ją i zapisuje jako `kopie/archivehub-RRRR-MM-DD_GGMM.sqlite3`.
+Zostaje 14 ostatnich dni i po jednej kopii z 12 ostatnich miesięcy (`ARCHIVEHUB_BACKUP_DAILY`, `ARCHIVEHUB_BACKUP_MONTHLY`).
+Panel → Start pokazuje datę ostatniej kopii i ostrzega, gdy jest starsza niż półtorej doby albo gdy zapis się nie udał.
+
+Kopia ręcznie, np. przed aktualizacją:
 
 ```bash
-docker compose exec app python -c "import sqlite3; sqlite3.connect('/data/db/archivehub.sqlite3').backup(sqlite3.connect('/data/kopia.sqlite3'))"
-docker compose cp app:/data/kopia.sqlite3 ./kopia-$(date +%F).sqlite3
+docker compose exec -u archivehub worker python manage.py kopia_bazy
 ```
 
-Plik `kopia-RRRR-MM-DD.sqlite3` przenieś poza serwer (np. na Google Drive).
+**Przywracanie bazy** (aplikacja musi stać; obecna baza zostaje zachowana jako `archivehub-przed-przywroceniem-….sqlite3`):
+
+```bash
+docker compose stop app worker
+docker compose run --rm --no-deps worker python manage.py przywroc_baze        # lista kopii
+docker compose run --rm --no-deps worker python manage.py przywroc_baze archivehub-2026-10-26_0300.sqlite3
+docker compose --profile tunnel up -d
+```
+
+Kopię z Google Drive najpierw wgraj do folderu `kopie/` (np. `sudo cp ~/archivehub-….sqlite3 kopie/`).
+Na TrueNAS dopisz `sudo` przed `docker`.
+
+#### Snapshoty ZFS na TrueNAS
+
+Snapshot to zapis stanu datasetu z danej chwili; zajmuje miejsce tylko na zmiany. Chroni przed pomyłką
+(usunięty plik, zepsuta aktualizacja), ale nie przed awarią dysku: do tego służy kopia na Drive.
+
+1. **Data Protection → Periodic Snapshot Tasks → Add.**
+2. Dataset: `<pula>/ArchiveHub` (Twoja pula i dataset aplikacji, z folderem `kopie`).
+   **Recursive**: zaznaczone. **Snapshot Lifetime**: 2 tygodnie (`2` `Week`).
+3. Schedule: **Daily**, godzina po kopii bazy, np. własny harmonogram `0 4 * * *` (4:00).
+4. **Save.** Snapshoty zobaczysz w **Datasets** → `ArchiveHub` → **Data Protection** → **Manage Snapshots**.
+
+Przywrócenie jednego pliku ze snapshotu: każdy snapshot jest widoczny w ukrytym katalogu
+`/mnt/<pula>/ArchiveHub/.zfs/snapshot/<nazwa>/`, skąd kopiujesz plik poleceniem `sudo cp`.
+**Rollback** całego datasetu (Manage Snapshots → ⋮ → Rollback) cofa wszystko, łącznie z nowszymi kopiami: używaj go tylko w ostateczności.
+
+Nigdy nie usuwaj datasetów, w których nazwie jest `ArchiveHub`: tam są aplikacja, `.env` i kopie bazy.
+
+#### Kopia poza serwerem: Google Drive
+
+1. **Credentials → Backup Credentials → Cloud Credentials → Add**: Provider **Google Drive**,
+   nazwa np. `Drive`, przycisk **Log In To Provider**, zaloguj się kontem Google i zezwól. **Verify Credential**, **Save**.
+2. **Data Protection → Cloud Sync Tasks → Add**:
+   - Credentials: `Drive`; Direction: **PUSH**; Transfer Mode: **COPY** (na Drive zostają też kopie usunięte już z serwera).
+   - Directory/Files (lokalnie): `/mnt/<pula>/ArchiveHub/kopie`.
+   - Folder (na Drive): nowy folder, np. `ArchiveHub-kopie`.
+   - Schedule: codziennie, np. `30 4 * * *` (4:30, po kopii i snapshocie).
+3. **Save**, potem na liście zadań **Run Now** i sprawdź, czy pliki pojawiły się na Drive.
+
+Kopia bazy zawiera skróty haseł (nie same hasła), sekrety logowania dwuskładnikowego, kody rodzinne
+i komentarze. Folder na Drive trzymaj prywatny, nie udostępniaj go nikomu.
+
+Plik `.env` (klucz aplikacji i token tunelu) warto mieć osobno, np. w menedżerze haseł. Bez niego
+aplikacja też wstanie: nowy `DJANGO_SECRET_KEY` tylko wyloguje wszystkich, a token tunelu można wygenerować
+w Cloudflare od nowa.
 
 ### Gdy coś nie działa
 
@@ -336,6 +396,7 @@ i się nie nadają). Kroki 1, 4 i 7–9 bez zmian; poniżej różnice.
   ```bash
   cd /mnt/<pula>/ArchiveHub     # Twój dataset
   sudo -v
+  sudo docker compose exec -u archivehub worker python manage.py kopia_bazy
   curl -L https://github.com/Wojtex28/ArchiveHub/archive/refs/heads/main.tar.gz | sudo tar xz --strip-components=1
   sudo docker compose --profile tunnel up -d --build --force-recreate
   sudo docker compose ps
@@ -423,8 +484,18 @@ compose.yaml   usługi: app, worker (import), caddy, cloudflared (profil „tunn
 - Plik `.env`, baza i zdjęcia nigdy nie trafiają do repozytorium (`.gitignore`). Repozytorium jest publiczne.
 - Produkcja: przekierowanie na HTTPS, ciasteczka tylko przez HTTPS, HSTS, Content-Security-Policy
   bez skryptów inline, `noindex` dla wyszukiwarek, aplikacja w kontenerze działa jako zwykły użytkownik.
+- Hasła: Argon2, minimum 8 znaków, odrzucane popularne hasła. Limity nieudanych prób: logowanie
+  (8 na konto, 20 na adres IP w kwadransie), kody rodzinne, kod z aplikacji (5 na konto).
+- Logowanie dwuskładnikowe (kod z aplikacji w telefonie) jest obowiązkowe dla konta master: bez niego
+  panel i panel awaryjny są niedostępne. Sesja mastera trwa 30 dni (`ARCHIVEHUB_MASTER_SESSION_DAYS`), rodziny rok.
+  Włączenie, nowe kody zapasowe i wyłączenie: link „ustawienia” w Panel → Start.
+- Zgubiony telefon i kody zapasowe: na serwerze
+  `docker compose exec -u archivehub app python manage.py wylacz_2fa <nick>`, zaloguj się samym hasłem
+  i od razu włącz logowanie dwuskładnikowe ponownie.
+- Logi (`docker compose logs app`) zapisują udane i nieudane logowania z adresem IP oraz zmiany ustawień 2FA.
 
 ## Aktualizacja zależności
 
 Wersje są przypięte w `requirements.txt` i `requirements-dev.txt`. Raz w miesiącu: sprawdzić nowe wersje
-poprawek (np. `pip list --outdated`), podbić, uruchomić testy.
+poprawek (np. `pip list --outdated`), podbić, uruchomić testy. Co poniedziałek GitHub Actions sprawdza
+zależności `pip-audit`; czerwony wynik (mail z GitHuba) znaczy, że w którejś wykryto lukę i trzeba ją zaktualizować.

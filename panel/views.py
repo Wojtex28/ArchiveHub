@@ -14,12 +14,14 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from accounts.models import FamilyGroup, InviteCode
+from accounts.views import needs_two_factor_setup
 from albums.importer import import_dir, natural_key
 from albums.metadata import change_rows
 from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncReport, Tag, name_key
 from albums.search import refresh_search_text
 from albums.sync import albums_dir, sync_albums
 from config import __version__
+from core import backup
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import LoginPhoto
 
@@ -47,6 +49,9 @@ def master_required(view):
             return redirect_to_login(request.get_full_path())
         if not (request.user.is_active and request.user.is_superuser):
             raise Http404
+        if needs_two_factor_setup(request.user):
+            # Ekran włączania sam wyjaśnia, dlaczego panel jest zamknięty.
+            return redirect("two_factor")
         return view(request, *args, **kwargs)
 
     return wrapper
@@ -77,6 +82,8 @@ def dashboard(request):
             ).count(),
             "events": events[:8],
             "version": __version__,
+            "backup": backup.read_status(),
+            "backup_hour": settings.ARCHIVEHUB_BACKUP_HOUR,
         },
     )
 

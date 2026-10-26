@@ -1,0 +1,12 @@
+{% extends "app_base.html" %}
+{% block title %}Kody zapasowe · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--narrow{% endblock %}
+{% block main %}
+<h1>Kody zapasowe</h1>
+<p class="notice">Zapisz je teraz, np. w menedżerze haseł albo na kartce w bezpiecznym miejscu. Więcej ich nie zobaczysz.</p>
+<p class="lead">Każdy kod działa raz, zamiast kodu z aplikacji. Przydadzą się, gdy zgubisz albo wymienisz telefon.</p>
+<ol class="recovery-codes card">
+  {% for code in codes %}<li><code>{{ code }}</code></li>{% endfor %}
+</ol>
+<p><a class="button" href="{% if user.is_superuser %}{% url 'panel:dashboard' %}{% else %}{% url 'archive' %}{% endif %}">Zapisałem(-am), dalej</a></p>
+{% endblock %}

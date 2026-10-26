@@ -1,0 +1,26 @@
+{% extends "app_base.html" %}
+{% block title %}Logowanie dwuskładnikowe · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--narrow{% endblock %}
+{% block main %}
+<h1>Logowanie dwuskładnikowe</h1>
+<p class="lead">Włączone od {{ user.totp_enabled_at|date:"j E Y" }}. Przy logowaniu podajesz hasło i kod z aplikacji w telefonie.</p>
+<p class="{% if codes_left < 3 %}notice{% else %}hint{% endif %}">Niewykorzystane kody zapasowe: {{ codes_left }} z 10.{% if codes_left < 3 %} Wygeneruj nowe, zanim się skończą.{% endif %}</p>
+
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="codes">
+  <h2>Nowe kody zapasowe</h2>
+  <p class="hint">Poprzednie kody przestaną działać. Potwierdź aktualnym kodem z aplikacji.</p>
+  {% with form=codes_form %}{% include "includes/form_fields.html" %}{% endwith %}
+  <button type="submit" class="button">Wygeneruj nowe kody</button>
+</form>
+
+<form method="post" novalidate class="card card--form">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="disable">
+  <h2>Nowy telefon albo wyłączenie</h2>
+  <p class="hint">Zmieniasz telefon? Wyłącz logowanie dwuskładnikowe i od razu włącz je ponownie, skanując nowy kod QR.{% if master_required %} Konto administratora nie wejdzie do panelu, dopóki go nie włączysz.{% endif %}</p>
+  {% with form=disable_form %}{% include "includes/form_fields.html" %}{% endwith %}
+  <button type="submit" class="button button--danger">Wyłącz</button>
+</form>
+{% endblock %}

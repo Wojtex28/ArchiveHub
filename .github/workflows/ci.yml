@@ -4,9 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Co poniedziałek: sprawdzenie, czy w zależnościach nie wykryto nowych luk bezpieczeństwa.
+  # Czerwony wynik przychodzi mailem z GitHuba i oznacza: pora zaktualizować wersje.
+  schedule:
+    - cron: "0 6 * * 1"
 
 jobs:
   test:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +28,20 @@ jobs:
       - name: Testy
         run: pytest
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Znane luki w zależnościach
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r requirements.txt
+
   docker:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

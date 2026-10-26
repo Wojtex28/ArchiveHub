@@ -646,3 +646,17 @@ a.chip { color: inherit; text-decoration: none; }
 @media (max-width: 40rem) {
   .gallery-grid--captions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 0.5rem; }
 }
+
+/* --- Logowanie dwuskładnikowe i kopie zapasowe ----------------------------- */
+.two-factor__steps { margin: 0 0 1.25rem; padding-left: 1.25rem; display: grid; gap: 0.75rem; }
+.two-factor__qr { display: block; width: min(100%, 270px); height: auto; margin: 0.75rem 0; border: 1px solid var(--rule); border-radius: 8px; }
+.two-factor__secret { display: inline-block; margin-top: 0.25rem; font-size: 0.9375rem; letter-spacing: 0.04em; overflow-wrap: anywhere; color: var(--ink); }
+.recovery-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1.5rem; padding: 1.25rem 1.25rem 1.25rem 2.75rem; }
+.recovery-codes code { font-size: 1.0625rem; letter-spacing: 0.06em; }
+@media (max-width: 30rem) {
+  .recovery-codes { grid-template-columns: 1fr; }
+}
+.status-list { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.status-list li { display: flex; gap: 0.5rem; align-items: baseline; }
+.status-dot { flex: none; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--ok); }
+.status-dot--warn { background: var(--danger); }
