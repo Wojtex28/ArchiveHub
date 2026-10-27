@@ -1,14 +1,17 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_safe
 
 from albums.models import Album, Photo
 
+from . import status
 from .models import LoginPhoto
 
 logger = logging.getLogger(__name__)
@@ -107,6 +110,25 @@ def healthz(request):
         logger.exception("Healthcheck: baza danych nie odpowiada")
         return JsonResponse({"status": "error", "database": "unavailable"}, status=503)
     return JsonResponse({"status": "ok"})
+
+
+@require_safe
+def healthz_full(request):
+    """Pełny stan dla monitoringu z zewnątrz. Działa tylko z kluczem z .env (ARCHIVEHUB_STATUS_TOKEN).
+
+    Odpowiada 200, gdy wszystko działa, a 503, gdy coś wymaga uwagi; usługa monitorująca
+    wysyła wtedy maila. Nazwy sprawdzeń bez szczegółów: adres jest dostępny z internetu.
+    """
+    token = settings.ARCHIVEHUB_STATUS_TOKEN
+    if not token or not constant_time_compare(request.GET.get("klucz", ""), token):
+        raise Http404
+    checks = status.all_checks()
+    problems = [check.key for check in checks if not check.ok]
+    return JsonResponse(
+        {"status": "problem" if problems else "ok", "problemy": problems},
+        status=503 if problems else 200,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @require_safe

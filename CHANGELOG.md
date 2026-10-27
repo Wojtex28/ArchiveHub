@@ -15,13 +15,32 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
-## 0.15.1 (2026-10-27)
+## 0.16.1 (2026-10-27)
 
 ### Poprawione
 - **Przesuwanie powiększonego zdjęcia:**
   - na touchpadzie przesuwanie dwoma palcami przesuwa powiększone zdjęcie, a rozsuwanie palców je powiększa i pomniejsza (kółko myszy dalej powiększa);
   - przeciąganie myszą nie urywa się, gdy kursor wyjedzie poza zdjęcie albo nad przyciski;
   - w Firefoksie przeciąganie nie chwyta już zdjęcia jak pliku.
+
+## 0.16.0 (2026-10-27) · ETAP 16: przygotowanie produkcyjne
+
+### Dodane
+- **Panel → Stan serwera:**
+  - sprawdza bazę danych, workera (import, obroty, kopie), ostatnią kopię bazy i wolne miejsce na dysku;
+  - zawiera dziennik: logowania, zmiany zabezpieczeń, ostrzeżenia i błędy z ostatnich 90 dni, z filtrami „Problemy”, „Logowania i konta”, „Wszystko”.
+- **Ostrzeżenie na Panel → Start**, gdy któreś sprawdzenie wymaga uwagi.
+- **Adres dla monitoringu** `/healthz/pelny?klucz=…` (klucz w `.env`, `ARCHIVEHUB_STATUS_TOKEN`):
+  - odpowiada 503, gdy coś nie działa;
+  - darmowy UptimeRobot wysyła wtedy maila;
+  - bez klucza adres nie istnieje.
+- **Dane na osobnym datasecie:** `ARCHIVEHUB_DATA_PATH` w `.env` przenosi bazę i bibliotekę albumów z wolumenu Dockera do wskazanego katalogu, więc obejmują je snapshoty ZFS. Instrukcja przeniesienia jest w README.
+- **README:**
+  - sekcje „Monitoring” i „Odtwarzanie po awarii”: restart bez sieci, przywrócenie bazy, postawienie wszystkiego od zera z kopii na Google Drive;
+  - nowe wiersze w „Gdy coś nie działa”.
+
+### Zmienione
+- Błędy 404 (boty zgadujące adresy) nie trafiają do dziennika w panelu, tylko do logów Dockera.
 
 ## 0.15.0 (2026-10-26) · ETAP 15: bezpieczeństwo i kopie zapasowe
 

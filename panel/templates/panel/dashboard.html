@@ -9,6 +9,7 @@
   <a class="stat" href="{% url 'panel:group_list' %}"><span class="stat__value">{{ group_count }}</span><span class="stat__label">grup</span></a>
   <a class="stat" href="{% url 'panel:code_list' %}"><span class="stat__value">{{ code_count }}</span><span class="stat__label">aktywnych kodów</span></a>
 </div>
+{% if server_problems %}<p class="notice">Coś na serwerze wymaga uwagi: {% for check in server_problems %}{{ check.label|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}. Szczegóły w zakładce <a href="{% url 'panel:server_status' %}">Stan serwera</a>.</p>{% endif %}
 {% if inactive_count %}<p class="hint">Wyłączone konta: {{ inactive_count }}.</p>{% endif %}
 {% if pending_imports %}<p class="notice">W kolejce importu: {{ pending_imports }} {% if pending_imports == 1 %}folder{% else %}folderów{% endif %}. Szczegóły w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</p>{% endif %}
 <h2>Bezpieczeństwo</h2>
