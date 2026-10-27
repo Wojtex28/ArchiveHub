@@ -11,6 +11,21 @@
 </div>
 {% if inactive_count %}<p class="hint">Wyłączone konta: {{ inactive_count }}.</p>{% endif %}
 {% if pending_imports %}<p class="notice">W kolejce importu: {{ pending_imports }} {% if pending_imports == 1 %}folder{% else %}folderów{% endif %}. Szczegóły w zakładce <a href="{% url 'panel:sync' %}">Synchronizacja</a>.</p>{% endif %}
+<h2>Bezpieczeństwo</h2>
+<ul class="status-list security-status">
+  <li>
+    <span class="status-dot{% if not user.has_two_factor %} status-dot--warn{% endif %}" aria-hidden="true"></span>
+    <span>Logowanie dwuskładnikowe {% if user.has_two_factor %}włączone{% else %}<strong>wyłączone</strong>{% endif %} · <a href="{% url 'two_factor' %}">ustawienia</a></span>
+  </li>
+  <li>
+    <span class="status-dot{% if not backup or backup.stale or backup.error or backup.fallback %} status-dot--warn{% endif %}" aria-hidden="true"></span>
+    <span>
+      {% if backup.last %}Kopia bazy: {{ backup.last|date:"j E Y, H:i" }} · kopii: {{ backup.count }} · {{ backup.size|filesizeformat }}{% if not backup.fallback %} · folder <code>kopie</code> na serwerze{% endif %}{% else %}Kopia bazy: jeszcze nie powstała. Worker robi ją raz na dobę, po godzinie {{ backup_hour }}:00.{% endif %}
+      {% if backup.error %}<br><span class="is-danger">Ostatnia próba {{ backup.attempt|date:"j E, H:i" }} nieudana: {{ backup.error }}</span>{% elif backup.last and backup.stale %}<br><span class="is-danger">Ostatnia kopia jest starsza niż półtorej doby. Sprawdź, czy worker działa.</span>{% endif %}
+      {% if backup.fallback %}<br><span class="is-danger">Folder kopii na serwerze nie przyjmuje zapisu, więc kopie lądują w wolumenie danych ({{ backup.dir }}), poza snapshotami. Instrukcja w README, sekcja „Kopie zapasowe”.</span>{% endif %}
+    </span>
+  </li>
+</ul>
 <div class="heading-row">
   <h2>Ostatnie zdarzenia</h2>
   <form method="post" action="{% url 'panel:sync' %}">{% csrf_token %}<button type="submit" class="button button--quiet">Synchronizuj archiwum</button></form>

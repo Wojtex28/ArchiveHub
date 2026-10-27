@@ -229,3 +229,18 @@ LOGGING = {
         "django.security.DisallowedHost": {"handlers": [], "propagate": False},
     },
 }
+
+# --- Logowanie dwuskładnikowe ---------------------------------------------
+# Konto master musi mieć włączone kody z aplikacji w telefonie, zanim wejdzie do panelu.
+ARCHIVEHUB_MASTER_2FA = env_bool("ARCHIVEHUB_MASTER_2FA", True)
+# Sesja konta master trwa krócej niż rok rodziny: po tylu dniach trzeba zalogować się ponownie.
+ARCHIVEHUB_MASTER_SESSION_DAYS = int(env("ARCHIVEHUB_MASTER_SESSION_DAYS", "30"))
+
+# --- Kopie zapasowe bazy --------------------------------------------------
+# Folder kopii. W Docker Compose worker ma tu podpięty katalog serwera (ARCHIVEHUB_BACKUP_PATH).
+ARCHIVEHUB_BACKUP_DIR = Path(env("ARCHIVEHUB_BACKUP_DIR", str(DATA_DIR / "kopie")))
+# Kopia powstaje raz na dobę, po tej godzinie (czas polski).
+ARCHIVEHUB_BACKUP_HOUR = int(env("ARCHIVEHUB_BACKUP_HOUR", "3"))
+# Rotacja: tyle ostatnich dni i tyle ostatnich miesięcy (najnowsza kopia z każdego).
+ARCHIVEHUB_BACKUP_DAILY = int(env("ARCHIVEHUB_BACKUP_DAILY", "14"))
+ARCHIVEHUB_BACKUP_MONTHLY = int(env("ARCHIVEHUB_BACKUP_MONTHLY", "12"))

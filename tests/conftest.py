@@ -1,6 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
+from accounts import totp
 from accounts.models import FamilyGroup, InviteCode
 
 PASSWORD = "stare-zdjecia-1964"
@@ -16,7 +18,14 @@ def make_user(db):
 
 @pytest.fixture
 def master(make_user):
-    return make_user("wojtek", is_superuser=True, is_staff=True)
+    # Konto master w produkcji musi mieć logowanie dwuskładnikowe, więc w testach też je ma.
+    return make_user(
+        "wojtek",
+        is_superuser=True,
+        is_staff=True,
+        totp_secret=totp.new_secret(),
+        totp_enabled_at=timezone.now(),
+    )
 
 
 @pytest.fixture

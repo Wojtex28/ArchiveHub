@@ -29,14 +29,20 @@ services:
   worker:
     image: archivehub:latest
     command: ["python", "manage.py", "import_worker"]
+    # Start jako root tylko po to, żeby entrypoint ustawił właściciela folderu kopii;
+    # sam worker działa potem jako zwykły użytkownik archivehub.
+    user: root
     env_file: .env
     environment:
       ARCHIVEHUB_IMPORT_DIR: /import
       # Migracje robi już kontener app.
       ARCHIVEHUB_SKIP_SETUP: "1"
+      ARCHIVEHUB_BACKUP_DIR: /kopie
     volumes:
       - data:/data
       - ${ARCHIVEHUB_IMPORT_PATH:-./import}:/import:ro
+      # Codzienne kopie bazy: katalog na serwerze, objęty snapshotami ZFS i kopią na Drive.
+      - ${ARCHIVEHUB_BACKUP_PATH:-./kopie}:/kopie
     depends_on:
       app:
         condition: service_healthy

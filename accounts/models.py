@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 
 
 class FamilyGroup(models.Model):
@@ -48,6 +49,13 @@ class User(AbstractUser):
         related_name="joined_users",
         verbose_name="dołączył(a) kodem",
     )
+    # Logowanie dwuskładnikowe (obowiązkowe dla konta master). Sekret zapisujemy dopiero
+    # po potwierdzeniu pierwszym kodem z aplikacji.
+    totp_secret = models.CharField(max_length=64, blank=True, editable=False)
+    totp_enabled_at = models.DateTimeField(
+        "logowanie dwuskładnikowe od", null=True, blank=True, editable=False
+    )
+    totp_last_counter = models.BigIntegerField(default=0, editable=False)
 
     class Meta:
         verbose_name = "użytkownik"
@@ -58,6 +66,37 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.display_name or self.username
+
+    @property
+    def has_two_factor(self):
+        return bool(self.totp_enabled_at and self.totp_secret)
+
+    def _get_session_auth_hash(self, secret=None):
+        # Jak w Django, ale z sekretem TOTP: włączenie lub wyłączenie logowania dwuskładnikowego
+        # kończy sesje na innych urządzeniach. Bez sekretu skrót jest taki sam jak dotąd,
+        # więc nikt nie zostaje wylogowany przy aktualizacji.
+        return salted_hmac(
+            "django.contrib.auth.models.AbstractBaseUser.get_session_auth_hash",
+            self.password + self.totp_secret,
+            secret=secret,
+            algorithm="sha256",
+        ).hexdigest()
+
+
+class RecoveryCode(models.Model):
+    """Jednorazowy kod zapasowy na wypadek utraty telefonu. Trzymamy tylko skrót."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recovery_codes"
+    )
+    code_hash = models.CharField(max_length=64)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "code_hash"])]
+
+    def __str__(self):
+        return f"kod zapasowy {self.user}"
 
 
 class InviteCode(models.Model):

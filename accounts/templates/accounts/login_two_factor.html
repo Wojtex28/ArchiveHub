@@ -1,0 +1,16 @@
+{% extends "auth_base.html" %}
+{% block title %}Kod z aplikacji · {{ site_title }}{% endblock %}
+{% block card %}
+<h1>Kod z aplikacji</h1>
+<p class="hint">Otwórz aplikację z kodami w telefonie (np. Google Authenticator) i wpisz sześć cyfr przy archiwum.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button button--wide">Zaloguj</button>
+</form>
+{% endblock %}
+{% block after_card %}
+<p class="auth__aside">Nie masz telefonu? Wpisz jeden z kodów zapasowych. <a href="{% url 'login' %}">Wróć do logowania</a></p>
+{% endblock %}

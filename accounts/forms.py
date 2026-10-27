@@ -58,3 +58,34 @@ class JoinProfileForm(forms.Form):
             except forms.ValidationError as exc:
                 self.add_error("password1", exc)
         return cleaned
+
+
+class OneTimeCodeInput(forms.TextInput):
+    """Pole na kod jednorazowy: po błędzie jest puste, bo stary kod i tak już nie pasuje."""
+
+    def format_value(self, value):
+        return None
+
+
+class SecondFactorForm(forms.Form):
+    code = forms.CharField(
+        label="Kod z aplikacji",
+        max_length=20,
+        widget=OneTimeCodeInput,
+        help_text="Sześć cyfr z aplikacji w telefonie albo jeden z kodów zapasowych.",
+    )
+    code.widget.attrs.update(
+        autocomplete="one-time-code", autocapitalize="none", autofocus=True, spellcheck="false"
+    )
+
+
+class TwoFactorConfirmForm(forms.Form):
+    code = forms.CharField(label="Kod z aplikacji", max_length=10, widget=OneTimeCodeInput)
+    code.widget.attrs.update(autocomplete="one-time-code", inputmode="numeric", spellcheck="false")
+
+
+class TwoFactorDisableForm(forms.Form):
+    password = forms.CharField(label="Twoje hasło", strip=False, widget=forms.PasswordInput)
+    code = forms.CharField(label="Kod z aplikacji lub kod zapasowy", max_length=20, widget=OneTimeCodeInput)
+    password.widget.attrs.update(autocomplete="current-password")
+    code.widget.attrs.update(autocomplete="one-time-code", spellcheck="false")

@@ -19,6 +19,9 @@ LIMITS = {
     ("login", "ip"): 20,
     ("login", "user"): 8,
     ("code", "ip"): 10,
+    # Kod z aplikacji ma milion możliwości, więc kilka prób na kwadrans wystarcza z zapasem.
+    ("totp", "ip"): 20,
+    ("totp", "user"): 5,
 }
 
 

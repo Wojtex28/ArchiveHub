@@ -13,6 +13,10 @@
 :80 {
 	encode zstd gzip
 	header -Server
+	# Tyle przepuszcza też Cloudflare; większe żądania to pomyłka albo atak na dysk.
+	request_body {
+		max_size 100MB
+	}
 
 	# Pliki statyczne mają skrót treści w nazwie, więc mogą być cache'owane na zawsze.
 	handle_path /static/* {

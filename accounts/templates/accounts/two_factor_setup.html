@@ -1,0 +1,23 @@
+{% extends "app_base.html" %}
+{% block title %}Logowanie dwuskładnikowe · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--narrow{% endblock %}
+{% block main %}
+<h1>Logowanie dwuskładnikowe</h1>
+{% if required %}<p class="notice">Konto administratora otwiera wszystkie albumy i panel, więc oprócz hasła wymaga kodu z telefonu. Panel będzie dostępny po włączeniu.</p>{% endif %}
+<p class="lead">Po włączeniu przy logowaniu podasz hasło i sześć cyfr z aplikacji w telefonie. Samo hasło nie wystarczy, nawet jeśli ktoś je pozna.</p>
+<form method="post" novalidate class="card two-factor">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="enable">
+  <ol class="two-factor__steps">
+    <li>Zainstaluj w telefonie aplikację z kodami, np. <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong> albo <strong>Aegis</strong>.</li>
+    <li>
+      W aplikacji wybierz „dodaj konto” i zeskanuj kod:
+      <img class="two-factor__qr" src="{{ qr }}" alt="Kod QR do aplikacji z kodami" width="270" height="270">
+      <span class="hint">Nie da się zeskanować? Wpisz ręcznie klucz: <code class="two-factor__secret">{{ secret }}</code></span>
+    </li>
+    <li>Wpisz sześć cyfr, które pokazuje aplikacja.</li>
+  </ol>
+  {% include "includes/form_fields.html" %}
+  <button type="submit" class="button">Włącz</button>
+</form>
+{% endblock %}

@@ -15,6 +15,34 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.15.0 (2026-10-26) · ETAP 15: bezpieczeństwo i kopie zapasowe
+
+### Dodane
+- **Logowanie dwuskładnikowe dla konta master.** Oprócz hasła kod z aplikacji w telefonie (Google Authenticator, Microsoft Authenticator, Aegis i podobne):
+  - włączanie: kod QR do zeskanowania (albo klucz do przepisania) i potwierdzenie pierwszym kodem;
+  - 10 jednorazowych kodów zapasowych na wypadek zgubienia telefonu, do wygenerowania od nowa;
+  - wyłączenie wymaga hasła i kodu; zmiana telefonu to wyłączenie i ponowne włączenie;
+  - na serwerze `manage.py wylacz_2fa <nick>`, gdy zginie i telefon, i kody zapasowe.
+- **Codzienna kopia bazy.** Worker raz na dobę (po 3:00) robi spójną kopię bazy na żywo i ją sprawdza:
+  - kopie lądują w folderze `kopie/` obok `compose.yaml`, razem ze zdjęciami tła logowania;
+  - zostaje 14 ostatnich dni i po jednej kopii z 12 ostatnich miesięcy;
+  - `manage.py kopia_bazy` robi kopię od ręki (np. przed aktualizacją);
+  - `manage.py przywroc_baze` pokazuje listę kopii i przywraca wybraną, a obecną bazę odkłada obok.
+- **Panel → Start, sekcja „Bezpieczeństwo”:** stan logowania dwuskładnikowego i ostatniej kopii bazy, z ostrzeżeniem, gdy kopia jest starsza niż półtorej doby albo się nie udała.
+- **README, „Kopie zapasowe”:** co jest kopiowane i gdzie, przywracanie bazy, snapshoty ZFS na TrueNAS i codzienna kopia folderu `kopie` na Google Drive (Cloud Sync).
+- **Cotygodniowe sprawdzanie zależności** (`pip-audit` w GitHub Actions): czerwony wynik oznacza znaną lukę w którejś bibliotece.
+
+### Zmienione
+- Konto master nie wejdzie do panelu ani do panelu awaryjnego bez włączonego logowania dwuskładnikowego. Po zalogowaniu od razu trafia na ekran włączania.
+- Sesja konta master trwa 30 dni zamiast roku; rodzina dalej loguje się raz na rok.
+- Włączenie albo wyłączenie logowania dwuskładnikowego wylogowuje to konto na innych urządzeniach.
+- Logi zapisują udane i nieudane logowania z adresem IP.
+- Caddy odrzuca żądania większe niż 100 MB (tyle samo przepuszcza Cloudflare).
+
+### Bezpieczeństwo
+- Przegląd całej aplikacji: HTTPS i nagłówki, hasła, sesje, uprawnienia, XSS, CSRF, limity prób, logi i zależności. Wyniki są w raporcie z etapu 15.
+- Kod z aplikacji działa tylko raz i najwyżej 5 błędnych prób na kwadrans; kody zapasowe są przechowywane jako skróty.
+
 ## 0.14.0 (2026-10-22) · ETAP 14: wyszukiwanie
 
 ### Dodane
