@@ -1,0 +1,37 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<h1>Stan serwera</h1>
+<ul class="status-list server-checks">
+  {% for check in checks %}
+  <li>
+    <span class="status-dot{% if not check.ok %} status-dot--warn{% endif %}" aria-hidden="true"></span>
+    <span><strong>{{ check.label }}:</strong> {% if not check.ok %}<span class="is-danger">{{ check.detail }}</span>{% else %}{{ check.detail }}{% endif %}</span>
+  </li>
+  {% endfor %}
+  <li>
+    <span class="status-dot{% if not monitoring %} status-dot--warn{% endif %}" aria-hidden="true"></span>
+    <span><strong>Powiadomienia o awarii:</strong> {% if monitoring %}adres dla monitoringu jest włączony{% else %}<span class="is-danger">wyłączone</span>. Instrukcja w README, sekcja „Monitoring”.{% endif %}</span>
+  </li>
+</ul>
+
+<div class="heading-row">
+  <h2>Dziennik</h2>
+</div>
+<nav class="chips chips--light event-filter" aria-label="Rodzaj wpisów">
+  {% for key, label in kinds %}<a class="chip" href="?rodzaj={{ key }}"{% if key == kind %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
+<p class="hint">Logowania, zmiany zabezpieczeń, ostrzeżenia i błędy z ostatnich 90 dni{% if event_total > events_shown %} (pokazuję {{ events_shown }} najnowszych z {{ event_total }}){% endif %}. Pełne logi: <code>docker compose logs</code>.</p>
+{% if events %}
+<ol class="event-log">
+  {% for event in events %}
+  <li class="event-log__item{% if event.is_problem %} event-log__item--problem{% endif %}">
+    <span class="event-log__time">{{ event.created_at|date:"j.m.Y H:i" }}</span>
+    <span class="event-log__source">{{ event.source }}</span>
+    <span class="event-log__message">{{ event.message|truncatechars:600 }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<div class="empty-state"><p>{% if kind == "problemy" %}Żadnych problemów. Tak trzymać.{% else %}Na razie pusto.{% endif %}</p></div>
+{% endif %}
+{% endblock %}

@@ -21,9 +21,9 @@ from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncRe
 from albums.search import refresh_search_text
 from albums.sync import albums_dir, sync_albums
 from config import __version__
-from core import backup
+from core import backup, status
 from core.login_photos import delete_login_photo, save_login_photo
-from core.models import LoginPhoto
+from core.models import Event, LoginPhoto
 
 from .codes import suggest_code
 from .forms import (
@@ -83,6 +83,7 @@ def dashboard(request):
             "events": events[:8],
             "version": __version__,
             "backup": backup.read_status(),
+            "server_problems": [check for check in status.all_checks() if not check.ok],
             "backup_hour": settings.ARCHIVEHUB_BACKUP_HOUR,
         },
     )
@@ -552,3 +553,35 @@ def named_edit(request, kind, pk):
         messages.success(request, f"Zmieniono „{old}” na „{name}”.")
     refresh_search_text(photo_ids)
     return redirect("panel:descriptions")
+
+
+# --- Stan serwera -------------------------------------------------------------
+
+EVENT_KINDS = {
+    "problemy": ("Problemy", lambda events: events.filter(level__gte=logging.WARNING)),
+    "logowania": ("Logowania i konta", lambda events: events.filter(source__startswith="accounts")),
+    "wszystko": ("Wszystko", lambda events: events),
+}
+EVENTS_SHOWN = 200
+
+
+@master_required
+@require_safe
+def server_status(request):
+    kind = request.GET.get("rodzaj", "problemy")
+    if kind not in EVENT_KINDS:
+        kind = "problemy"
+    events = EVENT_KINDS[kind][1](Event.objects.all())
+    return render(
+        request,
+        "panel/server_status.html",
+        {
+            "checks": status.all_checks(),
+            "events": events[:EVENTS_SHOWN],
+            "event_total": events.count(),
+            "events_shown": EVENTS_SHOWN,
+            "kinds": [(key, label) for key, (label, _) in EVENT_KINDS.items()],
+            "kind": kind,
+            "monitoring": bool(settings.ARCHIVEHUB_STATUS_TOKEN),
+        },
+    )

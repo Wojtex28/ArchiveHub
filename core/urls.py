@@ -7,5 +7,6 @@ urlpatterns = [
     path("archiwum/", views.archive_home, name="archive"),
     path("tlo/<uuid:key>.jpg", views.login_photo, name="login_photo"),
     path("healthz", views.healthz, name="healthz"),
+    path("healthz/pelny", views.healthz_full, name="healthz_full"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
 ]

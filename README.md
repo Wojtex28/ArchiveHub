@@ -26,7 +26,8 @@ w projekcie.
 | 13 | Opisy zdjęć: data (także przybliżona), miejsce, osoby, tagi, historia zmian | **gotowe** |
 | 14 | Wyszukiwanie: tekst bez polskich znaków, osoba, tag, miejsce, lata, album, zdjęcia bez opisu | **gotowe** |
 | 15 | Bezpieczeństwo: logowanie dwuskładnikowe dla mastera, codzienna kopia bazy, snapshoty, kopia na Drive | **gotowe** |
-| 16+ | Produkcja, import wszystkich albumów… | zaplanowane |
+| 16 | Produkcja: stan serwera i dziennik w panelu, monitoring, dane na datasecie, odtwarzanie po awarii | **gotowe** |
+| 17+ | Import wszystkich albumów, testy końcowe… | zaplanowane |
 
 ## Technologie
 
@@ -291,7 +292,7 @@ Co chroni co:
 | Baza (konta, grupy, kody, opisy, komentarze, uprawnienia) | wolumen `data`, `/data/db` | worker codziennie po 3:00 → folder `kopie/` obok `compose.yaml`; snapshoty ZFS i Google Drive (niżej) |
 | Zdjęcia tła logowania | `/data/tlo-logowania` | razem z kopią bazy, w `kopie/tlo-logowania/` |
 | Kod i `.env` | katalog aplikacji (dataset `ArchiveHub`) | snapshoty ZFS; kod jest też na GitHubie |
-| Biblioteka albumów (JPEG, podglądy, miniatury) | wolumen `data`, `/data/albumy` | nie jest kopiowana: odtwarza się ją importem ze skanów PNG, które leżą na Google Drive |
+| Biblioteka albumów (JPEG, podglądy, miniatury) | `/data/albumy`: wolumen `data` albo dataset `ArchiveData` ([niżej](#dane-na-osobnym-datasecie-truenas)) | na datasecie: snapshoty ZFS. Po utracie dysku odtwarza się ją importem ze skanów PNG z Google Drive |
 
 **Codzienna kopia bazy** powstaje sama: worker raz na dobę, po godzinie `ARCHIVEHUB_BACKUP_HOUR` (domyślnie 3),
 robi spójną kopię bazy na żywo, sprawdza ją i zapisuje jako `kopie/archivehub-RRRR-MM-DD_GGMM.sqlite3`.
@@ -351,6 +352,84 @@ Plik `.env` (klucz aplikacji i token tunelu) warto mieć osobno, np. w menedżer
 aplikacja też wstanie: nowy `DJANGO_SECRET_KEY` tylko wyloguje wszystkich, a token tunelu można wygenerować
 w Cloudflare od nowa.
 
+#### Dane na osobnym datasecie (TrueNAS)
+
+Domyślnie dane aplikacji (baza, biblioteka albumów, tło logowania) leżą w wolumenie Dockera, schowanym w `ix-apps`.
+Snapshoty datasetu `ArchiveHub` go nie obejmują. Lepiej trzymać je na osobnym datasecie `ArchiveData`:
+widać je wtedy w **Datasets**, można je snapshotować i od razu wiadomo, ile zajmują.
+
+Jednorazowe przeniesienie (ok. 10–30 minut, zależnie od liczby albumów; archiwum w tym czasie nie działa):
+
+1. **Datasets** → zaznacz pulę → **Add Dataset**: nazwa `ArchiveData`, preset **Generic** → **Save**.
+2. W **System → Shell**:
+   ```bash
+   cd /mnt/<pula>/ArchiveHub
+   sudo docker compose exec -u archivehub worker python manage.py kopia_bazy
+   sudo docker compose stop app worker
+   sudo chown 1000:1000 /mnt/<pula>/ArchiveData
+   sudo docker run --rm -v archivehub_data:/z -v /mnt/<pula>/ArchiveData:/do alpine:3.22 cp -a /z/. /do/
+   sudo du -sh /mnt/<pula>/ArchiveData       # mniej więcej tyle, ile zajmowały albumy
+   echo "ARCHIVEHUB_DATA_PATH=/mnt/<pula>/ArchiveData" | sudo tee -a .env
+   sudo docker compose --profile tunnel up -d --force-recreate
+   sudo docker compose ps
+   ```
+3. Sprawdź archiwum: albumy, zdjęcia, logowanie. Panel → **Stan serwera** pokazuje wolne miejsce już na nowym datasecie.
+4. Dodaj `ArchiveData` do snapshotów (**Periodic Snapshot Tasks**, jak wyżej).
+5. Po kilku dniach, gdy wszystko działa, usuń stary wolumen: `sudo docker volume rm archivehub_data`.
+
+Wolumen nazywa się `archivehub_data`, gdy katalog aplikacji to `ArchiveHub`; listę pokazuje `sudo docker volume ls`.
+
+### Monitoring
+
+Panel → **Stan serwera** pokazuje bazę, workera (import, obroty, kopie), ostatnią kopię i wolne miejsce,
+a pod spodem dziennik: logowania, zmiany zabezpieczeń, ostrzeżenia i błędy z ostatnich 90 dni.
+Gdy coś wymaga uwagi, Panel → Start pokazuje ostrzeżenie.
+
+Żeby dostać **maila, gdy archiwum przestanie działać**, podłącz bezpłatny [UptimeRobot](https://uptimerobot.com):
+
+1. Wygeneruj klucz: `python3 -c "import secrets; print(secrets.token_urlsafe(24))"` i dopisz do `.env`
+   `ARCHIVEHUB_STATUS_TOKEN=<klucz>`. Potem `sudo docker compose --profile tunnel up -d`.
+2. Sprawdź w przeglądarce `https://<twoja-domena>/healthz/pelny?klucz=<klucz>`: ma pokazać `"status": "ok"`.
+3. W UptimeRobot: **New monitor** → typ **HTTP(s)**, adres jak wyżej, interwał 5 minut, powiadomienie mailem.
+
+Adres odpowiada błędem 503, gdy nie działa strona, baza albo worker, gdy kopia bazy jest starsza niż półtorej doby
+albo gdy zostało mniej niż 5 GB miejsca. UptimeRobot wysyła wtedy maila, a drugi, gdy wszystko wróci do normy.
+Bez klucza adres nie istnieje (404).
+
+### Odtwarzanie po awarii
+
+**Serwer nie wstaje po restarcie, w przeglądarce błąd Cloudflare 1033:**
+
+1. Odczekaj 5 minut: TrueNAS, Docker i kontenery startują po kolei.
+2. Strona TrueNAS (adres pokazuje konsola maszyny) → **Apps**. Błąd „Unable to determine default interface”
+   oznacza, że przy starcie nie było sieci (np. odpięty kabel). Podłącz kabel i w Shellu:
+   ```bash
+   sudo midclt call -j docker.update '{"pool": null}'
+   sudo midclt call -j docker.update '{"pool": "<pula>"}'
+   cd /mnt/<pula>/ArchiveHub && sudo docker compose --profile tunnel up -d
+   ```
+3. „no configuration file provided” po `cd`: dataset się nie zamontował, `sudo zfs mount <pula>/ArchiveHub`.
+
+**Zepsuta baza albo pomyłka w panelu** (np. usunięte konto, grupa): przywróć bazę z kopii
+(sekcja [Kopie zapasowe](#kopie-zapasowe)). Zmiany od czasu tej kopii przepadną.
+
+**Utrata całego serwera albo dysku** (nowy TrueNAS od zera):
+
+1. Postaw TrueNAS i aplikację według kroków 1–6 tej instrukcji (wariant TrueNAS). Ten sam tunel Cloudflare:
+   token z panelu Cloudflare (Networks → Tunnels → `archivehub` → Configure), domena bez zmian.
+   W `.env` możesz dać nowy `DJANGO_SECRET_KEY`: wszyscy zostaną tylko wylogowani.
+2. Pobierz z Google Drive najnowszą kopię `archivehub-….sqlite3` (folder `ArchiveHub-kopie`) i wgraj ją
+   do `kopie/` w katalogu aplikacji.
+3. Przywróć bazę: `sudo docker compose stop app worker`, potem
+   `sudo docker compose run --rm --no-deps worker python manage.py przywroc_baze <plik> --tak`
+   i `sudo docker compose --profile tunnel up -d`. Rodzina loguje się jak dawniej: konta, grupy, uprawnienia,
+   opisy i komentarze są w bazie.
+4. Zdjęcia tła logowania wgraj ponownie w Panel → **Tło logowania** (są na Drive w `ArchiveHub-kopie/tlo-logowania`).
+5. Albumy: skopiuj foldery ze skanami PNG z Google Drive do udziału importu (te same nazwy folderów).
+   Worker rozpozna istniejące albumy. Potem w Panel → **Albumy** → album → **Przetwórz ponownie**:
+   zdjęcia odzyskają pliki, a opisy, komentarze i obroty zostaną.
+6. Ustaw ponownie snapshoty, Cloud Sync i monitoring.
+
 ### Gdy coś nie działa
 
 | Objaw | Przyczyna i rozwiązanie |
@@ -360,6 +439,8 @@ w Cloudflare od nowa.
 | `app` ma status „unhealthy” albo się restartuje | `docker compose logs app`; najczęściej pusty `DJANGO_SECRET_KEY` |
 | Błąd 1033 lub 502 z Cloudflare | Tunel nie działa: `docker compose logs cloudflared`. Sprawdź token oraz że usługa w Cloudflare to `http://caddy:80` |
 | „Za wiele przekierowań” | Sprawdź, że usługa w tunelu to `http://caddy:80` (nie `https`). Jeśli to nie to, wyślij mi wynik `docker compose logs caddy app` |
+| Po restarcie serwera błąd 1033, w TrueNAS → Apps „Unable to determine default interface” | Przy starcie nie było sieci. Zobacz [Odtwarzanie po awarii](#odtwarzanie-po-awarii) |
+| Inne strony z tego samego tunelu (np. Nextcloud) pokazują „Bad gateway” po restarcie | Serwer dostał z routera nowy adres IP. Popraw adres w Cloudflare (Tunnels → Public Hostname) i ustaw stały adres: TrueNAS → Network → Interfaces, albo rezerwacja DHCP w routerze |
 | `port is already allocated` | Zmień `ARCHIVEHUB_HTTP_PORT` w `.env` |
 | Z telefonu (LTE) działa, z komputera nie | Komputer albo router pamięta DNS sprzed przełączenia na Cloudflare. PowerShell jako administrator: `ipconfig /flushdns`, zamknij przeglądarkę; w Chrome także `chrome://net-internals/#dns` → Clear host cache. Samo mija po kilku godzinach |
 | `Invalid service URL format` w Cloudflare | Adres usługi w tunelu musi mieć protokół: `http://caddy:80` |
@@ -468,7 +549,7 @@ config/        ustawienia (wszystko ze zmiennych środowiskowych), adresy URL
 accounts/      konta, grupy, kody rodzinne, logowanie, limit prób
 panel/         panel administratora (osoby, albumy, uprawnienia, synchronizacja, kody, grupy, tło)
 albums/        albumy, zdjęcia, widoczność dla grup, import z udziału, synchronizacja, miniatury
-core/          strona powitalna, tło logowania, /healthz, robots.txt, nagłówki bezpieczeństwa
+core/          strona powitalna, tło logowania, /healthz, stan serwera, dziennik, kopie bazy, nagłówki bezpieczeństwa
 templates/     szablony wspólne
 static/        CSS i JavaScript (tło logowania)
 tests/         testy (pytest)

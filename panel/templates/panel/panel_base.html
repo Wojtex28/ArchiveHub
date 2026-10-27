@@ -3,7 +3,7 @@
 {% block title %}Panel · {{ site_title }}{% endblock %}
 {% block main %}
 <nav class="tabs" aria-label="Panel">
-  {% url 'panel:dashboard' as u_dash %}{% url 'panel:user_list' as u_users %}{% url 'panel:album_list' as u_albums %}{% url 'panel:permissions' as u_perms %}{% url 'panel:sync' as u_sync %}{% url 'panel:code_list' as u_codes %}{% url 'panel:group_list' as u_groups %}{% url 'panel:login_photos' as u_bg %}{% url 'panel:comment_list' as u_comments %}{% url 'panel:descriptions' as u_desc %}
+  {% url 'panel:dashboard' as u_dash %}{% url 'panel:user_list' as u_users %}{% url 'panel:album_list' as u_albums %}{% url 'panel:permissions' as u_perms %}{% url 'panel:sync' as u_sync %}{% url 'panel:code_list' as u_codes %}{% url 'panel:group_list' as u_groups %}{% url 'panel:login_photos' as u_bg %}{% url 'panel:comment_list' as u_comments %}{% url 'panel:descriptions' as u_desc %}{% url 'panel:server_status' as u_status %}
   <a href="{{ u_dash }}" {% if request.path == u_dash %}aria-current="page"{% endif %}>Start</a>
   <a href="{{ u_users }}" {% if u_users in request.path %}aria-current="page"{% endif %}>Osoby</a>
   <a href="{{ u_albums }}" {% if u_albums in request.path %}aria-current="page"{% endif %}>Albumy</a>
@@ -14,6 +14,7 @@
   <a href="{{ u_codes }}" {% if u_codes in request.path %}aria-current="page"{% endif %}>Kody rodzinne</a>
   <a href="{{ u_groups }}" {% if u_groups in request.path %}aria-current="page"{% endif %}>Grupy</a>
   <a href="{{ u_bg }}" {% if u_bg in request.path %}aria-current="page"{% endif %}>Tło logowania</a>
+  <a href="{{ u_status }}" {% if u_status in request.path %}aria-current="page"{% endif %}>Stan serwera</a>
 </nav>
 {% block panel %}{% endblock %}
 <script src="{% static 'js/tabs.js' %}" defer></script>

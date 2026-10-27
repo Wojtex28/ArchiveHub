@@ -216,15 +216,20 @@ LOGGING = {
     "formatters": {
         "plain": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
     },
+    "filters": {
+        "events": {"()": "core.logs.EventFilter"},
+    },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+        # Dziennik w panelu (Panel → Stan serwera): logowania, ostrzeżenia i błędy.
+        "events": {"class": "core.logs.DatabaseHandler", "level": "INFO", "filters": ["events"]},
     },
-    "root": {"handlers": ["console"], "level": LOG_LEVEL},
+    "root": {"handlers": ["console", "events"], "level": LOG_LEVEL},
     "loggers": {
-        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django": {"handlers": ["console", "events"], "level": LOG_LEVEL, "propagate": False},
         # Błędy 500 z pełnym śladem trafiają tu.
-        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
-        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.request": {"handlers": ["console", "events"], "level": "WARNING", "propagate": False},
+        "django.security": {"handlers": ["console", "events"], "level": "WARNING", "propagate": False},
         # Boty skanujące internet wysyłają błędne nagłówki Host; to nie są błędy aplikacji.
         "django.security.DisallowedHost": {"handlers": [], "propagate": False},
     },
@@ -235,6 +240,10 @@ LOGGING = {
 ARCHIVEHUB_MASTER_2FA = env_bool("ARCHIVEHUB_MASTER_2FA", True)
 # Sesja konta master trwa krócej niż rok rodziny: po tylu dniach trzeba zalogować się ponownie.
 ARCHIVEHUB_MASTER_SESSION_DAYS = int(env("ARCHIVEHUB_MASTER_SESSION_DAYS", "30"))
+
+# --- Monitoring -----------------------------------------------------------
+# Klucz do adresu /healthz/pelny?klucz=… dla usługi monitorującej (np. UptimeRobot). Pusty = adres wyłączony.
+ARCHIVEHUB_STATUS_TOKEN = env("ARCHIVEHUB_STATUS_TOKEN", "")
 
 # --- Kopie zapasowe bazy --------------------------------------------------
 # Folder kopii. W Docker Compose worker ma tu podpięty katalog serwera (ARCHIVEHUB_BACKUP_PATH).
