@@ -107,6 +107,8 @@
       } else if (count === 1 && view(img).scale > 1) {
         pan = { x: event.clientX, y: event.clientY };
         stage.gesture = true;
+        // Przeciąganie trwa, nawet gdy kursor wyjedzie poza zdjęcie albo nad przycisk.
+        try { stage.setPointerCapture(event.pointerId); } catch (error) { /* starsza przeglądarka */ }
       }
       if (event.pointerType === "mouse") event.preventDefault();
     });
@@ -153,10 +155,28 @@
     }
     stage.addEventListener("pointerup", release);
     stage.addEventListener("pointercancel", release);
+    // Firefox nie zna -webkit-user-drag: bez tego chwyta zdjęcie jak plik i przerywa przesuwanie.
+    img.draggable = false;
+    stage.addEventListener("dragstart", function (event) { event.preventDefault(); });
     stage.addEventListener("dblclick", function (event) { toggleZoom(img, event.clientX, event.clientY); });
+    // Kółko myszy powiększa. Touchpad: rozsuwanie palców powiększa (przeglądarka wysyła je z Ctrl),
+    // a przesuwanie dwoma palcami przesuwa powiększone zdjęcie, tak jak przewijanie strony.
+    var touchpadUntil = 0;
     stage.addEventListener("wheel", function (event) {
       event.preventDefault();
-      zoomAt(img, view(img).scale * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
+      var now = Date.now();
+      var smooth = event.deltaMode === 0 &&
+        (event.deltaX !== 0 || event.deltaY % 1 !== 0 || Math.abs(event.deltaY) < 40);
+      if (smooth) touchpadUntil = now + 400;
+      var state = view(img);
+      if (!event.ctrlKey && now < touchpadUntil && state.scale > 1) {
+        state.x -= event.deltaX;
+        state.y -= event.deltaY;
+        clampPan(img);
+        applyView(img);
+        return;
+      }
+      zoomAt(img, state.scale * Math.exp(-event.deltaY * (event.ctrlKey && smooth ? 0.01 : 0.002)), event.clientX, event.clientY);
     }, { passive: false });
   }
 

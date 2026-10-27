@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.16.1 (2026-10-27)
+
+### Poprawione
+- **Przesuwanie powiększonego zdjęcia:**
+  - na touchpadzie przesuwanie dwoma palcami przesuwa powiększone zdjęcie, a rozsuwanie palców je powiększa i pomniejsza (kółko myszy dalej powiększa);
+  - przeciąganie myszą nie urywa się, gdy kursor wyjedzie poza zdjęcie albo nad przyciski;
+  - w Firefoksie przeciąganie nie chwyta już zdjęcia jak pliku.
+
 ## 0.16.0 (2026-10-27) · ETAP 16: przygotowanie produkcyjne
 
 ### Dodane
