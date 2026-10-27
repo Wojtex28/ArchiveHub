@@ -33,10 +33,13 @@ def scan(folder, name, size=(800, 600), color=(120, 90, 60), fmt=None):
 
 
 def import_now(dirs):
-    """Pierwsze przejście zauważa foldery, drugie (po czasie stabilności) importuje."""
+    """Pierwsze przejście zauważa foldery, kolejne (po czasie stabilności) importują po jednym."""
     start = timezone.now()
     scan_import_dir(now=start)
-    return scan_import_dir(now=start + timedelta(minutes=dirs.ARCHIVEHUB_IMPORT_STABLE_MINUTES))
+    finished = []
+    while done := scan_import_dir(now=start + timedelta(minutes=dirs.ARCHIVEHUB_IMPORT_STABLE_MINUTES)):
+        finished += done
+    return finished
 
 
 # --- Czekanie na koniec kopiowania ---------------------------------------------
