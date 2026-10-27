@@ -14,7 +14,9 @@ services:
     image: archivehub:latest
     env_file: .env
     volumes:
-      - data:/data
+      # Dane (baza, albumy, tło logowania). Domyślnie wolumen Dockera; na TrueNAS lepiej dataset
+      # (ARCHIVEHUB_DATA_PATH w .env), bo wtedy obejmują go snapshoty ZFS. Patrz README.
+      - ${ARCHIVEHUB_DATA_PATH:-data}:/data
       - static:/srv/static
     environment:
       # Panel pokazuje tę ścieżkę; sam udział czyta tylko worker.
@@ -39,7 +41,7 @@ services:
       ARCHIVEHUB_SKIP_SETUP: "1"
       ARCHIVEHUB_BACKUP_DIR: /kopie
     volumes:
-      - data:/data
+      - ${ARCHIVEHUB_DATA_PATH:-data}:/data
       - ${ARCHIVEHUB_IMPORT_PATH:-./import}:/import:ro
       # Codzienne kopie bazy: katalog na serwerze, objęty snapshotami ZFS i kopią na Drive.
       - ${ARCHIVEHUB_BACKUP_PATH:-./kopie}:/kopie
