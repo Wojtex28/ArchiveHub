@@ -27,7 +27,8 @@ w projekcie.
 | 14 | Wyszukiwanie: tekst bez polskich znaków, osoba, tag, miejsce, lata, album, zdjęcia bez opisu | **gotowe** |
 | 15 | Bezpieczeństwo: logowanie dwuskładnikowe dla mastera, codzienna kopia bazy, snapshoty, kopia na Drive | **gotowe** |
 | 16 | Produkcja: stan serwera i dziennik w panelu, monitoring, dane na datasecie, odtwarzanie po awarii | **gotowe** |
-| 17+ | Import wszystkich albumów, testy końcowe… | zaplanowane |
+| 17 | Import wielu albumów: kolejka po jednym albumie, kontrola miejsca, postęp i podgląd udziału w panelu | **gotowe** |
+| 18+ | Testy końcowe, udostępnienie rodzinie… | zaplanowane |
 
 ## Technologie
 
@@ -500,6 +501,10 @@ Osobny kontener `worker` co 30 sekund przegląda udział:
 3. Rewers łączy się ze zdjęciem po nazwie: `012.jpg` + `012_r.jpg` (końcówka: `ARCHIVEHUB_REVERSE_SUFFIX`).
 4. Postęp i raport (dodane, pominięte, błędy) są w Panel → Synchronizacja i na stronie albumu.
 
+Gdy gotowych folderów jest kilka, worker importuje **po jednym albumie** (w kolejności nazw folderów),
+a między albumami obraca zdjęcia obrócone w galerii i robi kopię bazy. Przed każdym albumem sprawdza miejsce:
+jeśli po imporcie zostałoby mniej niż 5 GB, album czeka, a w panelu widać dlaczego. Import rusza sam, gdy miejsca przybędzie.
+
 Zasady:
 - Udział jest podpięty **tylko do odczytu**. Aplikacja nigdy nie zmienia ani nie usuwa Twoich skanów;
   po udanym imporcie możesz je usunąć z udziału sam (album zostaje).
@@ -512,10 +517,22 @@ Zasady:
 - **Przetwórz ponownie** (Panel → Albumy → album) robi wszystkie pliki albumu od nowa ze skanów w udziale,
   np. po zmianie jakości. Nazwa, opis i uprawnienia albumu zostają. Albumy zaimportowane przed wprowadzeniem
   pełnej rozdzielczości (wersja 5000 px) worker sam ustawia w kolejce po aktualizacji; skany muszą wtedy leżeć w udziale.
-- Strona albumu w panelu pokazuje, ile zajmuje on na dysku. Pełna rozdzielczość to zwykle 1–2 GB na album,
-  więc przed importem wszystkich albumów sprawdź wolne miejsce (`sudo zfs list -o name,used,avail`).
+- Strona albumu w panelu pokazuje, ile zajmuje on na dysku. Pełna rozdzielczość to zwykle 1–2 GB na album.
 - Jakość i rozmiary zmienisz w `.env`: `ARCHIVEHUB_ORIGINAL_QUALITY` (domyślnie 92),
   `ARCHIVEHUB_ORIGINAL_MAX_SIDE` (0 = pełna rozdzielczość), `ARCHIVEHUB_PREVIEW_MAX_SIDE` (2560).
+
+### Import wszystkich albumów naraz
+
+1. Panel → **Synchronizacja** pokazuje wolne miejsce. Skopiuj do udziału pierwszy folder i odczekaj minutę:
+   panel pokaże, ile zajmą czekające foldery (szacunek: połowa rozmiaru skanów).
+   Na wszystkie albumy potrzeba zwykle ok. 100–150 GB wolnego miejsca.
+2. Skopiuj resztę folderów. Możesz wszystkie naraz albo partiami, w trakcie importu też.
+3. W **Foldery w udziale** sprawdź liczbę zdjęć w każdym folderze i ostrzeżenia
+   „Rewersy bez zdjęcia głównego” (zwykle literówka w nazwie pliku). Poprawka w udziale = ponowny import tylko brakujących plików.
+4. Panel → Synchronizacja pokazuje album, który się właśnie importuje, ile zdjęć zostało i ile to mniej więcej potrwa.
+   Serwer może w tym czasie normalnie działać; galeria jest tylko trochę wolniejsza.
+5. Po imporcie: Panel → **Albumy** (tytuły, kolejność), Panel → **Uprawnienia** (które grupy widzą który album).
+   Skany możesz potem usunąć z udziału; kopię masz na Google Drive.
 
 ### Udział importu na TrueNAS
 

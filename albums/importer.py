@@ -16,12 +16,15 @@ import hashlib
 import logging
 import os
 import re
+import shutil
+from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
+from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 from PIL import Image, ImageOps
 
@@ -33,6 +36,12 @@ logger = logging.getLogger(__name__)
 SCAN_EXTENSIONS = {".jpg", ".jpeg", ".tif", ".tiff", ".png"}
 PREVIEW_QUALITY = 85
 THUMB_QUALITY = 80
+
+# Pliki albumu (JPEG q92 w pełnej rozdzielczości, podgląd, miniatura) zajmują zwykle 25–35% skanów PNG;
+# liczymy połowę, z zapasem na skany JPEG i TIFF.
+OUTPUT_RATIO = 0.5
+# Tyle miejsca musi zostać po imporcie albumu; mniej to ostrzeżenie w Panel → Stan serwera.
+MIN_FREE_AFTER_IMPORT = 5 * 1024**3
 
 # Skany z importu są zaufane i bywają duże (np. 12000 × 9000 px); domyślny limit Pillow jest niższy.
 Image.MAX_IMAGE_PIXELS = 400_000_000
@@ -157,9 +166,10 @@ def touch_heartbeat():
 
 
 def scan_import_dir(now=None):
-    """Jedno przejście po udziale: zauważa nowe i zmienione foldery, importuje te gotowe.
+    """Jedno przejście po udziale: zauważa nowe i zmienione foldery, importuje najwyżej jeden gotowy.
 
-    Zwraca listę importów zakończonych w tym przejściu.
+    Po jednym folderze na przejście, żeby przy imporcie wielu albumów worker między nimi
+    obracał zdjęcia i robił kopię bazy. Zwraca listę importów zakończonych w tym przejściu.
     """
     now = now or timezone.now()
     root = import_dir()
@@ -187,15 +197,50 @@ def scan_import_dir(now=None):
             if job.signature != signature:
                 job.signature = signature
                 job.stable_since = now
-                job.save(update_fields=["signature", "stable_since"])
-            elif now - job.stable_since >= stable_for:
+                job.note = ""
+                job.save(update_fields=["signature", "stable_since", "note"])
+            elif now - job.stable_since >= stable_for and not finished and _has_room(job, files):
                 finished.append(run_import(job, folder))
     return finished
+
+
+def free_space():
+    return shutil.disk_usage(settings.DATA_DIR).free
+
+
+def estimated_output(source_bytes):
+    """Ile miejsca zajmą pliki albumu ze skanów o tym rozmiarze (szacunek z zapasem)."""
+    return int(source_bytes * OUTPUT_RATIO)
+
+
+def _has_room(job, files):
+    """Czy po imporcie folderu zostanie zapas miejsca; jeśli nie, folder czeka z notatką w panelu."""
+    needed = estimated_output(sum(f.stat().st_size for f in files))
+    try:
+        free = free_space()
+    except OSError:
+        return True  # nie da się sprawdzić: import i tak zgłosi błąd zapisu
+    if free - needed >= MIN_FREE_AFTER_IMPORT:
+        if job.note:
+            job.note = ""
+            job.save(update_fields=["note"])
+        return True
+    note = (
+        f"Czeka na miejsce na dysku: album zajmie ok. {filesizeformat(needed)}, "
+        f"wolne {filesizeformat(free)}, a zostać musi {filesizeformat(MIN_FREE_AFTER_IMPORT)}."
+    )
+    if job.note != note:
+        logger.warning("Import: %s %s", job.folder, note[0].lower() + note[1:])
+        job.note = note
+        job.save(update_fields=["note"])
+    return False
 
 
 def _run_reprocess_requests(root):
     finished = []
     for album in Album.objects.filter(reprocess_requested=True):
+        if finished:
+            break  # następne albumy w kolejnych przejściach
         folder = root / album.folder
         latest = ImportJob.objects.filter(folder=album.folder).first()
         if latest is not None and latest.status == ImportJob.WAITING and folder.is_dir():
@@ -261,7 +306,9 @@ def _split_reverses(files):
 
 def run_import(job, folder, regenerate=False):
     job.status = ImportJob.PROCESSING
-    job.save(update_fields=["status"])
+    job.started_at = timezone.now()
+    job.note = ""
+    job.save(update_fields=["status", "started_at", "note"])
     logger.info("Import: zaczynam %s%s", folder.name, " (ponowne przetworzenie)" if regenerate else "")
     try:
         _import_folder(job, folder, regenerate=regenerate)
@@ -295,6 +342,8 @@ def _import_folder(job, folder, regenerate=False):
     job.save(update_fields=["album"])
 
     fronts, reverses = _split_reverses(_scan_files(folder))
+    job.photos_total = len(fronts)
+    job.save(update_fields=["photos_total"])
     taken_names = {name.lower() for name in album.photos.values_list("name", flat=True)}
     taken_checksums = set(album.photos.values_list("checksum", flat=True))
     position = (album.photos.aggregate(top=Max("position"))["top"] or 0) + 1
@@ -402,3 +451,117 @@ def _attach_reverse(job, photo, reverse):
         logger.warning("Import: nie udało się przetworzyć rewersu %s: %s", reverse.name, exc)
         photo.reverse_checksum = ""
         job.skipped.append(f"{reverse.name}: nie udało się odczytać rewersu ({exc.__class__.__name__})")
+
+
+# --- Podgląd udziału w panelu -------------------------------------------------
+
+
+SHARE_STATES = {
+    "new": "nowy",
+    "copying": "trwa kopiowanie",
+    "queued": "w kolejce",
+    ImportJob.PROCESSING: "importowanie",
+    ImportJob.DONE: "zaimportowany",
+    ImportJob.FAILED: "błąd",
+    "changed": "dorzucone pliki",
+}
+
+
+@dataclass
+class ShareFolder:
+    name: str
+    photos: int
+    reverses: int
+    size: int
+    orphan_reverses: list
+    job: ImportJob | None
+    signature: str
+
+    @property
+    def state(self):
+        job = self.job
+        if job is None:
+            return "new"
+        if job.signature != self.signature:
+            # Worker zauważy zmianę w najbliższym przejściu.
+            return "changed" if job.status in (ImportJob.DONE, ImportJob.FAILED) else "copying"
+        if job.status == ImportJob.WAITING:
+            return "queued" if job.is_queued else "copying"
+        return job.status
+
+    @property
+    def state_label(self):
+        return SHARE_STATES[self.state]
+
+    @property
+    def is_pending(self):
+        return self.state not in (ImportJob.DONE, ImportJob.FAILED)
+
+
+def share_overview():
+    """Foldery w udziale importu z liczbą zdjęć, rozmiarem i stanem importu (dla Panel → Synchronizacja).
+
+    Zwraca (lista ShareFolder, szacowane miejsce na foldery jeszcze niezaimportowane).
+    """
+    root = import_dir()
+    if not root.is_dir():
+        return [], 0
+    latest = {}
+    for job in ImportJob.objects.order_by("created_at", "pk"):
+        latest[job.folder] = job
+    folders, pending_bytes = [], 0
+    for folder in sorted(root.iterdir(), key=lambda p: natural_key(p.name)):
+        if not folder.is_dir() or folder.name.startswith("."):
+            continue
+        try:
+            files = _scan_files(folder)
+            size = sum(f.stat().st_size for f in files)
+        except OSError:
+            continue
+        if not files:
+            continue
+        fronts, reverses = _split_reverses(files)
+        row = ShareFolder(
+            name=folder.name,
+            photos=len(fronts),
+            reverses=len(reverses),
+            size=size,
+            orphan_reverses=sorted(r.name for key, r in reverses.items() if key not in fronts),
+            job=latest.get(folder.name),
+            signature=folder_signature(files),
+        )
+        if row.is_pending:
+            pending_bytes += size
+        folders.append(row)
+    return folders, estimated_output(pending_bytes)
+
+
+def seconds_per_photo():
+    """Średni czas importu jednego zdjęcia (z rewersem) z ostatnich importów; None, gdy brak danych."""
+    current = ImportJob.objects.filter(status=ImportJob.PROCESSING).exclude(started_at=None).first()
+    if current is not None and current.photos_added >= 5:
+        return (timezone.now() - current.started_at).total_seconds() / current.photos_added
+    seconds = photos = 0
+    for job in ImportJob.objects.filter(status=ImportJob.DONE).exclude(started_at=None)[:10]:
+        if job.photos_added:
+            seconds += (job.finished_at - job.started_at).total_seconds()
+            photos += job.photos_added
+    return seconds / photos if photos else None
+
+
+def queue_summary(folders):
+    """Podsumowanie kolejki: ile folderów i zdjęć zostało oraz ile to potrwa (szacunek)."""
+    pending = [f for f in folders if f.is_pending]
+    current = ImportJob.objects.filter(status=ImportJob.PROCESSING).first()
+    photos_left = sum(f.photos for f in pending if f.state != ImportJob.PROCESSING)
+    if current is not None:
+        photos_left += max(current.photos_total - current.photos_added, 0)
+    per_photo = seconds_per_photo()
+    return {
+        "folders": len(pending),
+        "photos": photos_left,
+        "seconds": per_photo * photos_left if per_photo is not None and photos_left else None,
+        "current": current,
+        "failed": sum(1 for f in folders if f.state == ImportJob.FAILED),
+        "done": sum(1 for f in folders if f.state == ImportJob.DONE),
+    }

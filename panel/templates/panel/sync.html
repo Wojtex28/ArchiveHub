@@ -6,6 +6,45 @@
 </div>
 <h2>Import z udziału sieciowego</h2>
 <p class="hint">Wrzuć folder ze skanami do udziału <strong>import</strong> (<code>{{ import_dir }}</code>). Gdy jego zawartość nie zmieni się przez {{ stable_minutes }} min, aplikacja zrobi z niego album: zdjęcia do oglądania i miniatury. Rewers to plik z dopiskiem „_r”, np. <code>012.jpg</code> i <code>012_r.jpg</code>. Aplikacja niczego w udziale nie zmienia ani nie usuwa; po imporcie możesz sam skasować folder. Dorzucone później pliki trafią do tego samego albumu.</p>
+{% if share_folders or queue.current %}
+<div class="import-summary">
+  {% if queue.current %}
+  <p><strong>Teraz:</strong> {{ queue.current.folder }}, {{ queue.current.photos_added }} z {{ queue.current.photos_total }} zdjęć{% if current_time %}, {{ current_time }} do końca{% endif %}.</p>
+  <progress class="import-progress" max="{{ queue.current.photos_total|default:1 }}" value="{{ queue.current.photos_added }}"></progress>
+  {% endif %}
+  {% if queue.folders %}
+  <p><strong>Zostało:</strong> {{ queue.folders }} {% if queue.folders == 1 %}folder{% elif queue.folders < 5 %}foldery{% else %}folderów{% endif %}, {{ queue.photos }} zdjęć{% if queue_time %}, całość {{ queue_time }}{% endif %}. Worker importuje po jednym albumie, po kolei.</p>
+  {% else %}
+  <p>Wszystkie foldery z udziału są zaimportowane{% if queue.failed %}, z błędem: {{ queue.failed }}{% endif %}.</p>
+  {% endif %}
+  {% if space_free is not None %}
+  <p>{% if space_short %}<span class="is-danger"><strong>Za mało miejsca:</strong> czekające foldery zajmą ok. {{ space_needed|filesizeformat }}, a wolne jest {{ space_free|filesizeformat }}. Import zatrzyma się przed albumem, po którym zostałoby mniej niż 5 GB.</span>{% else %}<strong>Miejsce:</strong> wolne {{ space_free|filesizeformat }}{% if space_needed %}, czekające foldery zajmą ok. {{ space_needed|filesizeformat }}{% endif %}.{% endif %}</p>
+  {% endif %}
+</div>
+<details class="share-list"{% if queue.folders %} open{% endif %}>
+  <summary>Foldery w udziale ({{ share_folders|length }})</summary>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Folder</th><th>Zdjęcia</th><th>Skany</th><th>Stan</th></tr></thead>
+    <tbody>
+    {% for f in share_folders %}
+    <tr>
+      <td>{% if f.job.album %}<a href="{% url 'panel:album_detail' f.job.album.pk %}">{{ f.name }}</a>{% else %}{{ f.name }}{% endif %}</td>
+      <td>{{ f.photos }}{% if f.reverses %}<br><span class="hint">rewersy: {{ f.reverses }}</span>{% endif %}</td>
+      <td>{{ f.size|filesizeformat }}</td>
+      <td>
+        {% if f.state == "failed" %}<span class="is-danger">{{ f.state_label }}</span>{% elif f.state == "done" %}{{ f.state_label }}{% else %}<span class="badge badge--muted">{{ f.state_label }}</span>{% endif %}
+        {% if f.job.note and f.state == "queued" %}<br><span class="is-danger">{{ f.job.note }}</span>{% endif %}
+        {% if f.orphan_reverses %}<br><span class="hint">Rewersy bez zdjęcia głównego: {{ f.orphan_reverses|slice:":5"|join:", " }}{% if f.orphan_reverses|length > 5 %}…{% endif %}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+<h3>Ostatnie importy</h3>
 {% if imports %}{% include "panel/includes/import_table.html" %}{% else %}<p class="hint">Jeszcze nic nie importowano.</p>{% endif %}
 <h2>Synchronizacja biblioteki</h2>
 <p class="hint">Sprawdza, czy biblioteka zdjęć (<code>{{ albums_dir }}</code>) zgadza się z bazą. Albumom bez folderu i zdjęciom bez pliku aplikacja tylko dopisuje znacznik i niczego nie usuwa. Folder z „_” na początku nazwy trafia do archiwum jako ukryty.</p>

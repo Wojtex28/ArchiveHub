@@ -15,7 +15,14 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from accounts.models import FamilyGroup, InviteCode
 from accounts.views import needs_two_factor_setup
-from albums.importer import import_dir, natural_key
+from albums.importer import (
+    MIN_FREE_AFTER_IMPORT,
+    free_space,
+    import_dir,
+    natural_key,
+    queue_summary,
+    share_overview,
+)
 from albums.metadata import change_rows
 from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncReport, Tag, name_key
 from albums.search import refresh_search_text
@@ -401,10 +408,24 @@ def sync(request):
                 f"nowe: {len(report.new_albums)}.",
             )
         return redirect("panel:sync")
+    folders, needed = share_overview()
+    queue = queue_summary(folders)
+    current = queue["current"]
+    try:
+        free = free_space()
+    except OSError:
+        free = None
     return render(
         request,
         "panel/sync.html",
         {
+            "share_folders": folders,
+            "queue": queue,
+            "queue_time": human_duration(queue["seconds"]),
+            "current_time": human_duration(current.seconds_left() if current else None),
+            "space_needed": needed,
+            "space_free": free,
+            "space_short": free is not None and needed and free - needed < MIN_FREE_AFTER_IMPORT,
             "reports": SyncReport.objects.select_related("triggered_by")[:20],
             "albums_dir": albums_dir(),
             "import_dir": import_dir(),
@@ -412,6 +433,17 @@ def sync(request):
             "stable_minutes": settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES,
         },
     )
+
+
+def human_duration(seconds):
+    """Szacowany czas po polsku, zaokrąglony: „ok. 2 godz. 10 min”; pusty, gdy brak danych."""
+    if seconds is None:
+        return ""
+    minutes = max(round(seconds / 60), 1)
+    if minutes < 60:
+        return f"ok. {minutes} min"
+    hours, minutes = divmod(round(minutes / 10) * 10, 60)
+    return f"ok. {hours} godz." + (f" {minutes} min" if minutes else "")
 
 
 # --- Tło strony logowania ---------------------------------------------------

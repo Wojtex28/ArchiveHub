@@ -7,7 +7,10 @@
     <td>{% if job.album %}<a href="{% url 'panel:album_detail' job.album.pk %}">{{ job.folder }}</a>{% else %}{{ job.folder }}{% endif %}<br><span class="hint">{{ job.created_at|date:"j E Y, H:i" }}</span></td>
     <td>{% if job.status == "failed" %}<span class="is-danger">{{ job.get_status_display }}</span>{% elif job.status == "done" %}{{ job.get_status_display }}{% else %}<span class="badge badge--muted">{{ job.get_status_display }}</span>{% endif %}</td>
     <td>
-      {% if job.status == "waiting" %}<span class="hint">Import ruszy, gdy folder nie zmieni się przez {{ stable_minutes|default:10 }} min.</span>
+      {% if job.status == "waiting" and job.note %}<span class="is-danger">{{ job.note }}</span>
+      {% elif job.status == "waiting" and job.is_queued %}<span class="hint">Kopiowanie skończone, czeka na swoją kolej.</span>
+      {% elif job.status == "waiting" %}<span class="hint">Import ruszy, gdy folder nie zmieni się przez {{ stable_minutes|default:10 }} min.</span>
+      {% elif job.status == "processing" %}{{ job.photos_added }} z {{ job.photos_total }} zdjęć
       {% elif job.is_reprocess %}przetworzone ponownie: {{ job.photos_added }}, rewersy: {{ job.reverses_added }}
       {% else %}zdjęcia: {{ job.photos_added }}, rewersy: {{ job.reverses_added }}{% endif %}
       {% if job.error %}<br><span class="is-danger">{{ job.error }}</span>{% endif %}

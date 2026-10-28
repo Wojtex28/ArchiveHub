@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -252,11 +254,15 @@ class ImportJob(models.Model):
     stable_since = models.DateTimeField(default=timezone.now)
     album = models.ForeignKey(Album, null=True, blank=True, on_delete=models.SET_NULL, related_name="imports")
     is_reprocess = models.BooleanField("ponowne przetworzenie", default=False)
+    photos_total = models.PositiveIntegerField("zdjęć w folderze", default=0)
     photos_added = models.PositiveIntegerField(default=0)
     reverses_added = models.PositiveIntegerField(default=0)
     skipped = models.JSONField(default=list)
     error = models.TextField(blank=True)
+    # Dlaczego gotowy folder jeszcze czeka (np. brak miejsca na dysku).
+    note = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -266,6 +272,20 @@ class ImportJob(models.Model):
 
     def __str__(self):
         return f"Import {self.folder} ({self.get_status_display()})"
+
+    @property
+    def is_queued(self):
+        """Kopiowanie skończone, folder czeka na swoją kolej (worker importuje po jednym)."""
+        stable_for = timedelta(minutes=settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES)
+        return self.status == self.WAITING and timezone.now() - self.stable_since >= stable_for
+
+    def seconds_left(self, now=None):
+        """Szacowany czas do końca importu na podstawie dotychczasowego tempa; None, gdy za wcześnie."""
+        if self.status != self.PROCESSING or not self.started_at or not self.photos_added:
+            return None
+        elapsed = ((now or timezone.now()) - self.started_at).total_seconds()
+        remaining = max(self.photos_total - self.photos_added, 0)
+        return elapsed / self.photos_added * remaining
 
 
 class SyncReport(models.Model):

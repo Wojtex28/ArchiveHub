@@ -15,6 +15,20 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.17.0 (2026-10-27) · ETAP 17: import wszystkich albumów
+
+### Dodane
+- **Panel → Synchronizacja:**
+  - album importowany w tej chwili: ile zdjęć z ilu, pasek postępu i szacowany czas do końca;
+  - podsumowanie kolejki: ile folderów i zdjęć zostało i ile potrwa cały import;
+  - wolne miejsce na dysku i ile zajmą czekające foldery, z ostrzeżeniem, gdy nie wystarczy;
+  - lista „Foldery w udziale”: liczba zdjęć i rewersów, rozmiar skanów, stan (nowy, trwa kopiowanie, w kolejce, importowanie, zaimportowany, błąd) i rewersy bez zdjęcia głównego.
+- **Kontrola miejsca:** album czeka, jeśli po jego imporcie zostałoby mniej niż 5 GB wolnego; import rusza sam, gdy miejsca przybędzie.
+- README: „Import wszystkich albumów naraz”.
+
+### Zmienione
+- Worker importuje najwyżej jeden album na przejście, więc między albumami dalej obraca zdjęcia i robi kopię bazy.
+
 ## 0.16.1 (2026-10-27)
 
 ### Poprawione
