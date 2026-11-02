@@ -16,7 +16,13 @@
     {% if reverse %}<a class="viewer__flip" href="{% url 'albums:photo' album.pk photo.pk %}{% if show_comments %}?komentarze=1{% endif %}"><span class="viewer__flip-verb">Pokaż </span>awers</a>
     {% else %}<a class="viewer__flip" href="{% url 'albums:photo_reverse' album.pk photo.pk %}{% if show_comments %}?komentarze=1{% endif %}"><span class="viewer__flip-verb">Pokaż </span>rewers</a>{% endif %}
     {% endif %}
-    <a class="viewer__comments" href="{% if show_comments %}{{ request.path }}{% else %}?komentarze=1#komentarze{% endif %}" aria-label="Opis i komentarze ({{ comments|length }})" title="Opis i komentarze"{% if show_comments %} aria-current="true"{% endif %}>💬<span class="viewer__comments-count">{{ comments|length }}</span></a>
+    <form method="post" action="{% url 'albums:favorite' photo.pk %}" class="viewer__favorite-form">
+      {% csrf_token %}
+      <input type="hidden" name="ulubione" value="{% if is_favorite %}0{% else %}1{% endif %}">
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="viewer__favorite{% if is_favorite %} is-on{% endif %}" aria-pressed="{% if is_favorite %}true{% else %}false{% endif %}" title="{% if is_favorite %}W ulubionych (kliknij, żeby usunąć){% else %}Dodaj do ulubionych{% endif %}">{% if is_favorite %}★{% else %}☆{% endif %}<span class="visually-hidden">{% if is_favorite %} Usuń z ulubionych{% else %} Dodaj do ulubionych{% endif %}</span></button>
+    </form>
+    <a class="viewer__comments" href="{% if show_comments %}{{ request.path }}{% else %}?komentarze=1#komentarze{% endif %}" aria-label="Osoby, opis i komentarze ({{ comments|length }})" title="Osoby, opis i komentarze"{% if show_comments %} aria-current="true"{% endif %}>💬<span class="viewer__comments-count">{{ comments|length }}</span></a>
     <a class="viewer__download" href="{% if reverse %}{% url 'albums:download_reverse' photo.pk %}{% else %}{% url 'albums:download' photo.pk %}{% endif %}" download title="Pobierz w pełnej rozdzielczości">⤓<span class="visually-hidden"> Pobierz w pełnej rozdzielczości</span></a>
   </div>
   <div class="viewer__stage" data-stage>

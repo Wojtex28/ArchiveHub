@@ -81,29 +81,39 @@ def _person(text, current):
 @transaction.atomic
 def save_metadata(photo, user, data):
     """Zapisuje opis z formularza. Zwraca zmienione pola (pusty słownik, gdy nic się nie zmieniło)."""
+    # Pola, których nie ma w ``data`` (osobny formularz osób albo opisu), zostają bez zmian.
     before = current_values(photo)
-    after = {
-        "date": data["date"].text,
-        "place": " ".join(data["place"].split()),
-        "people": data["people"],
-        "tags": data["tags"],
-        "description": data["description"].strip(),
-    }
+    after = {}
+    if "date" in data:
+        after["date"] = data["date"].text
+    if "place" in data:
+        after["place"] = " ".join(data["place"].split())
+    for field in ("people", "tags"):
+        if field in data:
+            after[field] = data[field]
+    if "description" in data:
+        after["description"] = data["description"].strip()
     changes = {
         field: [before[field], after[field]]
         for field in LABELS
-        if not _same(field, before[field], after[field])
+        if field in after and not _same(field, before[field], after[field])
     }
     if not changes:
         return changes
-    photo.date_text = data["date"].text
-    photo.year_from = data["date"].year_from
-    photo.year_to = data["date"].year_to
-    photo.place = after["place"]
-    photo.description = after["description"]
+    fields = ["described_at", "described_by"]
+    if "date" in data:
+        photo.date_text = data["date"].text
+        photo.year_from = data["date"].year_from
+        photo.year_to = data["date"].year_to
+        fields += ["date_text", "year_from", "year_to"]
+    if "place" in after:
+        photo.place = after["place"]
+        fields.append("place")
+    if "description" in after:
+        photo.description = after["description"]
+        fields.append("description")
     photo.described_at = timezone.now()
     photo.described_by = user
-    fields = ["date_text", "year_from", "year_to", "place", "description", "described_at", "described_by"]
     photo.save(update_fields=fields)
     if "people" in changes:
         _set_names(photo, "people", Person, after["people"])
@@ -136,21 +146,24 @@ def change_rows(change):
 def photo_metadata(request, pk):
     """Zapis opisu zdjęcia. Z JavaScriptem odsyła odświeżony panel, bez niego wraca na stronę zdjęcia."""
     photo = get_object_or_404(Photo.objects.visible_to(request.user).select_related("album"), pk=pk)
-    form = MetadataForm(request.POST)
+    part = request.POST.get("czesc")
+    part = part if part in MetadataForm.PARTS else None
+    form = MetadataForm(request.POST, part=part)
     recent = PhotoChange.objects.filter(
         user=request.user, created_at__gte=timezone.now() - timedelta(minutes=1)
     ).count()
     if form.is_valid() and recent >= PER_MINUTE:
         form.add_error(None, "Za dużo zmian w krótkim czasie. Odczekaj chwilę.")
     if not form.is_valid():
+        forms = {"people_form": form} if part == "osoby" else {"metadata_form": form}
         if wants_fragment(request):
-            return fragment(request, photo, metadata_form=form, status=400)
+            return fragment(request, photo, status=400, **forms)
         from .views import render_photo_page
 
-        return render_photo_page(request, photo.album_id, photo.pk, metadata_form=form)
+        return render_photo_page(request, photo.album_id, photo.pk, **forms)
     changes = save_metadata(photo, request.user, form.cleaned_data)
     if changes:
         logger.info("%s zmienił(a) opis %s: %s", request.user, photo, ", ".join(changes))
     if wants_fragment(request):
         return fragment(request, photo)
-    return redirect(photo_page_url(photo, anchor="opis"))
+    return redirect(photo_page_url(photo, anchor="osoby" if part == "osoby" else "opis"))

@@ -8,6 +8,14 @@
 {% if albums %}
 <h2 class="section-title">Albumy</h2>
 <ul class="album-grid">
+  <li class="album-card album-card--favorites">
+    <a class="album-card__link" href="{% url 'albums:favorites' %}">
+      <span class="album-card__cover">{% if favorite_cover %}<img class="rot-{{ favorite_cover.pending_front }}" src="{% url 'albums:thumb' favorite_cover.pk %}?v={{ favorite_cover.version_front }}" alt="" loading="lazy">{% else %}<span class="album-card__star" aria-hidden="true">☆</span>{% endif %}</span>
+      <span class="album-card__title">★ Ulubione</span>
+      <span class="album-card__description">{% if favorite_count %}Twoje wybrane zdjęcia z różnych albumów, do obejrzenia i pobrania w całości.{% else %}Zaznacz gwiazdką ☆ zdjęcia, które chcesz mieć pod ręką.{% endif %}</span>
+      <span class="album-card__meta">{{ favorite_count }} zdj. · widzisz tylko Ty</span>
+    </a>
+  </li>
   {% for album in albums %}
   <li class="album-card">
     <a class="album-card__link" href="{% url 'albums:gallery' album.pk %}">

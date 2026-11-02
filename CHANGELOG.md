@@ -15,6 +15,19 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.29.0 (2026-11-02) · ETAP 29: osoby na zdjęciu na wierzchu, ulubione
+
+### Dodane
+- **Ulubione.** Gwiazdka ☆ nad zdjęciem w podglądzie dodaje je do „Ulubionych” konta, a ★ usuwa. Ulubione to prywatny album każdej osoby: jest w menu i jako pierwszy kafelek na stronie albumów. Całość pobierzesz jednym przyciskiem jako ZIP (oryginały z rewersami, w folderach albumów). W albumie ulubione zdjęcia mają małą gwiazdkę w rogu. Zdjęcie z albumu, do którego konto straci dostęp, znika z ulubionych.
+
+### Zmienione
+- **„Kto jest na zdjęciu” ma własną sekcję na górze panelu 💬**, nad opisem i komentarzami, z przyciskiem „Popraw osoby” i własnym zapisem. Opis (kiedy, gdzie, tagi) poprawia się osobno. Przy osobach z drzewa jest 🌳 z linkiem do ich karty (dla kont z dostępem do drzewa).
+
+### Naprawione
+- **Na telefonie podgląd zdjęcia nie powiększa już całej strony.** Gest dwóch palców w podglądzie powiększa tylko zdjęcie. Wcześniej, gdy palec trafił np. w pasek z przyciskami albo podpis, powiększała się cała strona, a potem nie było jak jej pomniejszyć (zostawało odświeżenie). Gdyby strona była już powiększona przed otwarciem podglądu, wraca do normalnej skali.
+
+---
+
 ## 0.28.0 (2026-11-02) · ETAP 28: „Ułóż automatycznie” z jak najmniejszą liczbą przecięć
 
 ### Zmienione

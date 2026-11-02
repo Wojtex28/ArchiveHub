@@ -14,7 +14,7 @@ from django.db.models import Count, F, Q
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
 
-from .models import Album, Person, Photo, Tag, name_key
+from .models import Album, Person, Photo, Tag, favorite_ids, name_key
 from .photo_panel import suggestions_for
 
 PER_PAGE = 60
@@ -169,6 +169,7 @@ def search(request):
     form = SearchForm(request.GET or None, albums=albums)
     context = {"form": form, "suggestions": suggestions_for(request.user)}
     if form.has_filters():
+        context["favorite_ids"] = favorite_ids(request.user)
         photos = search_photos(request.user, form.cleaned_data, albums)
         page = Paginator(
             photos.select_related("album")

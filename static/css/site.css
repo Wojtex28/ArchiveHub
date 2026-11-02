@@ -389,7 +389,9 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 /* Podgląd zdjęcia na cały ekran (nad galerią albo jako osobna strona) */
 .viewer-open { overflow: hidden; }
 .page-viewer { background: #14110e; }
-.viewer { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; background: #14110e; color: #f4efe6; }
+.viewer { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; background: #14110e; color: #f4efe6; touch-action: none; }
+/* W podglądzie gest dwóch palców powiększa tylko zdjęcie, nigdy całą stronę; panel da się tylko przewijać. */
+.viewer__panel, .viewer__panel * { touch-action: pan-y; }
 .viewer[hidden] { display: none; }
 .viewer__bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; min-height: 3.25rem; font-size: 0.9375rem; }
 .viewer__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-size: 1.0625rem; }
@@ -899,3 +901,21 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-line--f2 { stroke: #7a5a8c; } .tree-joint--f2 { fill: #7a5a8c; }
 .tree-line--f3 { stroke: #5f7a3a; } .tree-joint--f3 { fill: #5f7a3a; }
 .tree-line--f4 { stroke: #4d6a92; } .tree-joint--f4 { fill: #4d6a92; }
+
+/* Osoby na zdjęciu i ulubione (ETAP 29) */
+.people { padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid rgb(255 255 255 / 0.14); }
+.people__list { margin-bottom: 0.75rem; }
+.people__list li { display: inline-flex; align-items: center; gap: 0.25rem; }
+.people__tree { font-size: 0.9375rem; text-decoration: none; opacity: 0.8; }
+.people__tree:hover { opacity: 1; }
+.viewer__favorite-form { display: contents; }
+.viewer__favorite { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; font: inherit; font-size: 1.25rem; line-height: 1; color: inherit; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; cursor: pointer; }
+.viewer__favorite:hover { background: rgb(255 255 255 / 0.18); }
+.viewer__favorite.is-on { color: #f2c14e; border-color: rgb(242 193 78 / 0.55); }
+.gallery-tile__favorite { position: absolute; left: 0.375rem; top: 0.375rem; display: inline-grid; place-items: center; width: 1.625rem; height: 1.625rem; border-radius: 999px; background: rgb(20 17 14 / 0.7); color: #f2c14e; font-size: 0.875rem; line-height: 1; }
+.gallery-tile__favorite[hidden] { display: none; }
+.album-card--favorites .album-card__cover { display: grid; place-items: center; background: #efe4c8; }
+.album-card__star { font-size: 3rem; color: #c89b2c; }
+@media (max-width: 40rem) {
+  .viewer__favorite { width: 2.25rem; height: 2.25rem; }
+}

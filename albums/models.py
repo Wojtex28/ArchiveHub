@@ -486,3 +486,25 @@ class PhotoChange(models.Model):
 
     def __str__(self):
         return f"{self.user or 'konto usunięte'}: {self.photo} ({', '.join(self.changes)})"
+
+
+class Favorite(models.Model):
+    """Zdjęcie dodane do „Ulubionych” jednego konta. Ulubione to prywatny album tej osoby."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites")
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ulubione zdjęcie"
+        verbose_name_plural = "ulubione zdjęcia"
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["user", "photo"], name="ulubione_raz")]
+
+    def __str__(self):
+        return f"{self.user} ★ {self.photo}"
+
+
+def favorite_ids(user):
+    """Numery ulubionych zdjęć konta, do zaznaczenia gwiazdek w galerii."""
+    return set(Favorite.objects.filter(user=user).values_list("photo_id", flat=True))
