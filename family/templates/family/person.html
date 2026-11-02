@@ -54,6 +54,7 @@
   {% endfor %}
 </ul>
 <script src="{% static 'js/gallery.js' %}" defer></script>
+<script src="{% static 'js/people-picker.js' %}" defer></script>
 {% if photo_total > photos|length %}<p><a href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}">Wszystkie zdjęcia: {{ person.name }} ({{ photo_total }})</a></p>{% endif %}
 {% else %}
 <p class="hint">Nie ma jeszcze zdjęć z tą osobą{% if person.photos.exists %} w albumach, które widzisz{% endif %}. Zdjęcia dochodzą same, gdy ktoś oznaczy tę osobę w opisie zdjęcia (pole „Kto”).</p>

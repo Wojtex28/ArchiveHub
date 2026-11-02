@@ -32,6 +32,7 @@ w projekcie.
 | 21 | Drzewo rodzinne: dane osób, relacje, karta osoby ze zdjęciami, dostęp per konto, historia zmian | **gotowe** |
 | 22 | Drzewo rodzinne: kanwa z przeciąganiem, łączeniem osób i automatycznym układem, także na telefonie | **gotowe** |
 | 23 | Drzewo rodzinne: historia zmian z przywracaniem | **gotowe** |
+| 24 | Wybór osób na zdjęciu z listy (najpierw osoby z drzewa) | **gotowe** |
 
 ## Technologie
 

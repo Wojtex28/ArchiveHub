@@ -198,3 +198,42 @@ def test_panel_delete_tag(client, master, karolina, family):
 
 def test_panel_descriptions_only_for_master(karolina, family):
     assert karolina.get(reverse("panel:descriptions")).status_code == 404
+
+
+# --- ETAP 24: wybór osób z listy -------------------------------------------------
+
+
+def test_people_choices_put_tree_first_and_respect_access(karolina, family):
+    import json
+
+    from family import tree
+
+    describe(karolina, family["photo"], people="Zenon Sąsiad")
+    Person.objects.create(name="Obcy Ktoś").photos.add(family["stranger"])
+    anna = tree.add_person(None, "Anna Bereza")
+    anna.birth_date, anna.birth_year = "1921", 1921
+    anna.save()
+    page = karolina.get(reverse("albums:comments", args=[family["photo"].pk]), **FETCH).content.decode()
+    data = json.loads(page.split('id="osoby-wybor" type="application/json">')[1].split("</script>")[0])
+    assert data == [
+        {"name": "Anna Bereza", "years": "ur. 1921", "tree": True},
+        {"name": "Zenon Sąsiad", "years": "", "tree": False},
+    ]
+    assert 'data-people-picker="osoby-wybor"' in page
+
+    family["karolina"].tree_access = "none"
+    family["karolina"].save()
+    page = karolina.get(reverse("albums:comments", args=[family["photo"].pk]), **FETCH).content.decode()
+    assert "Anna Bereza" not in page  # bez dostępu do drzewa nie widać osób tylko z drzewa
+
+
+def test_untagging_keeps_tree_people(karolina, family):
+    from family import tree
+
+    describe(karolina, family["photo"], people="Anna Bereza, Zenon Sąsiad, Ewa Bereza")
+    anna = Person.objects.get(name="Anna Bereza")
+    ewa = Person.objects.get(name="Ewa Bereza")
+    tree.add_relation(None, anna, ewa, tree.CHILD)
+    tree.remove_from_tree(None, ewa)  # poza drzewem, ale z historią do przywrócenia
+    describe(karolina, family["photo"], people="")
+    assert set(Person.objects.values_list("name", flat=True)) == {"Anna Bereza", "Ewa Bereza"}

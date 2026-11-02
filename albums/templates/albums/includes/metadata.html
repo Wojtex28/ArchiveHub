@@ -28,6 +28,7 @@
       <button type="submit" class="button">Zapisz opis</button>
     </form>
   </details>
+  {{ people_choices|json_script:"osoby-wybor" }}
   <datalist id="osoby-podpowiedzi">{% for name in suggestions.people %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <datalist id="tagi-podpowiedzi">{% for name in suggestions.tags %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <datalist id="miejsca-podpowiedzi">{% for name in suggestions.places %}<option value="{{ name }}"></option>{% endfor %}</datalist>

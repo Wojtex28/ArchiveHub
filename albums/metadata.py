@@ -51,12 +51,16 @@ def _same(field, before, after):
 
 
 def _set_names(photo, field, model, names):
-    """Ustawia osoby albo tagi; wpisy, które przestały być na jakimkolwiek zdjęciu, znikają."""
+    """Ustawia osoby albo tagi; wpisy, które przestały być na jakimkolwiek zdjęciu, znikają (poza drzewem)."""
     relation = getattr(photo, field)
     old = set(relation.values_list("pk", flat=True))
     items = [model.objects.get_or_create_named(name) for name in names]
     relation.set(items)
-    model.objects.filter(pk__in=old - {item.pk for item in items}, photos__isnull=True).delete()
+    orphans = model.objects.filter(pk__in=old - {item.pk for item in items}, photos__isnull=True)
+    if model is Person:
+        # Osoba z drzewa (albo z historią drzewa, którą da się przywrócić) zostaje także bez zdjęć.
+        orphans = orphans.filter(in_tree=False, tree_changes__isnull=True)
+    orphans.delete()
 
 
 @transaction.atomic
