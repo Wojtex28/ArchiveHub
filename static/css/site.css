@@ -892,3 +892,10 @@ a.chip { color: inherit; text-decoration: none; }
 .namesake-choice legend { font-weight: 600; padding: 0 0.25rem; }
 .namesake-choice label { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; }
 .namesake-choice .hint { margin: 0; }
+/* Rodziny, których linie dzieci zachodzą na siebie: każda swoim stonowanym kolorem. */
+.tree-joint { fill: #9c8b78; stroke: none; }
+.tree-line--f0 { stroke: #8a6d4f; } .tree-joint--f0 { fill: #8a6d4f; }
+.tree-line--f1 { stroke: #3f7a74; } .tree-joint--f1 { fill: #3f7a74; }
+.tree-line--f2 { stroke: #7a5a8c; } .tree-joint--f2 { fill: #7a5a8c; }
+.tree-line--f3 { stroke: #5f7a3a; } .tree-joint--f3 { fill: #5f7a3a; }
+.tree-line--f4 { stroke: #4d6a92; } .tree-joint--f4 { fill: #4d6a92; }

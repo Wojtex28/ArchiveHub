@@ -434,32 +434,89 @@
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
       path("M" + (a.x + NODE_W / 2) + "," + (a.y + NODE_H / 2) + " L" + (b.x + NODE_W / 2) + "," + (b.y + NODE_H / 2), "tree-line tree-line--partner");
     });
-    // Dziecko dwojga rodziców: jedna linia od środka pary (rodzice są połączeni linią pary);
-    // dziecko jednego rodzica: linia od tego rodzica.
+    // Rodzina = rodzice (para albo jedna osoba) i ich dzieci w jednym rzędzie. Każda rodzina ma własną
+    // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
+    // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
     var parentsOf = {};
     state.data.parents.forEach(function (link) {
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
     });
+    var families = {};
     Object.keys(parentsOf).forEach(function (childId) {
       var child = byId[childId];
       if (!child) return;
       var ps = parentsOf[childId].map(function (id) { return byId[id]; }).filter(Boolean);
+      if (!ps.length) return;
       var sources = [];
       if (ps.length === 2) {
         if (!partnerOf[ps[0].id + "-" + ps[1].id]) {
           path("M" + (ps[0].x + NODE_W / 2) + "," + (ps[0].y + NODE_H / 2) + " L" + (ps[1].x + NODE_W / 2) + "," + (ps[1].y + NODE_H / 2), "tree-line tree-line--partner");
         }
-        sources.push([(ps[0].x + ps[1].x) / 2 + NODE_W / 2, (ps[0].y + ps[1].y) / 2 + NODE_H / 2]);
+        sources.push({ key: [ps[0].id, ps[1].id].sort().join("+"), x: (ps[0].x + ps[1].x) / 2 + NODE_W / 2, y: (ps[0].y + ps[1].y) / 2 + NODE_H / 2 });
       } else {
-        ps.forEach(function (p) { sources.push([p.x + NODE_W / 2, p.y + NODE_H]); });
+        ps.forEach(function (p) { sources.push({ key: String(p.id), x: p.x + NODE_W / 2, y: p.y + NODE_H }); });
       }
-      sources.forEach(function (s) {
-        var cx = child.x + NODE_W / 2;
-        var cy = child.y;
-        var mid = s[1] < cy ? Math.max(s[1] + 12, cy - 36) : (s[1] + cy) / 2;
-        path("M" + s[0] + "," + s[1] + " V" + mid + " H" + cx + " V" + cy, "tree-line");
+      sources.forEach(function (src) {
+        var key = src.key + "|" + Math.round(child.y);
+        var family = families[key] || (families[key] = { x: src.x, y: src.y, top: child.y, kids: [] });
+        family.top = Math.min(family.top, child.y);
+        family.kids.push(child);
       });
     });
+    // Szyny w tym samym odstępie dostają kolejne „tory”, gdy zachodzą na siebie w poziomie.
+    var list = Object.keys(families).map(function (key) {
+      var f = families[key];
+      var xs = f.kids.map(function (k) { return k.x + NODE_W / 2; }).concat([f.x]);
+      f.left = Math.min.apply(null, xs);
+      f.right = Math.max.apply(null, xs);
+      f.gap = Math.round(f.top / 20);
+      return f;
+    }).sort(function (a, b) { return a.left - b.left || a.right - b.right; });
+    var lanes = {};
+    list.forEach(function (f) {
+      var used = lanes[f.gap] = lanes[f.gap] || [];
+      var lane = 0;
+      while (used[lane] !== undefined && used[lane] > f.left - 16) lane++;
+      used[lane] = f.right;
+      f.lane = lane;
+    });
+    var colorIndex = {};
+    list.forEach(function (f) {
+      var count = lanes[f.gap].length;
+      // Gdy szyny w odstępie zachodzą na siebie, każda rodzina ma swój kolor (stonowany, z tej samej palety).
+      var cls = "tree-line";
+      if (count > 1) {
+        colorIndex[f.gap] = (colorIndex[f.gap] || 0) + 1;
+        cls += " tree-line--f" + ((colorIndex[f.gap] - 1) % 5);
+      }
+      var room = f.top - f.y;
+      var bus;
+      if (room > 40) {
+        // Tory od dołu odstępu w górę, co 14 px, ale zawsze poniżej rodziców.
+        var spacing = Math.min(22, (room - 30) / Math.max(count, 1));
+        bus = Math.max(f.y + 12, f.top - 24 - f.lane * spacing);
+      } else {
+        bus = (f.y + f.top) / 2;
+      }
+      path("M" + f.x + "," + f.y + " V" + bus, cls);
+      if (f.right > f.left) path("M" + f.left + "," + bus + " H" + f.right, cls);
+      f.kids.forEach(function (k) {
+        var kx = k.x + NODE_W / 2;
+        path("M" + kx + "," + bus + " V" + k.y, cls);
+        // Kropka w miejscu odejścia dziecka od szyny: widać, że linia nie przechodzi „przez” rodzinę.
+        dot(kx, bus, cls);
+      });
+      dot(f.x, bus, cls);
+    });
+  }
+
+  function dot(x, y, cls) {
+    var c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x);
+    c.setAttribute("cy", y);
+    c.setAttribute("r", 3);
+    c.setAttribute("class", cls.split("tree-line").join("tree-joint"));
+    lines.appendChild(c);
   }
 
   function render() {
