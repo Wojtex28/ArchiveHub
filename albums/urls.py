@@ -1,11 +1,14 @@
 from django.urls import path
 
-from . import comments, metadata, search, views
+from . import comments, favorites, metadata, search, views
 
 app_name = "albums"
 
 urlpatterns = [
     path("szukaj/", search.search, name="search"),
+    path("ulubione/", favorites.favorites_page, name="favorites"),
+    path("ulubione/pobierz/", favorites.favorites_download, name="favorites_download"),
+    path("zdjecia/<int:pk>/ulubione/", favorites.favorite_toggle, name="favorite"),
     path("archiwum/<int:pk>/", views.album_gallery, name="gallery"),
     path("archiwum/<int:album_pk>/<int:pk>/", views.photo_page, name="photo"),
     path(

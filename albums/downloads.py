@@ -86,7 +86,10 @@ class _Sink:
 
 
 def zip_stream(photos, folder):
-    """Kolejne kawałki archiwum ZIP z oryginałami zdjęć (i rewersami) w folderze ``folder``."""
+    """Kolejne kawałki archiwum ZIP z oryginałami zdjęć (i rewersami) w folderze ``folder``.
+
+    ``folder`` może być funkcją zdjęcia (ulubione: osobny folder dla każdego albumu).
+    """
     sink = _Sink()
     with zipfile.ZipFile(sink, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
         for photo in photos:
@@ -96,7 +99,7 @@ def zip_stream(photos, folder):
                 if path is None:
                     continue
                 info = zipfile.ZipInfo(
-                    f"{folder}/{file_name(photo, reverse)}",
+                    f"{folder(photo) if callable(folder) else folder}/{file_name(photo, reverse)}",
                     date_time=datetime.fromtimestamp(path.stat().st_mtime).timetuple()[:6],
                 )
                 with path.open("rb") as source, archive.open(info, "w", force_zip64=True) as target:

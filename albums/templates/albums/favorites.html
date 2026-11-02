@@ -1,0 +1,25 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}Ulubione · {{ site_title }}{% endblock %}
+{% block main %}
+<p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
+<h1>Ulubione</h1>
+<p class="hint">Twój prywatny album: widzisz go tylko Ty. Zdjęcie dodasz albo usuniesz gwiazdką ☆ nad zdjęciem w podglądzie.</p>
+{% if photos %}
+<div class="gallery-actions">
+  <a class="button" href="{% url 'albums:favorites_download' %}">Pobierz wszystkie ulubione <span class="gallery-actions__size">(ZIP, {{ photos|length }} zdj., {{ album_size|filesizeformat }})</span></a>
+</div>
+<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="Ulubione" data-csrf="{{ csrf_token }}">
+  {% for photo in photos %}
+  {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}
+  {% endfor %}
+</ul>
+<script src="{% static 'js/gallery.js' %}" defer></script>
+<script src="{% static 'js/people-picker.js' %}" defer></script>
+{% else %}
+<div class="empty-state">
+  <p>Nie masz jeszcze ulubionych zdjęć.</p>
+  <p>Otwórz dowolne zdjęcie w albumie i kliknij gwiazdkę ☆ na górze. Zdjęcie trafi tutaj, a całość pobierzesz jednym przyciskiem.</p>
+</div>
+{% endif %}
+{% endblock %}

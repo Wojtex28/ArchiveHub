@@ -295,7 +295,7 @@
   var csrf = grid.getAttribute("data-csrf");
 
   var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
-  var commentsButton, commentsCount, panel, caption, title;
+  var commentsButton, commentsCount, panel, caption, title, favoriteButton;
   var panelOpen = false;
   var panelTile = null;
   var commentsRequest = 0;
@@ -342,11 +342,12 @@
     download.setAttribute("aria-label", "Pobierz w pełnej rozdzielczości");
     commentsButton = element("button", "viewer__comments", "💬");
     commentsButton.type = "button";
-    commentsButton.title = "Opis i komentarze";
+    commentsButton.title = "Osoby, opis i komentarze";
     commentsCount = element("span", "viewer__comments-count");
     commentsButton.append(commentsCount);
+    favoriteButton = button("viewer__favorite", "☆", "Dodaj do ulubionych");
     title = element("span", "viewer__title", albumTitle);
-    bar.append(closeButton, title, count, rotate, flip, commentsButton, download);
+    bar.append(closeButton, title, count, rotate, flip, favoriteButton, commentsButton, download);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");
@@ -357,7 +358,7 @@
     prevButton = button("viewer__nav viewer__nav--prev", "‹", "Poprzednie zdjęcie");
     nextButton = button("viewer__nav viewer__nav--next", "›", "Następne zdjęcie");
     panel = element("aside", "viewer__panel");
-    panel.setAttribute("aria-label", "Opis i komentarze");
+    panel.setAttribute("aria-label", "Osoby, opis i komentarze");
     panel.hidden = true;
     panel.tabIndex = -1;
     viewer.append(bar, stage, caption, panel, prevButton, nextButton);
@@ -370,6 +371,7 @@
     rotateLeft.addEventListener("click", function () { turn("lewo"); });
     rotateRight.addEventListener("click", function () { turn("prawo"); });
     commentsButton.addEventListener("click", function () { setPanel(!panelOpen); });
+    favoriteButton.addEventListener("click", toggleFavorite);
     panel.addEventListener("submit", sendPanelForm);
     panel.addEventListener("click", function (event) {
       if (!event.target.closest("[data-comments-close]")) return;
@@ -411,6 +413,43 @@
     });
   }
 
+  // Ulubione (ETAP 29): ☆/★ zapisuje się od razu; po błędzie gwiazdka wraca do poprzedniego stanu.
+  function isFavorite(tile) {
+    return tile.getAttribute("data-favorite") === "1";
+  }
+
+  function setFavorite(tile, on) {
+    tile.setAttribute("data-favorite", on ? "1" : "0");
+    var badge = tile.querySelector(".gallery-tile__favorite");
+    if (badge) badge.hidden = !on;
+    if (tile === tiles[current]) showFavorite(tile);
+  }
+
+  function showFavorite(tile) {
+    var on = isFavorite(tile);
+    favoriteButton.textContent = on ? "★" : "☆";
+    favoriteButton.classList.toggle("is-on", on);
+    favoriteButton.setAttribute("aria-pressed", String(on));
+    favoriteButton.setAttribute("aria-label", on ? "Usuń z ulubionych" : "Dodaj do ulubionych");
+    favoriteButton.title = on ? "W ulubionych (kliknij, żeby usunąć)" : "Dodaj do ulubionych";
+  }
+
+  function toggleFavorite() {
+    var tile = tiles[current];
+    var on = !isFavorite(tile);
+    setFavorite(tile, on);
+    var body = new FormData();
+    body.append("ulubione", on ? "1" : "0");
+    fetch(tile.getAttribute("data-favorite-url"), {
+      method: "POST",
+      body: body,
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "fetch", "X-CSRFToken": csrf }
+    })
+      .then(function (response) { if (!response.ok) throw new Error(response.status); })
+      .catch(function () { setFavorite(tile, !on); });
+  }
+
   // Komentarze: panel obok zdjęcia (na telefonie od dołu), wczytywany z serwera jako gotowy HTML.
   function commentCount(tile) {
     return Number(tile.getAttribute("data-comments")) || 0;
@@ -419,7 +458,7 @@
   function showCommentCount(tile) {
     var number = commentCount(tile);
     commentsCount.textContent = number;
-    commentsButton.setAttribute("aria-label", "Opis i komentarze (" + number + ")");
+    commentsButton.setAttribute("aria-label", "Osoby, opis i komentarze (" + number + ")");
     commentsButton.setAttribute("aria-expanded", String(panelOpen));
   }
 
@@ -511,7 +550,7 @@
           fillPanel(tile, response, html);
           // Po zapisaniu opisu widać go od góry panelu.
           if (response.status !== 400) {
-            if (form.hasAttribute("data-metadata-form")) panel.scrollTop = 0;
+            if (form.hasAttribute("data-metadata-form") || form.hasAttribute("data-people-form")) panel.scrollTop = 0;
             return;
           }
           var field = panel.querySelector("[aria-invalid=true]") || panel.querySelector("[data-comment-form] textarea");
@@ -564,6 +603,7 @@
     flip.replaceChildren(element("span", "viewer__flip-verb", "Pokaż "), onReverse ? "awers" : "rewers");
     download.href = tile.getAttribute(onReverse ? "data-reverse-download" : "data-download");
     showCommentCount(tile);
+    showFavorite(tile);
     showCaption(tile);
     if (panelOpen && panelTile !== tile) loadComments(tile);
     prevButton.disabled = index === 0;

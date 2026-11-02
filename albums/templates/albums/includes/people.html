@@ -1,0 +1,27 @@
+<section class="people" id="osoby" aria-labelledby="osoby-tytul">
+  <h2 class="panel-section__title" id="osoby-tytul">Kto jest na zdjęciu</h2>
+  {% if photo_people %}
+  <ul class="chips people__list">{% for person in photo_people %}<li><a class="chip" href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}" title="Wszystkie zdjęcia: {{ person.name }}">{{ person.name }}{% if person.namesake_years %} <span class="chip__count">{{ person.namesake_years }}</span>{% endif %}</a>{% if person.in_tree and can_view_tree %}<a class="people__tree" href="{% url 'family:person' person.pk %}" title="{{ person.name }} w drzewie rodziny" aria-label="{{ person.name }} w drzewie rodziny">🌳</a>{% endif %}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="metadata__empty">Nikt jeszcze nie oznaczył osób na tym zdjęciu. Wiesz, kto na nim jest?</p>
+  {% endif %}
+  <details class="metadata__edit"{% if people_open %} open{% endif %}>
+    <summary class="metadata__toggle">{% if photo_people %}Popraw osoby{% else %}Dodaj osoby{% endif %}</summary>
+    <form method="post" action="{% url 'albums:metadata' photo.pk %}" class="metadata__form" data-people-form novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="czesc" value="osoby">
+      {% for error in people_form.non_field_errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
+      {% for field in people_form %}
+      <div class="metadata__field">
+        <label for="{{ field.id_for_label }}" class="visually-hidden">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
+        {% if field.help_text %}<p class="metadata__help">{{ field.help_text }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="button">Zapisz osoby</button>
+    </form>
+  </details>
+  {{ people_choices|json_script:"osoby-wybor" }}
+  <datalist id="osoby-podpowiedzi">{% for name in suggestions.people %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+</section>

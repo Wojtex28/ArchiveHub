@@ -43,7 +43,7 @@ def people_choices(user):
     ]
 
 
-def panel_context(request, photo, comment_form=None, metadata_form=None):
+def panel_context(request, photo, comment_form=None, metadata_form=None, people_form=None):
     comments = list(photo.comments.select_related("author"))
     for comment in comments:
         comment.deletable = comment.can_delete(request.user)
@@ -57,18 +57,22 @@ def panel_context(request, photo, comment_form=None, metadata_form=None):
         "photo": photo,
         "comments": comments,
         "comment_form": comment_form or CommentForm(),
-        "metadata_form": metadata_form or MetadataForm.for_photo(photo),
+        "metadata_form": metadata_form or MetadataForm.for_photo(photo, part="opis"),
         "metadata_open": metadata_form is not None,
+        "people_form": people_form or MetadataForm.for_photo(photo, part="osoby"),
+        "people_open": people_form is not None,
+        "can_view_tree": request.user.can_view_tree,
+        "is_favorite": photo.favorites.filter(user=request.user).exists(),
         "photo_people": people,
         "photo_tags": tags,
-        "has_metadata": bool(photo.date_text or photo.place or photo.description or people or tags),
+        "has_metadata": bool(photo.date_text or photo.place or photo.description or tags),
         "suggestions": suggestions_for(request.user),
         "people_choices": people_choices(request.user),
     }
 
 
-def fragment(request, photo, comment_form=None, metadata_form=None, status=200):
-    context = panel_context(request, photo, comment_form, metadata_form)
+def fragment(request, photo, comment_form=None, metadata_form=None, people_form=None, status=200):
+    context = panel_context(request, photo, comment_form, metadata_form, people_form)
     response = render(request, "albums/includes/photo_panel.html", context, status=status)
     response["X-Comment-Count"] = str(len(context["comments"]))
     response["Cache-Control"] = "private, no-store"

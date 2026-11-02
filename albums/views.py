@@ -12,6 +12,7 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse as url_for
 from django.utils.http import http_date
 from django.views.decorators.http import require_POST, require_safe
 from django.views.static import was_modified_since
@@ -25,7 +26,7 @@ from .downloads import (
     safe_name,
     take_zip_slot,
 )
-from .models import Album, Photo
+from .models import Album, Photo, favorite_ids
 from .photo_panel import panel_context
 from .rotation import rotate
 
@@ -95,7 +96,12 @@ def album_gallery(request, pk):
     return render(
         request,
         "albums/gallery.html",
-        {"album": album, "photos": photos, "album_size": download_size(photos)},
+        {
+            "album": album,
+            "photos": photos,
+            "album_size": download_size(photos),
+            "favorite_ids": favorite_ids(request.user),
+        },
     )
 
 
@@ -106,7 +112,9 @@ def photo_page(request, album_pk, pk, reverse=False):
     return render_photo_page(request, album_pk, pk, reverse)
 
 
-def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None, metadata_form=None):
+def render_photo_page(
+    request, album_pk, pk, reverse=False, comment_form=None, metadata_form=None, people_form=None
+):
     """Strona zdjęcia; z formularzem także po nieudanym zapisie komentarza albo opisu bez JavaScriptu."""
     album = _visible_album(request, album_pk)
     ids = list(album.photos.filter(file_missing=False).values_list("pk", flat=True))
@@ -116,13 +124,13 @@ def render_photo_page(request, album_pk, pk, reverse=False, comment_form=None, m
     if reverse and not photo.has_reverse:
         raise Http404
     index = ids.index(pk)
-    failed = comment_form is not None or metadata_form is not None
+    failed = comment_form is not None or metadata_form is not None or people_form is not None
     show_comments = "komentarze" in request.GET or failed
     return render(
         request,
         "albums/photo.html",
         {
-            **panel_context(request, photo, comment_form, metadata_form),
+            **panel_context(request, photo, comment_form, metadata_form, people_form),
             "show_comments": show_comments,
             "album": album,
             "photo": photo,
@@ -177,7 +185,10 @@ def album_download(request, pk):
     if not photos:
         messages.error(request, "Zaznacz co najmniej jedno zdjęcie.")
         return redirect("albums:gallery", album.pk)
-    return _zip_response(request, album, photos, f"{safe_name(album.title)} ({len(photos)} zdj.).zip")
+    name = f"{safe_name(album.title)} ({len(photos)} zdj.).zip"
+    return zip_response(
+        request, photos, safe_name(album.title), name, url_for("albums:gallery", args=[album.pk])
+    )
 
 
 @require_safe
@@ -188,20 +199,24 @@ def album_download_all(request, pk):
     photos = list(album.photos.filter(file_missing=False))
     if not photos:
         raise Http404
-    return _zip_response(request, album, photos, f"{safe_name(album.title)}.zip")
+    name = f"{safe_name(album.title)}.zip"
+    return zip_response(
+        request, photos, safe_name(album.title), name, url_for("albums:gallery", args=[album.pk])
+    )
 
 
-def _zip_response(request, album, photos, name):
+def zip_response(request, photos, folder, name, back_url):
+    """ZIP z oryginałami; gdy wszystkie miejsca na ZIP są zajęte, powrót na ``back_url`` z komunikatem."""
     slot = take_zip_slot()
     if slot is None:
-        logger.warning("%s: wszystkie miejsca na ZIP zajęte (album %s)", request.user, album.folder)
+        logger.warning("%s: wszystkie miejsca na ZIP zajęte (%s)", request.user, name)
         messages.warning(
             request,
             "W tej chwili kilka osób pobiera albumy naraz. Spróbuj ponownie za kilka minut.",
         )
-        return redirect("albums:gallery", album.pk)
-    logger.info("%s pobiera ZIP z %s zdjęciami z albumu %s", request.user, len(photos), album.folder)
-    content = ZipDownload(photos, safe_name(album.title), slot)
+        return redirect(back_url)
+    logger.info("%s pobiera ZIP %s (%s zdjęć)", request.user, name, len(photos))
+    content = ZipDownload(photos, folder, slot)
     response = StreamingHttpResponse(content, content_type="application/zip")
     response["Content-Disposition"] = attachment_header(name)
     response["Cache-Control"] = "private, no-store"

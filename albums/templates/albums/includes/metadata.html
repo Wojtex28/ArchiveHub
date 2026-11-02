@@ -4,18 +4,18 @@
   <dl class="metadata__list">
     {% if photo.date_text %}<div class="metadata__row"><dt>Kiedy</dt><dd>{% if photo.year_from %}<a class="metadata__link" href="{% url 'albums:search' %}?od={{ photo.year_from }}&amp;do={{ photo.year_to }}" title="Zdjęcia z tych lat">{{ photo.date_text }}</a>{% else %}{{ photo.date_text }}{% endif %}</dd></div>{% endif %}
     {% if photo.place %}<div class="metadata__row"><dt>Gdzie</dt><dd><a class="metadata__link" href="{% url 'albums:search' %}?miejsce={{ photo.place|urlencode }}" title="Wszystkie zdjęcia z tego miejsca">{{ photo.place }}</a></dd></div>{% endif %}
-    {% if photo_people %}<div class="metadata__row"><dt>Kto</dt><dd><ul class="chips">{% for person in photo_people %}<li><a class="chip" href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}" title="Wszystkie zdjęcia: {{ person.name }}">{{ person.name }}{% if person.namesake_years %} <span class="chip__count">{{ person.namesake_years }}</span>{% endif %}</a></li>{% endfor %}</ul></dd></div>{% endif %}
     {% if photo_tags %}<div class="metadata__row"><dt>Tagi</dt><dd><ul class="chips">{% for tag in photo_tags %}<li><a class="chip chip--tag" href="{% url 'albums:search' %}?tag={{ tag.name|urlencode }}" title="Wszystkie zdjęcia z tagiem {{ tag.name }}">#{{ tag.name }}</a></li>{% endfor %}</ul></dd></div>{% endif %}
   </dl>
   {% if photo.description %}<p class="metadata__description">{{ photo.description|linebreaksbr }}</p>{% endif %}
   {% if photo.described_at %}<p class="metadata__meta">Ostatnia zmiana: {% if photo.described_by %}{{ photo.described_by.username }}{% else %}konto usunięte{% endif %}, <time datetime="{{ photo.described_at|date:'c' }}">{{ photo.described_at|date:"j E Y, H:i" }}</time></p>{% endif %}
   {% else %}
-  <p class="metadata__empty">Nikt jeszcze nie opisał tego zdjęcia. Wiesz, kiedy i gdzie je zrobiono albo kto na nim jest?</p>
+  <p class="metadata__empty">Nikt jeszcze nie opisał tego zdjęcia. Wiesz, kiedy i gdzie je zrobiono?</p>
   {% endif %}
   <details class="metadata__edit"{% if metadata_open %} open{% endif %}>
     <summary class="metadata__toggle">{% if has_metadata %}Popraw opis{% else %}Dodaj opis{% endif %}</summary>
     <form method="post" action="{% url 'albums:metadata' photo.pk %}" class="metadata__form" data-metadata-form novalidate>
       {% csrf_token %}
+      <input type="hidden" name="czesc" value="opis">
       {% for error in metadata_form.non_field_errors %}<p class="comments__error" role="alert">{{ error }}</p>{% endfor %}
       {% for field in metadata_form %}
       <div class="metadata__field">
@@ -28,8 +28,6 @@
       <button type="submit" class="button">Zapisz opis</button>
     </form>
   </details>
-  {{ people_choices|json_script:"osoby-wybor" }}
-  <datalist id="osoby-podpowiedzi">{% for name in suggestions.people %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <datalist id="tagi-podpowiedzi">{% for name in suggestions.tags %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <datalist id="miejsca-podpowiedzi">{% for name in suggestions.places %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 </section>

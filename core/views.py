@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_safe
 
+from albums.favorites import favorite_photos
 from albums.models import Album, Photo
 
 from . import status
@@ -83,7 +84,12 @@ def archive_home(request):
     albums = Album.objects.visible_to(request.user)
     if request.user.is_superuser:
         albums = albums.filter(folder_missing=False)
-    return render(request, "core/archive_home.html", {"albums": albums})
+    favorites = favorite_photos(request.user)
+    return render(
+        request,
+        "core/archive_home.html",
+        {"albums": albums, "favorite_count": favorites.count(), "favorite_cover": favorites.first()},
+    )
 
 
 @require_safe

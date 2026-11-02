@@ -5,6 +5,7 @@
   <a class="app-header__title" href="{% url 'archive' %}">{{ site_title }}</a>
   <nav class="app-header__nav" aria-label="Menu">
     <a href="{% url 'archive' %}">Archiwum</a>
+    <a href="{% url 'albums:favorites' %}">Ulubione</a>
     <a href="{% url 'albums:search' %}">Szukaj</a>
     {% if user.can_view_tree %}<a href="{% url 'family:tree' %}">Drzewo</a>{% endif %}
     {% if user.is_superuser %}<a href="{% url 'panel:dashboard' %}">Panel</a>{% endif %}

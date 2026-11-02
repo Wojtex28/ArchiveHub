@@ -44,6 +44,13 @@ class NamesField(forms.CharField):
 
 
 class MetadataForm(forms.Form):
+    """Opis zdjęcia. ``part`` zostawia tylko pola jednej części panelu: „opis” albo „osoby”."""
+
+    PARTS = {
+        "opis": ("date", "place", "tags", "description"),
+        "osoby": ("people",),
+    }
+
     date = forms.CharField(
         label="Kiedy",
         required=False,
@@ -96,6 +103,14 @@ class MetadataForm(forms.Form):
         ),
     )
 
+    def __init__(self, *args, part=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.part = part
+        if part:
+            for name in list(self.fields):
+                if name not in self.PARTS[part]:
+                    del self.fields[name]
+
     def clean_date(self):
         try:
             return parse_date(self.cleaned_data["date"])
@@ -103,13 +118,14 @@ class MetadataForm(forms.Form):
             raise forms.ValidationError(str(error)) from None
 
     @classmethod
-    def for_photo(cls, photo):
+    def for_photo(cls, photo, part=None):
         return cls(
+            part=part,
             initial={
                 "date": photo.date_text,
                 "place": photo.place,
                 "people": ", ".join(person_token(p, namesake_keys()) for p in photo.people.all()),
                 "tags": ", ".join(tag.name for tag in photo.tags.all()),
                 "description": photo.description,
-            }
+            },
         )
