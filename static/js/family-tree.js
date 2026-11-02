@@ -100,9 +100,46 @@
     return index;
   }
 
-  // Pokolenia w rzędach: dziecko pod rodzicami, para w jednym rzędzie, rodzeństwo obok siebie.
-  function autoLayout(data) {
-    var rel = relativesIndex(data);
+  // Pokolenia w rzędach: dziecko pod rodzicami, para obok siebie, rodzeństwo obok siebie.
+  // Kolejność w rzędach dobieramy tak, żeby linie rodzin przecinały się jak najrzadziej:
+  // najpierw metoda średnich (osoba pod środkiem rodziców, rodzice nad środkiem dzieci) w kilku
+  // przejściach w dół i w górę, potem zamiany sąsiadów i odwracanie par, dopóki ubywa przecięć.
+  // Dwie rodziny w tym samym odstępie między rzędami: ile razy ich linie się przetną, gdy szyna
+  // rodziny ``high`` leży wyżej niż szyna ``low``. Linie dzieci wyższej szyny schodzą przez niższą,
+  // a linia od rodziców niższej szyny przechodzi przez wyższą. Rodzina: {sx, kids, l, r}.
+  function costAbove(high, low) {
+    var n = 0;
+    high.kids.forEach(function (x) { if (x > low.l && x < low.r) n++; });
+    if (low.sx > high.l && low.sx < high.r) n++;
+    return n;
+  }
+
+  function overlapping(a, b) {
+    return a.l < b.r && b.l < a.r;
+  }
+
+  // Kolejność torów dla grupy zachodzących na siebie rodzin: od najniższej szyny (tuż nad dziećmi) w górę.
+  // Do 6 rodzin sprawdzamy wszystkie kolejności, przy większej grupie wystarcza kolejność od lewej.
+  function laneOrder(group) {
+    if (group.length > 6) return group.slice().sort(function (a, b) { return a.l - b.l || a.r - b.r; });
+    var best = null, bestCost = Infinity;
+    (function permute(done, rest) {
+      if (!rest.length) {
+        var cost = 0;
+        for (var i = 0; i < done.length; i++) {
+          for (var j = i + 1; j < done.length; j++) {
+            if (overlapping(done[i], done[j])) cost += costAbove(done[j], done[i]);
+          }
+        }
+        if (cost < bestCost) { bestCost = cost; best = done; }
+        return;
+      }
+      rest.forEach(function (f, i) { permute(done.concat([f]), rest.slice(0, i).concat(rest.slice(i + 1))); });
+    })([], group);
+    return best;
+  }
+
+  function generations(data) {
     var gen = {};
     data.people.forEach(function (p) { gen[p.id] = 0; });
     for (var round = 0; round < 60; round++) {
@@ -114,6 +151,7 @@
         }
       });
       data.partners.forEach(function (pair) {
+        if (gen[pair[0]] === undefined || gen[pair[1]] === undefined) return;
         var g = Math.max(gen[pair[0]], gen[pair[1]]);
         if (gen[pair[0]] !== g || gen[pair[1]] !== g) {
           gen[pair[0]] = gen[pair[1]] = g;
@@ -122,78 +160,240 @@
       });
       if (!changed) break;
     }
+    return gen;
+  }
+
+  function autoLayout(data) {
+    var rel = relativesIndex(data);
+    var gen = generations(data);
+    var byId = {};
+    data.people.forEach(function (p) { byId[p.id] = p; });
+    var depthCount = 0;
+    data.people.forEach(function (p) { depthCount = Math.max(depthCount, gen[p.id] + 1); });
+
+    // Jednostka = osoba z partnerami z tego samego pokolenia (zawsze obok siebie).
     var rows = [];
-    data.people.forEach(function (p) {
-      (rows[gen[p.id]] = rows[gen[p.id]] || []).push(p);
+    for (var d = 0; d < depthCount; d++) rows.push([]);
+    var seen = {};
+    var people = data.people.slice().sort(function (a, b) {
+      return (a.born || 9999) - (b.born || 9999) || a.name.localeCompare(b.name, "pl") || a.id - b.id;
     });
-    var pos = {};
-    var step = NODE_W + GAP_X;
-    rows.forEach(function (row, depth) {
-      if (!row) return;
-      row.forEach(function (p) {
-        var xs = rel[p.id].parents.filter(function (id) { return pos[id]; }).map(function (id) { return pos[id][0]; });
-        p._want = xs.length ? xs.reduce(function (a, b) { return a + b; }, 0) / xs.length : null;
-      });
-      // Osoba bez rodziców w drzewie (np. żona/mąż) staje przy partnerze.
-      row.forEach(function (p) {
-        if (p._want === null) {
-          var partner = rel[p.id].partners.map(function (id) { return state.byId[id] || null; }).filter(function (q) {
-            return q && q._want !== null && q._want !== undefined && gen[q.id] === depth;
-          })[0];
-          p._want = partner ? partner._want + 0.1 : null;
-        }
-      });
-      row.sort(function (a, b) {
-        var wa = a._want === null ? Infinity : a._want;
-        var wb = b._want === null ? Infinity : b._want;
-        if (wa !== wb) return wa - wb;
-        return (a.born || 9999) - (b.born || 9999) || a.name.localeCompare(b.name, "pl");
-      });
-      // Pary obok siebie.
-      var ordered = [];
-      var placed = {};
-      row.forEach(function (p) {
-        if (placed[p.id]) return;
-        ordered.push(p);
-        placed[p.id] = true;
-        rel[p.id].partners.forEach(function (id) {
-          var q = state.byId[id];
-          if (q && !placed[id] && gen[id] === depth) {
-            ordered.push(q);
-            placed[id] = true;
-          }
+    people.forEach(function (p) {
+      if (seen[p.id]) return;
+      var members = [], queue = [p.id];
+      seen[p.id] = true;
+      while (queue.length) {
+        var id = queue.shift();
+        members.push(id);
+        rel[id].partners.forEach(function (q) {
+          if (!seen[q] && gen[q] === gen[id]) { seen[q] = true; queue.push(q); }
+        });
+      }
+      rows[gen[p.id]].push(members);
+    });
+
+    // Krawędzie rodzic → dziecko między sąsiednimi rzędami: źródło to środek pary albo jeden rodzic.
+    var familiesOf = {};
+    data.people.forEach(function (p) {
+      var ps = rel[p.id].parents.filter(function (id) { return gen[id] === gen[p.id] - 1; });
+      if (!ps.length) return;
+      familiesOf[p.id] = ps.length === 2 && rel[ps[0]].partners.indexOf(ps[1]) >= 0 ? [ps] : ps.map(function (id) { return [id]; });
+    });
+
+    // Numer miejsca osoby w rzędzie (po kolei przez jednostki); wystarczy do liczenia przecięć.
+    function indexOf(order) {
+      var idx = {}, pos = 0;
+      order.forEach(function (unit) { unit.forEach(function (id) { idx[id] = pos++; }); });
+      return idx;
+    }
+
+    function source(family, idx) {
+      var sum = 0;
+      family.forEach(function (id) { sum += idx[id]; });
+      return sum / family.length;
+    }
+
+    function crossingsBetween(upper, lower) {
+      var up = indexOf(upper), low = indexOf(lower), fams = {};
+      lower.forEach(function (unit) {
+        unit.forEach(function (id) {
+          (familiesOf[id] || []).forEach(function (family) {
+            if (up[family[0]] === undefined) return;
+            var key = family.join("+");
+            var f = fams[key] || (fams[key] = { sx: source(family, up), kids: [] });
+            f.kids.push(low[id]);
+          });
         });
       });
-      // Rodzeństwo (ten sam cel pod rodzicami) i ich partnerzy stają w bloku wyśrodkowanym pod rodzicami.
+      var list = Object.keys(fams).map(function (k) {
+        var f = fams[k];
+        f.l = Math.min.apply(null, f.kids.concat([f.sx]));
+        f.r = Math.max.apply(null, f.kids.concat([f.sx]));
+        return f;
+      });
+      var n = 0;
+      for (var i = 0; i < list.length; i++) {
+        for (var j = i + 1; j < list.length; j++) {
+          if (!overlapping(list[i], list[j])) continue;
+          // Lepsza z dwóch kolejności szyn, plus drobna kara za samo zachodzenie (czytelniej obok siebie).
+          n += Math.min(costAbove(list[i], list[j]), costAbove(list[j], list[i])) + 0.01;
+        }
+      }
+      return n;
+    }
+
+    function total(orders) {
+      var n = 0;
+      for (var d = 1; d < orders.length; d++) n += crossingsBetween(orders[d - 1], orders[d]);
+      return n;
+    }
+
+    function sortBy(order, keyOf) {
+      var keyed = order.map(function (unit, i) { var k = keyOf(unit); return { unit: unit, k: k === null ? i : k, i: i }; });
+      keyed.sort(function (a, b) { return a.k - b.k || a.i - b.i; });
+      return keyed.map(function (e) { return e.unit; });
+    }
+
+    function average(values) {
+      return values.length ? values.reduce(function (a, b) { return a + b; }, 0) / values.length : null;
+    }
+
+    // W parze pierwszy stoi ten, którego rodzina jest bardziej po lewej (wtedy linie się nie krzyżują).
+    function orderMembers(unit, keyOfPerson) {
+      if (unit.length < 2) return unit;
+      var keyed = unit.map(function (id, i) { var k = keyOfPerson(id); return { id: id, k: k, i: i }; });
+      var known = keyed.filter(function (e) { return e.k !== null; });
+      if (!known.length) return unit;
+      var mean = average(known.map(function (e) { return e.k; }));
+      keyed.forEach(function (e) { if (e.k === null) e.k = mean; });
+      keyed.sort(function (a, b) { return a.k - b.k || a.i - b.i; });
+      return keyed.map(function (e) { return e.id; });
+    }
+
+    var orders = rows.map(function (row) { return row.slice(); });
+    function down(d) {
+      var up = indexOf(orders[d - 1]);
+      function personKey(id) {
+        var keys = (familiesOf[id] || []).filter(function (f) { return up[f[0]] !== undefined; }).map(function (f) { return source(f, up); });
+        return average(keys);
+      }
+      orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
+        return average(unit.map(personKey).filter(function (k) { return k !== null; }));
+      });
+    }
+    function upward(d) {
+      var low = indexOf(orders[d + 1]);
+      var kids = {};
+      orders[d + 1].forEach(function (unit) {
+        unit.forEach(function (id) {
+          (familiesOf[id] || []).forEach(function (family) {
+            family.forEach(function (parent) { (kids[parent] = kids[parent] || []).push(low[id]); });
+          });
+        });
+      });
+      function personKey(id) { return average(kids[id] || []); }
+      orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
+        return average(unit.map(personKey).filter(function (k) { return k !== null; }));
+      });
+    }
+
+    var best = orders.map(function (o) { return o.slice(); });
+    var bestScore = total(orders);
+    for (var iter = 0; iter < 8 && bestScore > 0; iter++) {
+      for (d = 1; d < orders.length; d++) down(d);
+      var score = total(orders);
+      if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
+      for (d = orders.length - 2; d >= 0; d--) upward(d);
+      for (d = 1; d < orders.length; d++) down(d);
+      score = total(orders);
+      if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
+    }
+    orders = best;
+
+    // Poprawki lokalne: zamiana sąsiednich jednostek i odwrócenie par, dopóki ubywa przecięć.
+    for (var round = 0; round < 20 && bestScore > 0; round++) {
+      var improved = false;
+      for (d = 0; d < orders.length; d++) {
+        var row = orders[d];
+        for (var i = 0; i < row.length; i++) {
+          var tries = [];
+          if (i + 1 < row.length) tries.push(function () { var t = row[i]; row[i] = row[i + 1]; row[i + 1] = t; });
+          if (row[i].length > 1) tries.push(function () { row[i] = row[i].slice().reverse(); });
+          for (var t = 0; t < tries.length; t++) {
+            var before = row.slice();
+            tries[t]();
+            var now = total(orders);
+            if (now < bestScore) { bestScore = now; improved = true; }
+            else { for (var k = 0; k < row.length; k++) row[k] = before[k]; }
+          }
+        }
+      }
+      if (!improved) break;
+    }
+
+    // Partner bez rodziców w drzewie staje po tej stronie, gdzie nie ma rodzeństwa jego partnera,
+    // żeby linia rodzeństwa nie biegła pod jego kafelkiem.
+    orders.forEach(function (order, d) {
+      if (!d) return;
+      var up = indexOf(orders[d - 1]);
+      var keyOf = function (id) {
+        var f = (familiesOf[id] || []).filter(function (family) { return up[family[0]] !== undefined; })[0];
+        return f ? f.join("+") : null;
+      };
+      order.forEach(function (unit, i) {
+        if (unit.length < 2) return;
+        var rooted = unit.filter(function (id) { return keyOf(id) !== null; });
+        if (rooted.length !== 1) return;
+        var key = keyOf(rooted[0]), left = 0, right = 0;
+        order.forEach(function (other, j) {
+          if (j === i) return;
+          if (other.some(function (id) { return keyOf(id) === key; })) { if (j < i) left++; else right++; }
+        });
+        var others = unit.filter(function (id) { return id !== rooted[0]; });
+        order[i] = left >= right ? [rooted[0]].concat(others) : others.concat([rooted[0]]);
+      });
+    });
+
+    // Współrzędne: rodzeństwo z partnerami w bloku wyśrodkowanym pod rodzicami, bez nachodzenia.
+    var pos = {};
+    var step = NODE_W + GAP_X;
+    orders.forEach(function (order, depth) {
+      var flat = [];
+      order.forEach(function (unit) { unit.forEach(function (id) { flat.push(id); }); });
+      var wants = flat.map(function (id) {
+        var xs = (familiesOf[id] || []).map(function (family) {
+          var known = family.filter(function (pid) { return pos[pid]; });
+          return known.length ? average(known.map(function (pid) { return pos[pid][0]; })) : null;
+        }).filter(function (x) { return x !== null; });
+        return average(xs);
+      });
+      // Bloki: kolejne osoby z tym samym celem (rodzeństwo) albo partnerzy kogoś z bloku.
       var blocks = [];
-      ordered.forEach(function (p) {
+      flat.forEach(function (id, i) {
         var last = blocks[blocks.length - 1];
-        var want = p._want === null ? null : Math.round(p._want);
-        if (last && want !== null && (last.want === want || Math.abs(p._want - last.want - 0.1) < 0.01 * step)) {
-          last.people.push(p);
-        } else if (last && want !== null && last.people.some(function (q) { return rel[q.id].partners.indexOf(p.id) >= 0; })) {
-          last.people.push(p);
+        var want = wants[i];
+        var partnerOfLast = last && last.ids.some(function (q) { return rel[q].partners.indexOf(id) >= 0; });
+        if (last && (partnerOfLast || (want !== null && last.want !== null && Math.abs(want - last.want) < 1))) {
+          last.ids.push(id);
+          if (last.want === null) last.want = want;
         } else {
-          blocks.push({ want: want, people: [p] });
+          blocks.push({ want: want, ids: [id] });
         }
       });
       var x = -Infinity;
-      var unanchored = 0;
       blocks.forEach(function (block) {
-        var start = block.want === null ? null : block.want - ((block.people.length - 1) * step) / 2;
-        block.people.forEach(function (p, i) {
-          var want = start === null ? (depth === 0 ? unanchored++ * step : x + step) : start + i * step;
-          x = Math.max(want, x + step);
-          pos[p.id] = [x, depth * ROW_H];
+        var start = block.want === null ? x + step : block.want - ((block.ids.length - 1) * step) / 2;
+        block.ids.forEach(function (id, i) {
+          x = Math.max(start + i * step, x + step);
+          if (!isFinite(x)) x = 0;
+          pos[id] = [x, depth * ROW_H];
         });
       });
-      // Rząd bez rodziców wyśrodkowany na zero; rzędy niżej zostają pod rodzicami.
-      if (depth === 0 && ordered.length) {
-        var shift = (pos[ordered[0].id][0] + pos[ordered[ordered.length - 1].id][0]) / 2;
-        ordered.forEach(function (p) { pos[p.id][0] -= shift; });
+      if (depth === 0 && flat.length) {
+        var shift = (pos[flat[0]][0] + pos[flat[flat.length - 1]][0]) / 2;
+        flat.forEach(function (id) { pos[id][0] -= shift; });
       }
     });
-    data.people.forEach(function (p) { delete p._want; });
     return pos;
   }
 
@@ -463,29 +663,44 @@
         family.kids.push(child);
       });
     });
-    // Szyny w tym samym odstępie dostają kolejne „tory”, gdy zachodzą na siebie w poziomie.
+    // Szyny zachodzące na siebie w tym samym odstępie dostają osobne „tory” (wysokości), w kolejności,
+    // przy której ich linie przecinają się najrzadziej.
     var list = Object.keys(families).map(function (key) {
       var f = families[key];
-      var xs = f.kids.map(function (k) { return k.x + NODE_W / 2; }).concat([f.x]);
-      f.left = Math.min.apply(null, xs);
-      f.right = Math.max.apply(null, xs);
+      var xs = f.kids.map(function (k) { return k.x + NODE_W / 2; });
+      f.kidXs = xs;
+      f.l = Math.min.apply(null, xs.concat([f.x]));
+      f.r = Math.max.apply(null, xs.concat([f.x]));
+      f.left = f.l;
+      f.right = f.r;
       f.gap = Math.round(f.top / 20);
       return f;
-    }).sort(function (a, b) { return a.left - b.left || a.right - b.right; });
+    }).sort(function (a, b) { return a.l - b.l || a.r - b.r; });
     var lanes = {};
-    list.forEach(function (f) {
-      var used = lanes[f.gap] = lanes[f.gap] || [];
-      var lane = 0;
-      while (used[lane] !== undefined && used[lane] > f.left - 16) lane++;
-      used[lane] = f.right;
-      f.lane = lane;
+    var byGap = {};
+    list.forEach(function (f) { (byGap[f.gap] = byGap[f.gap] || []).push(f); });
+    Object.keys(byGap).forEach(function (gap) {
+      var fams = byGap[gap];
+      var groups = [];
+      fams.forEach(function (f) {
+        var last = groups[groups.length - 1];
+        if (last && last.some(function (g) { return overlapping(g, f); })) last.push(f);
+        else groups.push([f]);
+      });
+      var count = 0;
+      groups.forEach(function (group) {
+        var geometry = group.map(function (f) { return { f: f, sx: f.x, kids: f.kidXs, l: f.l, r: f.r }; });
+        laneOrder(geometry).forEach(function (g, lane) { g.f.lane = lane; g.f.group = group.length; });
+        count = Math.max(count, group.length);
+      });
+      lanes[gap] = { length: count };
     });
     var colorIndex = {};
     list.forEach(function (f) {
       var count = lanes[f.gap].length;
       // Gdy szyny w odstępie zachodzą na siebie, każda rodzina ma swój kolor (stonowany, z tej samej palety).
       var cls = "tree-line";
-      if (count > 1) {
+      if (f.group > 1) {
         colorIndex[f.gap] = (colorIndex[f.gap] || 0) + 1;
         cls += " tree-line--f" + ((colorIndex[f.gap] - 1) % 5);
       }

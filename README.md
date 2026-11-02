@@ -36,6 +36,7 @@ w projekcie.
 | 25 | Drzewo: dziecko od pary rodziców, kanwa na cały ekran | **gotowe** |
 | 26 | Imiennicy: dwie osoby o tym samym imieniu i nazwisku | **gotowe** |
 | 27 | Nazwisko rodowe na kafelku, czytelne linie rodzin | **gotowe** |
+| 28 | „Ułóż automatycznie” z najmniejszą liczbą przecięć | **gotowe** |
 
 ## Technologie
 
