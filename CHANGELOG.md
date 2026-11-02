@@ -15,6 +15,16 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.28.0 (2026-11-02) · ETAP 28: „Ułóż automatycznie” z jak najmniejszą liczbą przecięć
+
+### Zmienione
+- **„Ułóż automatycznie” szuka kolejności z najmniejszą liczbą przecięć linii.** Sprawdza różne kolejności rodzeństwa i par w każdym pokoleniu (od góry i od dołu drzewa, potem zamiany sąsiadów i odwrócenie par) i zostawia tę, w której linie rodzin najmniej się krzyżują. Dzieci stoją pod środkiem swoich rodziców.
+- **Współmałżonek spoza rodziny staje po zewnętrznej stronie**, z dala od rodzeństwa partnera, żeby linia do rodzeństwa go nie przecinała.
+- **Wysokości linii rodzin są dobierane tak, żeby się nie przecinały**, gdy kilka rodzin dzieli jedno pokolenie. Kolor dostają tylko linie, które naprawdę na siebie zachodzą.
+- Przy niektórych układach, np. gdy rodzeństwo z jednej rodziny żeni się z rodzeństwem z drugiej, jedno przecięcie zostaje, bo nie da się go uniknąć na płaskim rysunku.
+
+---
+
 ## 0.27.0 (2026-11-02) · ETAP 27: nazwisko rodowe na kafelku, czytelne linie rodzin
 
 ### Zmienione
