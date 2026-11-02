@@ -1,11 +1,46 @@
 {% extends "app_base.html" %}
+{% load static %}
 {% block title %}Drzewo rodzinne · {{ site_title }}{% endblock %}
 {% block main %}
 <div class="heading-row">
   <h1>Drzewo rodzinne</h1>
 </div>
-<p class="hint">Osoby w drzewie to te same osoby, które oznaczacie na zdjęciach. Ich zdjęcia pojawiają się w drzewie same. Widok drzewa z przeciąganiem kafelków dojdzie w kolejnym etapie.</p>
 
+<section class="family-tree" data-family-tree
+  data-url-data="{% url 'family:data' %}" data-url-positions="{% url 'family:api_positions' %}"
+  data-url-add="{% url 'family:api_add' %}" data-url-relation="{% url 'family:api_relation' %}"
+  data-url-remove="{% url 'family:api_remove' %}" data-csrf="{{ csrf_token }}">
+  <div class="tree-toolbar">
+    {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>
+    <button type="button" class="button button--quiet" data-tree-action="layout">Ułóż automatycznie</button>{% endif %}
+    <span class="tree-toolbar__zoom">
+      <button type="button" class="icon-button" data-tree-action="zoom-out" aria-label="Pomniejsz">−</button>
+      <button type="button" class="icon-button" data-tree-action="fit" aria-label="Pokaż całe drzewo" title="Pokaż całe drzewo">⤢</button>
+      <button type="button" class="icon-button" data-tree-action="zoom-in" aria-label="Powiększ">+</button>
+    </span>
+  </div>
+  <div class="tree-stage">
+    <div class="tree-canvas" aria-label="Drzewo rodzinne: przeciągnij tło, żeby przesunąć widok">
+      <div class="tree-world">
+        <svg class="tree-lines" aria-hidden="true" width="1" height="1"></svg>
+        <div class="tree-nodes"></div>
+      </div>
+      <p class="tree-empty">Drzewo jest puste.{% if user.can_edit_tree %} Kliknij „+ Osoba” albo przeciągnij kogoś z listy osób ze zdjęć.{% endif %}</p>
+      <p class="tree-message" role="status" hidden></p>
+    </div>
+    <aside class="tree-sheet" hidden aria-label="Wybrana osoba"></aside>
+  </div>
+  <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć jej kartę albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). Kafelki przesuwasz przeciąganiem, a „+” przeciągnięty na inną osobę łączy was w rodzinę.{% else %}Kliknij osobę, żeby zobaczyć jej kartę i zdjęcia.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
+  <div class="tree-outside" hidden>
+    <h2>Osoby ze zdjęć spoza drzewa</h2>
+    <p class="hint">Przeciągnij na drzewo albo kliknij, żeby dodać.</p>
+    <ul class="chips chips--light" data-outside></ul>
+  </div>
+  <datalist id="drzewo-osoby"></datalist>
+</section>
+
+<details class="tree-list"{% if query %} open{% endif %}>
+<summary>Lista osób{% if people %} ({{ people|length }}){% endif %}</summary>
 {% if user.can_edit_tree %}
 <form method="post" action="{% url 'family:person_add' %}" class="card tree-add">
   {% csrf_token %}
@@ -22,7 +57,6 @@
   <button type="submit" class="button button--quiet">Szukaj</button>
 </form>
 
-<h2>W drzewie{% if people %} ({{ people|length }}){% endif %}</h2>
 <ul class="person-list">
   {% for person in people %}
   <li>
@@ -36,11 +70,16 @@
   {% endfor %}
 </ul>
 
+</details>
+
+<noscript>
 {% if outside %}
 <h2>Osoby ze zdjęć spoza drzewa</h2>
 <p class="hint">Oznaczone na zdjęciach, ale jeszcze nie w drzewie.</p>
-<ul class="chips">
+<ul class="chips chips--light">
   {% for person in outside %}<li><a class="chip" href="{% url 'family:person' person.pk %}">{{ person.name }} <span class="chip__count">{{ person.count }}</span></a></li>{% endfor %}
 </ul>
 {% endif %}
+</noscript>
+<script src="{% static 'js/family-tree.js' %}" defer></script>
 {% endblock %}

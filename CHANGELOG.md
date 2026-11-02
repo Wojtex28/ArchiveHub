@@ -15,6 +15,19 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.22.0 (2026-11-02) · ETAP 22: drzewo rodzinne, kanwa z przeciąganiem
+
+### Dodane
+- **Kanwa drzewa** (Drzewo): osoby jako kafelki z portretem, imieniem i latami życia; linie od rodziców do dzieci (od środka pary, gdy rodzice są parą) i przerywana linia między partnerami.
+- **Przesuwanie i powiększanie:** przeciąganie tła albo jednym palcem; kółko myszy, dwa palce albo przyciski − / + oraz „Pokaż całe drzewo”.
+- **Przeciąganie kafelków**; miejsce zapisuje się dla wszystkich.
+- **Uchwyty „+” na wybranym kafelku:** u góry rodzic, z boku partner, na dole dziecko. Kliknięcie otwiera pole na imię (z podpowiedziami osób z archiwum), a przeciągnięcie „+” na inną osobę łączy je w rodzinę.
+- **Panel osoby** obok kanwy (na telefonie pod nią): dane, link do karty ze zdjęciami, lista krewnych z usuwaniem połączeń, „+ Rodzic / Partner/ka / Dziecko”, „Usuń z drzewa”.
+- **„Ułóż automatycznie”:** pokolenia w rzędach, pary obok siebie, rodzeństwo pod rodzicami. Nowe osoby same stają przy krewnych.
+- **Osoby ze zdjęć spoza drzewa** pod kanwą: przeciągnij na drzewo albo kliknij.
+- Karta osoby: „Pokaż w drzewie”.
+- Bez JavaScriptu pod kanwą zostaje lista osób i karty.
+
 ## 0.21.0 (2026-11-02) · ETAP 21: drzewo rodzinne, dane i karta osoby
 
 ### Dodane

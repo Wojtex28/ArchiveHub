@@ -3,7 +3,7 @@
 {% block title %}{{ person.name }} · Drzewo rodzinne · {{ site_title }}<script src="{% static 'js/confirm.js' %}" defer></script>
 {% endblock %}
 {% block main %}
-<p><a href="{% url 'family:tree' %}">← Drzewo rodzinne</a></p>
+<p><a href="{% url 'family:tree' %}{% if person.in_tree %}?osoba={{ person.pk }}{% endif %}">← Drzewo rodzinne</a></p>
 <div class="person-head">
   {% include "family/includes/avatar.html" with photo=portrait large=True %}
   <div>
@@ -11,7 +11,10 @@
     {% if person.maiden_name %}<p class="hint">z domu {{ person.maiden_name }}</p>{% endif %}
     {% if not person.in_tree %}<p class="notice">Ta osoba jest oznaczona na zdjęciach, ale nie ma jej jeszcze w drzewie.{% if can_edit %} Dodaj ją, łącząc z rodziną poniżej, albo uzupełniając dane.{% endif %}</p>{% endif %}
   </div>
-  {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}
+  <div class="person-head__actions">
+    {% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
+    {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}
+  </div>
 </div>
 
 <dl class="person-facts">
