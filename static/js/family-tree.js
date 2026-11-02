@@ -379,9 +379,16 @@
     node.textContent = "";
     node.appendChild(avatar(person, "tree-node__avatar"));
     var text = el("span", "tree-node__text");
-    text.appendChild(el("strong", "tree-node__name", person.name));
-    var sub = [person.maiden ? "z d. " + person.maiden : "", person.years].filter(Boolean).join(" · ");
-    if (sub) text.appendChild(el("span", "tree-node__years", sub));
+    var name = el("strong", "tree-node__name", person.name);
+    // Nazwisko rodowe w nawiasie, jaśniejsze, zaraz po nazwisku: „Helena Bereza (Kowalska)”.
+    if (person.maiden) {
+      name.appendChild(document.createTextNode(" "));
+      var maiden = el("span", "tree-node__maiden", "(" + person.maiden + ")");
+      maiden.title = "z domu " + person.maiden;
+      name.appendChild(maiden);
+    }
+    text.appendChild(name);
+    if (person.years) text.appendChild(el("span", "tree-node__years", person.years));
     node.appendChild(text);
     node.setAttribute("aria-label", person.name + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);

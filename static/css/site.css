@@ -770,6 +770,7 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-node__avatar--empty { display: inline-flex; align-items: center; justify-content: center; font: 400 1.25rem/1 var(--serif); color: var(--accent); background: #ece2d2; }
 .tree-node__text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
 .tree-node__name { font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tree-node__maiden { font-weight: 400; color: var(--ink-quiet); }
 .tree-node__years { font-size: 0.8125rem; color: var(--ink-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-handle {
   position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--card);
