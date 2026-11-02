@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import api, views
 
 app_name = "family"
 
@@ -16,4 +16,9 @@ urlpatterns = [
         views.relation_remove,
         name="relation_remove",
     ),
+    path("drzewo/dane.json", api.data, name="data"),
+    path("drzewo/api/polozenie/", api.save_positions, name="api_positions"),
+    path("drzewo/api/dodaj/", api.add, name="api_add"),
+    path("drzewo/api/relacja/", api.relation, name="api_relation"),
+    path("drzewo/api/usun/", api.remove, name="api_remove"),
 ]
