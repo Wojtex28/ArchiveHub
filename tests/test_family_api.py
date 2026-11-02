@@ -196,3 +196,19 @@ def test_migration_pairs_existing_co_parents(db):
     ParentChild.objects.create(parent=jan, child=ewa)
     import_module("family.migrations.0003_pary_rodzicow").pair_parents(apps, None)
     assert Partnership.objects.filter(person1=anna, person2=jan).exists()
+
+
+def test_tree_page_is_full_width_with_tools_in_ribbon(editor, couple):
+    page = editor.get(reverse("family:tree")).content.decode()
+    assert "app-main--full" in page
+    ribbon = page.split('class="tree-ribbon"')[1].split('class="tree-stage"')[0]
+    assert "Drzewo rodzinne" in ribbon
+    for action in ("add", "layout", "zoom-out", "fit", "zoom-in"):
+        assert f'data-tree-action="{action}"' in ribbon
+
+
+def test_tree_ribbon_for_viewer_has_no_edit_tools(client, make_user, couple):
+    client.force_login(make_user("Ola", tree_access="view"))
+    page = client.get(reverse("family:tree")).content.decode()
+    assert 'class="tree-ribbon"' in page and 'data-tree-action="fit"' in page
+    assert 'data-tree-action="add"' not in page

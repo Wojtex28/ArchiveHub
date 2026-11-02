@@ -33,7 +33,7 @@ w projekcie.
 | 22 | Drzewo rodzinne: kanwa z przeciąganiem, łączeniem osób i automatycznym układem, także na telefonie | **gotowe** |
 | 23 | Drzewo rodzinne: historia zmian z przywracaniem | **gotowe** |
 | 24 | Wybór osób na zdjęciu z listy (najpierw osoby z drzewa) | **gotowe** |
-| 25 | Drzewo: dziecko od pary rodziców | **gotowe** |
+| 25 | Drzewo: dziecko od pary rodziców, kanwa na cały ekran | **gotowe** |
 
 ## Technologie
 

@@ -1,23 +1,24 @@
 {% extends "app_base.html" %}
 {% load static %}
 {% block title %}Drzewo rodzinne · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--full{% endblock %}
 {% block main %}
-<div class="heading-row">
-  <h1>Drzewo rodzinne</h1>
-</div>
-
 <section class="family-tree" data-family-tree
   data-url-data="{% url 'family:data' %}" data-url-positions="{% url 'family:api_positions' %}"
   data-url-add="{% url 'family:api_add' %}" data-url-relation="{% url 'family:api_relation' %}"
   data-url-remove="{% url 'family:api_remove' %}" data-csrf="{{ csrf_token }}">
-  <div class="tree-toolbar">
-    {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>
-    <button type="button" class="button button--quiet" data-tree-action="layout">Ułóż automatycznie</button>{% endif %}
-    <span class="tree-toolbar__zoom">
-      <button type="button" class="icon-button" data-tree-action="zoom-out" aria-label="Pomniejsz">−</button>
-      <button type="button" class="icon-button" data-tree-action="fit" aria-label="Pokaż całe drzewo" title="Pokaż całe drzewo">⤢</button>
-      <button type="button" class="icon-button" data-tree-action="zoom-in" aria-label="Powiększ">+</button>
-    </span>
+  {# Wstążka: tytuł i wszystkie narzędzia kanwy. Nowe narzędzia też trafiają tutaj. #}
+  <div class="tree-ribbon">
+    <h1 class="tree-ribbon__title">Drzewo rodzinne</h1>
+    <div class="tree-toolbar" role="toolbar" aria-label="Narzędzia drzewa">
+      {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>
+      <button type="button" class="button button--quiet" data-tree-action="layout" title="Ułóż automatycznie">Ułóż<span class="tree-toolbar__more"> automatycznie</span></button>{% endif %}
+      <span class="tree-toolbar__zoom">
+        <button type="button" class="icon-button" data-tree-action="zoom-out" aria-label="Pomniejsz" title="Pomniejsz">−</button>
+        <button type="button" class="icon-button" data-tree-action="fit" aria-label="Pokaż całe drzewo" title="Pokaż całe drzewo">⤢</button>
+        <button type="button" class="icon-button" data-tree-action="zoom-in" aria-label="Powiększ" title="Powiększ">+</button>
+      </span>
+    </div>
   </div>
   <div class="tree-stage">
     <div class="tree-canvas" aria-label="Drzewo rodzinne: przeciągnij tło, żeby przesunąć widok">
@@ -30,15 +31,18 @@
     </div>
     <aside class="tree-sheet" hidden aria-label="Wybrana osoba"></aside>
   </div>
+  <div class="tree-page">
   <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć jej kartę albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). Kafelki przesuwasz przeciąganiem, a „+” przeciągnięty na inną osobę łączy was w rodzinę.{% else %}Kliknij osobę, żeby zobaczyć jej kartę i zdjęcia.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
   <div class="tree-outside" hidden>
     <h2>Osoby ze zdjęć spoza drzewa</h2>
     <p class="hint">Przeciągnij na drzewo albo kliknij, żeby dodać.</p>
     <ul class="chips chips--light" data-outside></ul>
   </div>
+  </div>
   <datalist id="drzewo-osoby"></datalist>
 </section>
 
+<div class="tree-page">
 <details class="tree-list"{% if query %} open{% endif %}>
 <summary>Lista osób{% if people %} ({{ people|length }}){% endif %}</summary>
 {% if user.can_edit_tree %}
@@ -81,5 +85,6 @@
 </ul>
 {% endif %}
 </noscript>
+</div>
 <script src="{% static 'js/family-tree.js' %}" defer></script>
 {% endblock %}

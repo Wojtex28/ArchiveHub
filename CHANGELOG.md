@@ -15,7 +15,7 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
-## 0.25.0 (2026-11-02) · ETAP 25: dziecko od pary rodziców
+## 0.25.0 (2026-11-02) · ETAP 25: dziecko od pary rodziców, kanwa na cały ekran
 
 ### Zmienione
 - **Dziecko dwojga rodziców ma jedną linię od środka pary**, a rodzice są połączeni linią pary. Wcześniej, gdy rodzice nie byli zaznaczeni jako para, do dziecka szły dwie osobne linie.
@@ -23,6 +23,8 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 - **Drugi rodzic dziecka zostaje parą z pierwszym** (także gdy się rozstali). Istniejące drzewo uzupełnia się samo przy aktualizacji.
 - „+ Rodzic” znika, gdy osoba ma już dwoje rodziców.
 - Każde dodatkowe połączenie (drugi rodzic, para) to osobny wpis w historii, który można cofnąć.
+- **Kanwa drzewa na całą szerokość okna** i do jego dołu, bez ramki. Nad nią wstążka z tytułem i wszystkimi narzędziami („+ Osoba”, „Ułóż automatycznie”, powiększenie). Pomoc, osoby spoza drzewa i lista osób są pod kanwą.
+- **Karta osoby wysuwa się z prawej krawędzi** nad kanwą (na telefonie od dołu), a widok przesuwa się tak, żeby wybrana osoba nie chowała się pod kartą. Esc zamyka kartę.
 
 ## 0.24.0 (2026-11-02) · ETAP 24: wybór osób na zdjęciu z listy
 
