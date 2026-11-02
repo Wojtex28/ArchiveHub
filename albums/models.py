@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -350,10 +351,36 @@ class Comment(models.Model):
 
 class NamedQuerySet(models.QuerySet):
     def get_or_create_named(self, name):
-        """Ta sama nazwa bez względu na wielkość liter (także „Ł” i „ł”) to ten sam wpis."""
+        """Ta sama nazwa bez względu na wielkość liter (także „Ł” i „ł”) to ten sam wpis.
+
+        Osoby mogą mieć imienników: wtedy pierwsza z drzewa, a potem najstarszy wpis.
+        Gdzie to ważne (drzewo, opis zdjęcia), wybiera się osobę wprost.
+        """
         name = " ".join(name.split())
-        found = self.filter(key=name_key(name)).first()
+        order = getattr(self.model, "NAMESAKE_ORDER", ("pk",))
+        found = self.filter(key=name_key(name)).order_by(*order).first()
         return found or self.create(name=name)
+
+
+def namesake_keys():
+    """Klucze nazw, które ma więcej niż jedna osoba: przy nich trzeba pokazać, o kogo chodzi."""
+    counts = Person.objects.values("key").annotate(n=models.Count("pk"))
+    return set(counts.filter(n__gt=1).values_list("key", flat=True))
+
+
+# Imiennik w polu „Kto”: „Jan Bereza #12” wskazuje osobę wprost (pole z nazwami po przecinku zostaje).
+PERSON_TOKEN = re.compile(r"^(.*\S)\s+#(\d+)$")
+
+
+def split_person_token(text):
+    """„Jan Bereza #12” → („Jan Bereza”, 12); zwykła nazwa → (nazwa, None)."""
+    match = PERSON_TOKEN.match(text)
+    return (match[1], int(match[2])) if match else (text, None)
+
+
+def person_token(person, namesakes):
+    """Nazwa do pola „Kto”, z numerem tylko u imienników (``namesakes`` z :func:`namesake_keys`)."""
+    return f"{person.name} #{person.pk}" if person.key in namesakes else person.name
 
 
 def name_key(name):
@@ -366,7 +393,8 @@ class NamedModel(models.Model):
     MAX_LENGTH = 100
 
     name = models.CharField("nazwa", max_length=MAX_LENGTH)
-    key = models.CharField(max_length=MAX_LENGTH, unique=True, editable=False)
+    # Tag o tej samej nazwie to ten sam tag; osoby mogą mieć imienników (Tag nadpisuje to pole).
+    key = models.CharField(max_length=MAX_LENGTH, db_index=True, editable=False)
 
     objects = NamedQuerySet.as_manager()
 
@@ -407,6 +435,9 @@ class Person(NamedModel):
     tree_x = models.FloatField(null=True, blank=True)
     tree_y = models.FloatField(null=True, blank=True)
 
+    # Kolejność imienników (np. dziadek i wnuk „Jan Bereza”), gdy trzeba wybrać jednego bez pytania.
+    NAMESAKE_ORDER = ("-in_tree", "pk")
+
     class Meta(NamedModel.Meta):
         verbose_name = "osoba"
         verbose_name_plural = "osoby"
@@ -433,6 +464,8 @@ class Person(NamedModel):
 
 
 class Tag(NamedModel):
+    key = models.CharField(max_length=NamedModel.MAX_LENGTH, unique=True, editable=False)
+
     class Meta(NamedModel.Meta):
         verbose_name = "tag"
         verbose_name_plural = "tagi"

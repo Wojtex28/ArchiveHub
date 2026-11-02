@@ -1,14 +1,9 @@
 from django import forms
 
 from albums.dates import DateError, parse_date
-from albums.models import NamedModel, Person, Photo, name_key
+from albums.models import NamedModel, Person, Photo
 
 from .tree import RELATION_KINDS
-
-SAME_NAME_HINT = (
-    "W archiwum jest już osoba „{name}”. Jeśli to ktoś inny (np. dziadek i wnuk o tym samym imieniu),"
-    " dopisz coś do nazwy, np. „{name} (1921)”."
-)
 
 
 def _sort_year(date):
@@ -55,8 +50,7 @@ class PersonForm(forms.ModelForm):
         name = " ".join(self.cleaned_data["name"].split())
         if not name or len(name) > NamedModel.MAX_LENGTH:
             raise forms.ValidationError("Wpisz imię i nazwisko (najwyżej 100 znaków).")
-        if Person.objects.filter(key=name_key(name)).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError(SAME_NAME_HINT.format(name=name))
+        # Imiennicy są dozwoleni (dziadek i wnuk o tym samym imieniu), widok tylko o nich przypomina.
         return name
 
     def _clean_date(self, field):

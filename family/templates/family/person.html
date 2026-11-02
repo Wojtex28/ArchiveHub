@@ -40,6 +40,7 @@
     <div class="field relation-form__name">{{ relation_form.name.label_tag }}{{ relation_form.name }}</div>
     <button type="submit" class="button">Dodaj</button>
   </div>
+  {% if namesakes %}{% include "family/includes/namesake_choice.html" %}{% endif %}
   <p class="hint">{{ relation_form.name.help_text }}</p>
   <datalist id="osoby-podpowiedzi">{% for name in suggestions %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 </form>

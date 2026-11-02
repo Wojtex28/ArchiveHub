@@ -14,7 +14,7 @@
           {% csrf_token %}
           <label class="visually-hidden" for="{{ kind }}-{{ item.pk }}">Nazwa</label>
           <input id="{{ kind }}-{{ item.pk }}" name="name" value="{{ item.name }}" maxlength="100" required>
-          <span class="named__count">{{ item.count }} zdj.</span>
+          <span class="named__count">{{ item.count }} zdj.{% if item.namesake_hint %} <span class="hint">({{ item.namesake_hint }})</span>{% endif %}</span>
           <button type="submit" name="action" value="rename" class="button button--quiet">Zapisz</button>
           <button type="submit" name="action" value="delete" class="button button--quiet" formnovalidate data-confirm="Usunąć „{{ item.name }}” ze wszystkich zdjęć?">Usuń</button>
         </form>

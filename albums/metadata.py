@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .comments import photo_page_url, wants_fragment
 from .forms import MetadataForm
-from .models import Person, Photo, PhotoChange, Tag, name_key
+from .models import Person, Photo, PhotoChange, Tag, name_key, namesake_keys, person_token, split_person_token
 from .photo_panel import fragment
 from .search import refresh_search_text
 
@@ -35,10 +35,11 @@ LABELS = {
 
 
 def current_values(photo):
+    namesakes = namesake_keys()
     return {
         "date": photo.date_text,
         "place": photo.place,
-        "people": [person.name for person in photo.people.all()],
+        "people": [person_token(person, namesakes) for person in photo.people.all()],
         "tags": [tag.name for tag in photo.tags.all()],
         "description": photo.description,
     }
@@ -54,13 +55,27 @@ def _set_names(photo, field, model, names):
     """Ustawia osoby albo tagi; wpisy, które przestały być na jakimkolwiek zdjęciu, znikają (poza drzewem)."""
     relation = getattr(photo, field)
     old = set(relation.values_list("pk", flat=True))
-    items = [model.objects.get_or_create_named(name) for name in names]
+    if model is Person:
+        items = [_person(name, old) for name in names]
+    else:
+        items = [model.objects.get_or_create_named(name) for name in names]
     relation.set(items)
     orphans = model.objects.filter(pk__in=old - {item.pk for item in items}, photos__isnull=True)
     if model is Person:
         # Osoba z drzewa (albo z historią drzewa, którą da się przywrócić) zostaje także bez zdjęć.
         orphans = orphans.filter(in_tree=False, tree_changes__isnull=True)
     orphans.delete()
+
+
+def _person(text, current):
+    """Osoba z pola „Kto”: imiennik wskazany numerem, ten już oznaczony na zdjęciu, potem z drzewa."""
+    name, pk = split_person_token(text)
+    matches = list(Person.objects.filter(key=name_key(name)).order_by(*Person.NAMESAKE_ORDER))
+    for wanted in (lambda p: p.pk == pk, lambda p: p.pk in current, lambda p: True):
+        for person in matches:
+            if wanted(person):
+                return person
+    return Person.objects.create(name=name)
 
 
 @transaction.atomic
@@ -106,6 +121,10 @@ def change_rows(change):
         if field not in change.changes:
             continue
         before, after = change.changes[field]
+        if field == "people":
+            # Numer imiennika („Jan Bereza #12”) jest dla formularza, nie do czytania.
+            before = [split_person_token(name)[0] for name in before]
+            after = [split_person_token(name)[0] for name in after]
         if isinstance(before, list):
             before, after = ", ".join(before), ", ".join(after)
         rows.append((label, before, after))

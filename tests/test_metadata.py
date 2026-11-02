@@ -216,8 +216,8 @@ def test_people_choices_put_tree_first_and_respect_access(karolina, family):
     page = karolina.get(reverse("albums:comments", args=[family["photo"].pk]), **FETCH).content.decode()
     data = json.loads(page.split('id="osoby-wybor" type="application/json">')[1].split("</script>")[0])
     assert data == [
-        {"name": "Anna Bereza", "years": "ur. 1921", "tree": True},
-        {"name": "Zenon Sąsiad", "years": "", "tree": False},
+        {"name": "Anna Bereza", "token": "Anna Bereza", "same": False, "years": "ur. 1921", "tree": True},
+        {"name": "Zenon Sąsiad", "token": "Zenon Sąsiad", "same": False, "years": "", "tree": False},
     ]
     assert 'data-people-picker="osoby-wybor"' in page
 

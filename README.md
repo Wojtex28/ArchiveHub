@@ -34,6 +34,7 @@ w projekcie.
 | 23 | Drzewo rodzinne: historia zmian z przywracaniem | **gotowe** |
 | 24 | Wybór osób na zdjęciu z listy (najpierw osoby z drzewa) | **gotowe** |
 | 25 | Drzewo: dziecko od pary rodziców, kanwa na cały ekran | **gotowe** |
+| 26 | Imiennicy: dwie osoby o tym samym imieniu i nazwisku | **gotowe** |
 
 ## Technologie
 

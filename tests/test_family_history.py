@@ -65,15 +65,16 @@ def test_undo_edit_restores_fields_and_years(family, master):
     assert (anna.name, anna.birth_year) == ("Anna Nowak", 1934)
 
 
-def test_undo_edit_refuses_name_taken_meanwhile(family, master):
+def test_undo_edit_restores_name_taken_meanwhile_as_namesake(family, master):
     anna = family["anna"]
     before = tree.snapshot(anna)
     anna.name = "Anna Nowak"
     anna.save()
     edit = tree.edit_person(None, anna, before)
-    Person.objects.create(name="Anna Bereza")  # ktoś nowy dostał starą nazwę
-    with pytest.raises(ValidationError, match="ma teraz inna osoba"):
-        tree.undo(master, edit)
+    other = Person.objects.create(name="Anna Bereza")  # ktoś nowy dostał starą nazwę
+    tree.undo(master, edit)
+    anna.refresh_from_db()
+    assert anna.name == "Anna Bereza" and anna.pk != other.pk  # dwie osoby, imienniczki
 
 
 def test_undo_removed_person_brings_back_links(family, master):

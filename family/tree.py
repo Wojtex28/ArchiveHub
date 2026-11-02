@@ -113,6 +113,83 @@ def add_person(user, name):
     return person
 
 
+@transaction.atomic
+def put_in_tree(user, person):
+    _put_in_tree(user, person)
+    return person
+
+
+# --- Imiennicy (ETAP 26) -------------------------------------------------------------
+# Dwie osoby mogą nazywać się tak samo (dziadek i wnuk „Jan Bereza”). Wpisana nazwa nie wskazuje więc
+# jednoznacznie osoby: gdy jest już zajęta, pytamy, czy chodzi o kogoś z archiwum, czy o nową osobę.
+
+NEW = "nowa"
+
+
+class NeedsChoice(Exception):
+    """W archiwum są już osoby o tej nazwie: trzeba zapytać, czy to któraś z nich."""
+
+    def __init__(self, name, matches):
+        super().__init__(name)
+        self.name = name
+        self.matches = matches
+
+    @property
+    def message(self):
+        return f"W archiwum jest już „{self.name}”. Wybierz, czy to ta sama osoba, czy jej imiennik."
+
+
+def same_name(name):
+    return Person.objects.filter(key=name_key(name)).order_by(*Person.NAMESAKE_ORDER)
+
+
+def _photo_count(n):
+    if n == 1:
+        return "1 zdjęcie"
+    few = 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14
+    return f"{n} zdjęcia" if few else f"{n} zdjęć"
+
+
+def namesake_info(person, user):
+    """Imiennik do wyboru: po czym rozpoznać, o kogo chodzi (lata, rodzina, liczba zdjęć)."""
+    facts = []
+    if person.maiden_name:
+        facts.append(f"z d. {person.maiden_name}")
+    if person.years:
+        facts.append(person.years)
+    facts.append("w drzewie" if person.in_tree else "spoza drzewa")
+    parent_names = [p.name for p in parents(person)]
+    if parent_names:
+        facts.append("rodzice: " + ", ".join(parent_names))
+    partner_names = [p.name for p in partners(person)]
+    if partner_names:
+        facts.append("partner/ka: " + ", ".join(partner_names))
+    photos = Photo.objects.visible_to(user).filter(people=person).count()
+    if photos:
+        facts.append(_photo_count(photos))
+    return {"id": person.pk, "name": person.name, "inTree": person.in_tree, "facts": " · ".join(facts)}
+
+
+def person_for(name, who=None):
+    """Osoba wpisana w formularzu drzewa.
+
+    ``who``: ``NEW`` (nowa osoba, także gdy ktoś już tak się nazywa), id osoby o tej nazwie albo ``None``.
+    Przy ``None`` i zajętej nazwie rzuca :class:`NeedsChoice`, żeby nie połączyć cicho dwóch różnych ludzi.
+    """
+    name = " ".join(name.split())
+    if who == NEW:
+        return Person.objects.create(name=name)
+    matches = list(same_name(name))
+    if who not in (None, ""):
+        for person in matches:
+            if str(person.pk) == str(who):
+                return person
+        raise ValidationError("Wybierz osobę z listy.")
+    if not matches:
+        return Person.objects.create(name=name)
+    raise NeedsChoice(name, matches)
+
+
 def _create_link(person, other, kind):
     """Sprawdza i tworzy relację. Zwraca jej zapis do historii i opis."""
     if other.pk == person.pk:
@@ -331,10 +408,6 @@ def _restore_fields(user, person, values, change):
     for field, value in values.items():
         if field not in FIELD_LABELS:
             continue
-        if field == "name":
-            clash = Person.objects.filter(key=name_key(value)).exclude(pk=person.pk).first()
-            if clash:
-                raise ValidationError(f"Nazwę „{value}” ma teraz inna osoba, więc nie da się jej przywrócić.")
         if field == "portrait_id" and value and not Photo.objects.filter(pk=value).exists():
             value = None
         setattr(person, field, value)

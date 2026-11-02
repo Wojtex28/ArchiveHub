@@ -1,7 +1,8 @@
 // Pole „Kto jest na zdjęciu”: wybór osób z listy zamiast wpisywania nazw po przecinku.
 // Osoby z drzewa są na górze listy. Nową osobę dodaje się tylko świadomym „+ Dodaj nową osobę”,
 // więc literówka nie tworzy dubla. Pod spodem dalej jest zwykłe pole z nazwami po przecinku,
-// które wysyła formularz (bez JavaScriptu to ono jest widoczne).
+// które wysyła formularz (bez JavaScriptu to ono jest widoczne). Imienników (dwie osoby „Jan Bereza”)
+// odróżnia numer osoby w tym polu: „Jan Bereza #12”.
 (function () {
   "use strict";
 
@@ -17,6 +18,17 @@
   // Bez wielkości liter i polskich znaków: „lucja” znajdzie „Łucję”.
   function fold(text) {
     return text.toLocaleLowerCase("pl").replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  var TOKEN = /^(.*\S)\s+#(\d+)$/;
+
+  function nameOf(token) {
+    var match = TOKEN.exec(token);
+    return match ? match[1] : token;
+  }
+
+  function lower(text) {
+    return text.toLocaleLowerCase("pl");
   }
 
   function clean(name) {
@@ -39,8 +51,12 @@
     if (!source) return;
     input.pickerReady = true;
     var choices = JSON.parse(source.textContent);
-    var known = {};
-    choices.forEach(function (choice) { known[choice.name.toLocaleLowerCase("pl")] = choice; });
+    var byToken = {}, byName = {};
+    function remember(choice) {
+      byToken[lower(choice.token)] = choice;
+      (byName[lower(choice.name)] = byName[lower(choice.name)] || []).push(choice);
+    }
+    choices.forEach(remember);
     var selected = split(input.value);
     var options = [], active = -1;
 
@@ -74,11 +90,13 @@
     }
 
     function drawChips() {
-      chips.replaceChildren.apply(chips, selected.map(function (name, index) {
+      chips.replaceChildren.apply(chips, selected.map(function (token, index) {
         var item = element("li", "picker__chip");
-        var choice = known[name.toLocaleLowerCase("pl")];
+        var choice = byToken[lower(token)];
+        var name = nameOf(token);
         if (choice && choice.tree) item.classList.add("is-tree");
         item.append(element("span", "", name));
+        if (choice && choice.same && choice.years) item.append(element("span", "picker__years", choice.years));
         var remove = element("button", "picker__remove", "×");
         remove.type = "button";
         remove.setAttribute("aria-label", "Usuń z opisu: " + name);
@@ -92,9 +110,9 @@
       }));
     }
 
-    function isSelected(name) {
-      var key = name.toLocaleLowerCase("pl");
-      return selected.some(function (other) { return other.toLocaleLowerCase("pl") === key; });
+    function isSelected(token) {
+      var key = lower(token);
+      return selected.some(function (other) { return lower(other) === key; });
     }
 
     function close() {
@@ -116,14 +134,15 @@
     function open() {
       var query = fold(clean(search.value));
       var matches = choices.filter(function (choice) {
-        return !isSelected(choice.name) && (!query || fold(choice.name).indexOf(query) >= 0);
+        return !isSelected(choice.token) && (!query || fold(choice.name).indexOf(query) >= 0);
       });
       if (!query) matches = matches.filter(function (choice) { return choice.tree; });
       matches = matches.slice(0, LIMIT);
-      options = matches.map(function (choice) { return { name: choice.name, years: choice.years, tree: choice.tree }; });
+      options = matches.slice();
       var typed = clean(search.value);
       // „+ Dodaj nową” dopiero od trzech liter (albo gdy nic nie pasuje), żeby nie kusiło przy „be”.
-      if (typed && !known[typed.toLocaleLowerCase("pl")] && (typed.length >= 3 || !options.length)) {
+      // Imiennika nie dodaje się przy zdjęciu: nowa osoba o zajętej nazwie powstaje w drzewie.
+      if (typed && !byName[lower(typed)] && (typed.length >= 3 || !options.length)) {
         options.push({ name: typed, fresh: true });
       }
       var nodes = [], heading = null;
@@ -162,8 +181,8 @@
     function pick(index) {
       var option = options[index];
       if (!option) return;
-      if (option.fresh) known[option.name.toLocaleLowerCase("pl")] = { name: option.name, tree: false };
-      selected.push(option.name);
+      if (option.fresh) remember({ name: option.name, token: option.name, tree: false });
+      selected.push(option.fresh ? option.name : option.token);
       save(); drawChips();
       search.value = "";
       note.hidden = true;
@@ -198,16 +217,18 @@
       input.form.addEventListener("submit", function (event) {
         var typed = clean(search.value);
         if (!typed) return;
-        var choice = known[typed.toLocaleLowerCase("pl")];
-        if (choice) {
-          if (!isSelected(choice.name)) selected.push(choice.name);
+        var candidates = byName[lower(typed)] || [];
+        if (candidates.length === 1) {
+          if (!isSelected(candidates[0].token)) selected.push(candidates[0].token);
           search.value = "";
           save(); drawChips();
           return;
         }
         event.preventDefault();
         event.stopPropagation();
-        note.textContent = "Wybierz „" + typed + "” z listy albo kliknij „+ Dodaj nową osobę”.";
+        note.textContent = candidates.length
+          ? "Jest kilka osób „" + typed + "”. Wybierz właściwą z listy."
+          : "Wybierz „" + typed + "” z listy albo kliknij „+ Dodaj nową osobę”.";
         note.hidden = false;
         search.focus();
         open();
