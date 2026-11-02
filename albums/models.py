@@ -384,11 +384,52 @@ class NamedModel(models.Model):
 
 
 class Person(NamedModel):
-    """Osoba rozpoznana przez rodzinę na zdjęciach (bez rozpoznawania twarzy)."""
+    """Osoba rozpoznana przez rodzinę na zdjęciach (bez rozpoznawania twarzy).
+
+    Ta sama osoba jest węzłem drzewa rodzinnego (aplikacja ``family``): dane poniżej wypełnia się
+    w drzewie, a zdjęcia osoby to po prostu zdjęcia, na których ją oznaczono.
+    """
+
+    in_tree = models.BooleanField("w drzewie", default=False)
+    maiden_name = models.CharField("nazwisko rodowe", max_length=100, blank=True)
+    # Daty jak przy zdjęciach (albums.dates): tekst do wyświetlenia i rok do sortowania.
+    birth_date = models.CharField("data urodzenia", max_length=60, blank=True)
+    birth_year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    birth_place = models.CharField("miejsce urodzenia", max_length=200, blank=True)
+    death_date = models.CharField("data śmierci", max_length=60, blank=True)
+    death_year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    death_place = models.CharField("miejsce śmierci", max_length=200, blank=True)
+    bio = models.TextField("historia", blank=True)
+    portrait = models.ForeignKey(
+        "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="portret"
+    )
+    # Miejsce kafelka na kanwie drzewa (ETAP 22); puste = jeszcze nieułożony.
+    tree_x = models.FloatField(null=True, blank=True)
+    tree_y = models.FloatField(null=True, blank=True)
 
     class Meta(NamedModel.Meta):
         verbose_name = "osoba"
         verbose_name_plural = "osoby"
+
+    @staticmethod
+    def _short_date(text, year):
+        """Rok z daty do kafelka; data przybliżona zostaje opisem („ok. 1920”, „lata 20.”)."""
+        if text.startswith(("ok.", "lata")):
+            return text
+        return str(year) if year else ""
+
+    @property
+    def years(self):
+        """„1921–1998”, „ur. ok. 1920”, „zm. 1998” albo pusty tekst."""
+        born = self._short_date(self.birth_date, self.birth_year)
+        died = self._short_date(self.death_date, self.death_year)
+        if born and died:
+            return f"{born} – {died}" if " " in born + died else f"{born}–{died}"
+        if born:
+            return f"ur. {born}"
+        if died:
+            return f"zm. {died}"
+        return ""
 
 
 class Tag(NamedModel):

@@ -42,8 +42,9 @@ class UserEditForm(forms.ModelForm):
 
     class Meta:
         model = get_user_model()
-        fields = ["display_name", "family_groups"]
-        labels = {"display_name": "Imię wyświetlane"}
+        fields = ["display_name", "family_groups", "tree_access"]
+        labels = {"display_name": "Imię wyświetlane", "tree_access": "Drzewo rodzinne"}
+        help_texts = {"tree_access": "„Tylko oglądanie”: widzi drzewo, ale nie może go zmieniać."}
 
 
 class SetPasswordForm(forms.Form):

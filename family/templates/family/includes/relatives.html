@@ -1,0 +1,13 @@
+<section class="family-group">
+  <h3>{{ label }}</h3>
+  {% if relatives %}
+  <ul class="person-list person-list--compact">
+    {% for other in relatives %}
+    <li>
+      <a class="person-row" href="{% url 'family:person' other.pk %}"><span><strong>{{ other.name }}</strong>{% if other.years %} <span class="hint">{{ other.years }}</span>{% endif %}</span></a>
+      {% if can_edit %}<form method="post" action="{% url 'family:relation_remove' person.pk other.pk kind %}">{% csrf_token %}<button type="submit" class="icon-button" data-confirm="Usunąć połączenie z: {{ other.name }}?" aria-label="Usuń połączenie z: {{ other.name }}" title="Usuń połączenie">×</button></form>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="hint">brak</p>{% endif %}
+</section>

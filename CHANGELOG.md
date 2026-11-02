@@ -15,6 +15,25 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.21.0 (2026-11-02) · ETAP 21: drzewo rodzinne, dane i karta osoby
+
+### Dodane
+- **Drzewo rodzinne** (menu „Drzewo”). Węzeł drzewa to ta sama osoba, którą oznacza się na zdjęciach, więc jej zdjęcia pojawiają się w drzewie same.
+- **Karta osoby:**
+  - imię i nazwisko, nazwisko rodowe, data i miejsce urodzenia oraz śmierci (daty także przybliżone: „ok. 1920”, „lata 20.”), historia;
+  - portret wybrany spośród zdjęć osoby;
+  - rodzice, partnerzy i dzieci jako linki;
+  - zdjęcia osoby z nazwą albumu, otwierane w galerii.
+- **Relacje** rodzic–dziecko i para, z kontrolą błędów: najwyżej dwoje rodziców, bez pętli (nikt nie zostanie własnym przodkiem).
+- **Lista osób w drzewie** z wyszukiwaniem oraz „Osoby ze zdjęć spoza drzewa”.
+- **Dostęp per konto** (Panel → Osoby → konto → „Drzewo rodzinne”): oglądanie i edycja (domyślnie), tylko oglądanie, brak dostępu.
+- **Historia zmian w drzewie:** każda zmiana jest zapisywana (kto, kiedy, co, stan przed i po), żeby w ETAPIE 23 dało się ją przejrzeć i cofnąć.
+
+### Zmienione
+- Panel → Opisy: połączenie dwóch osób przenosi też ich relacje i dane z drzewa; osoby z drzewa nie da się tam usunąć, dopóki jest w drzewie.
+
+Etapy 18–20 (testy końcowe, udostępnienie rodzinie) czekają na import wszystkich albumów, dlatego numer wersji przeskakuje do 21.
+
 ## 0.17.0 (2026-10-27) · ETAP 17: import wszystkich albumów
 
 ### Dodane

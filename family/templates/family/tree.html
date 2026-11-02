@@ -1,0 +1,46 @@
+{% extends "app_base.html" %}
+{% block title %}Drzewo rodzinne · {{ site_title }}{% endblock %}
+{% block main %}
+<div class="heading-row">
+  <h1>Drzewo rodzinne</h1>
+</div>
+<p class="hint">Osoby w drzewie to te same osoby, które oznaczacie na zdjęciach. Ich zdjęcia pojawiają się w drzewie same. Widok drzewa z przeciąganiem kafelków dojdzie w kolejnym etapie.</p>
+
+{% if user.can_edit_tree %}
+<form method="post" action="{% url 'family:person_add' %}" class="card tree-add">
+  {% csrf_token %}
+  <label for="{{ form.name.id_for_label }}">Dodaj osobę do drzewa</label>
+  <div class="tree-add__row">{{ form.name }}<button type="submit" class="button">Dodaj</button></div>
+  <p class="hint">{{ form.name.help_text }}</p>
+  <datalist id="osoby-podpowiedzi">{% for name in suggestions %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+</form>
+{% endif %}
+
+<form method="get" class="tree-search" role="search">
+  <label for="tree-q" class="visually-hidden">Szukaj w drzewie</label>
+  <input id="tree-q" type="search" name="q" value="{{ query }}" placeholder="Szukaj osoby w drzewie">
+  <button type="submit" class="button button--quiet">Szukaj</button>
+</form>
+
+<h2>W drzewie{% if people %} ({{ people|length }}){% endif %}</h2>
+<ul class="person-list">
+  {% for person in people %}
+  <li>
+    <a class="person-row" href="{% url 'family:person' person.pk %}">
+      {% include "family/includes/avatar.html" with photo=person.visible_portrait %}
+      <span><strong>{{ person.name }}</strong>{% if person.maiden_name %} <span class="hint">z d. {{ person.maiden_name }}</span>{% endif %}{% if person.years %}<br><span class="hint">{{ person.years }}</span>{% endif %}</span>
+    </a>
+  </li>
+  {% empty %}
+  <li class="hint">{% if query %}Nikt nie pasuje do „{{ query }}”.{% else %}Drzewo jest jeszcze puste. Dodaj pierwszą osobę albo kogoś z listy poniżej.{% endif %}</li>
+  {% endfor %}
+</ul>
+
+{% if outside %}
+<h2>Osoby ze zdjęć spoza drzewa</h2>
+<p class="hint">Oznaczone na zdjęciach, ale jeszcze nie w drzewie.</p>
+<ul class="chips">
+  {% for person in outside %}<li><a class="chip" href="{% url 'family:person' person.pk %}">{{ person.name }} <span class="chip__count">{{ person.count }}</span></a></li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

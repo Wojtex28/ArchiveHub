@@ -82,7 +82,7 @@ def test_master_edits_groups(master_client, make_user, group):
     person = make_user("Karolina")
     master_client.post(
         reverse("panel:user_detail", args=[person.pk]),
-        {"action": "edit", "display_name": "Karolina B.", "family_groups": [group.pk]},
+        {"action": "edit", "display_name": "Karolina B.", "family_groups": [group.pk], "tree_access": "edit"},
     )
     person.refresh_from_db()
     assert person.display_name == "Karolina B."

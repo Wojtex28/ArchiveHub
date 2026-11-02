@@ -37,7 +37,17 @@ class User(AbstractUser):
     Wielkość liter nie ma znaczenia przy logowaniu i przy sprawdzaniu, czy nick jest wolny.
     """
 
+    TREE_EDIT = "edit"
+    TREE_VIEW = "view"
+    TREE_NONE = "none"
+    TREE_ACCESS = [
+        (TREE_EDIT, "oglądanie i edycja"),
+        (TREE_VIEW, "tylko oglądanie"),
+        (TREE_NONE, "brak dostępu"),
+    ]
+
     display_name = models.CharField("imię wyświetlane", max_length=60, blank=True)
+    tree_access = models.CharField("drzewo rodzinne", max_length=10, choices=TREE_ACCESS, default=TREE_EDIT)
     family_groups = models.ManyToManyField(
         FamilyGroup, blank=True, related_name="members", verbose_name="grupy"
     )
@@ -66,6 +76,14 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.display_name or self.username
+
+    @property
+    def can_view_tree(self):
+        return self.is_superuser or self.tree_access in (self.TREE_EDIT, self.TREE_VIEW)
+
+    @property
+    def can_edit_tree(self):
+        return self.is_superuser or self.tree_access == self.TREE_EDIT
 
     @property
     def has_two_factor(self):
