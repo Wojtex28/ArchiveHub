@@ -258,9 +258,50 @@
     canvas.style.backgroundSize = 24 * v.scale + "px " + 24 * v.scale + "px";
   }
 
+  // Część kanwy, której nie zasłania wysunięta karta osoby (z prawej albo, na telefonie, od dołu).
+  function area() {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!sheet.hidden) {
+      if (sheet.offsetLeft > w / 3) w = sheet.offsetLeft;
+      else h = Math.max(h / 3, sheet.offsetTop);
+    }
+    return { w: w, h: h };
+  }
+
   function viewCenter() {
-    var rect = canvas.getBoundingClientRect();
-    return toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    var rect = canvas.getBoundingClientRect(), a = area();
+    return toWorld(rect.left + a.w / 2, rect.top + a.h / 2);
+  }
+
+  // Płynne przesunięcie widoku (wybór osoby), bez animacji przy przeciąganiu.
+  function glide() {
+    canvas.classList.add("is-gliding");
+    clearTimeout(glide.timer);
+    glide.timer = setTimeout(function () { canvas.classList.remove("is-gliding"); }, 320);
+  }
+
+  // Wybrana osoba nie może się chować pod kartą ani za krawędzią: przesuwamy widok tylko tyle, ile trzeba.
+  function reveal(id) {
+    var p = state.byId[id];
+    if (!p) return;
+    var a = area(), v = state.view, pad = 24;
+    var left = v.x + p.x * v.scale, top = v.y + p.y * v.scale;
+    var right = left + NODE_W * v.scale, bottom = top + NODE_H * v.scale;
+    var dx = 0, dy = 0;
+    if (right > a.w - pad) dx = a.w - pad - right;
+    if (left + dx < pad) dx = pad - left;
+    if (bottom > a.h - pad) dy = a.h - pad - bottom;
+    if (top + dy < pad) dy = pad - top;
+    if (!dx && !dy) return;
+    glide();
+    state.view = { scale: v.scale, x: v.x + dx, y: v.y + dy };
+    applyView();
+  }
+
+  // Kanwa sięga do dołu okna: odejmujemy to, co jest nad nią (nagłówek, wstążka, komunikaty).
+  function sizeCanvas() {
+    var top = canvas.getBoundingClientRect().top + window.scrollY;
+    canvas.style.setProperty("--tree-top", Math.round(top) + "px");
   }
 
   function toWorld(clientX, clientY) {
@@ -271,9 +312,9 @@
 
   function fit() {
     var people = state.data.people;
-    var rect = canvas.getBoundingClientRect();
+    var rect = area();
     if (!people.length) {
-      state.view = { x: rect.width / 2, y: rect.height / 3, scale: 1 };
+      state.view = { x: rect.w / 2, y: rect.h / 3, scale: 1 };
       applyView();
       return;
     }
@@ -283,12 +324,12 @@
       maxX = Math.max(maxX, p.x + NODE_W); maxY = Math.max(maxY, p.y + NODE_H);
     });
     var pad = 40;
-    var scale = Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY), 1);
+    var scale = Math.min((rect.w - pad * 2) / (maxX - minX), (rect.h - pad * 2) / (maxY - minY), 1);
     scale = Math.max(ZOOM_MIN, scale);
     state.view = {
       scale: scale,
-      x: rect.width / 2 - ((minX + maxX) / 2) * scale,
-      y: rect.height / 2 - ((minY + maxY) / 2) * scale,
+      x: rect.w / 2 - ((minX + maxX) / 2) * scale,
+      y: rect.h / 2 - ((minY + maxY) / 2) * scale,
     };
     applyView();
   }
@@ -296,9 +337,9 @@
   function focusOn(id) {
     var p = state.byId[id];
     if (!p) return;
-    var rect = canvas.getBoundingClientRect();
+    var a = area();
     var scale = Math.max(state.view.scale, 0.8);
-    state.view = { scale: scale, x: rect.width / 2 - (p.x + NODE_W / 2) * scale, y: rect.height / 2 - (p.y + NODE_H / 2) * scale };
+    state.view = { scale: scale, x: a.w / 2 - (p.x + NODE_W / 2) * scale, y: a.h / 2 - (p.y + NODE_H / 2) * scale };
     applyView();
   }
 
@@ -340,7 +381,7 @@
     node.setAttribute("aria-label", person.name + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
     if (state.data.canEdit && state.selected === person.id) {
-      ["rodzic", "partner", "dziecko"].forEach(function (kind) {
+      kindsFor(person.id).forEach(function (kind) {
         var handle = el("button", "tree-handle tree-handle--" + kind, "+");
         handle.type = "button";
         handle.setAttribute("data-kind", kind);
@@ -350,6 +391,14 @@
       });
     }
     positionNode(person);
+  }
+
+  // Kogo można dodać: rodzica tylko do dwojga.
+  function kindsFor(id) {
+    var rel = relativesIndex(state.data)[id];
+    return ["rodzic", "partner", "dziecko"].filter(function (kind) {
+      return kind !== "rodzic" || !rel || rel.parents.length < 2;
+    });
   }
 
   function positionNode(person) {
@@ -373,7 +422,8 @@
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
       path("M" + (a.x + NODE_W / 2) + "," + (a.y + NODE_H / 2) + " L" + (b.x + NODE_W / 2) + "," + (b.y + NODE_H / 2), "tree-line tree-line--partner");
     });
-    // Dziecko pary: linia od środka między rodzicami; inaczej od rodzica.
+    // Dziecko dwojga rodziców: jedna linia od środka pary (rodzice są połączeni linią pary);
+    // dziecko jednego rodzica: linia od tego rodzica.
     var parentsOf = {};
     state.data.parents.forEach(function (link) {
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
@@ -383,7 +433,10 @@
       if (!child) return;
       var ps = parentsOf[childId].map(function (id) { return byId[id]; }).filter(Boolean);
       var sources = [];
-      if (ps.length === 2 && partnerOf[ps[0].id + "-" + ps[1].id]) {
+      if (ps.length === 2) {
+        if (!partnerOf[ps[0].id + "-" + ps[1].id]) {
+          path("M" + (ps[0].x + NODE_W / 2) + "," + (ps[0].y + NODE_H / 2) + " L" + (ps[1].x + NODE_W / 2) + "," + (ps[1].y + NODE_H / 2), "tree-line tree-line--partner");
+        }
         sources.push([(ps[0].x + ps[1].x) / 2 + NODE_W / 2, (ps[0].y + ps[1].y) / 2 + NODE_H / 2]);
       } else {
         ps.forEach(function (p) { sources.push([p.x + NODE_W / 2, p.y + NODE_H]); });
@@ -421,6 +474,7 @@
     if (state.selected && !state.byId[state.selected]) state.selected = null;
     var placed = placeMissing();
     render();
+    renderSheet();
     if (first) {
       var wanted = parseInt(new URLSearchParams(location.search).get("osoba"), 10);
       if (state.byId[wanted]) {
@@ -431,7 +485,6 @@
         fit();
       }
     }
-    renderSheet();
     renderOutside();
     renderNames();
     if (data.canEdit && Object.keys(placed).length) savePositions(placed);
@@ -533,7 +586,7 @@
 
     if (person) {
       var actions = el("div", "tree-sheet__actions");
-      ["rodzic", "partner", "dziecko"].forEach(function (kind) {
+      kindsFor(person.id).forEach(function (kind) {
         var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko" }[kind]);
         button.type = "button";
         button.addEventListener("click", function () { openForm(person.id, kind); });
@@ -576,9 +629,30 @@
       });
       kind.addEventListener("change", function () {
         state.form.kind = kind.value;
-        label.textContent = "Dodaj " + KINDS[kind.value] + ": " + to.name;
+        renderSheet();
       });
       form.appendChild(kind);
+      var rel = relativesIndex(state.data)[to.id] || { parents: [], partners: [] };
+      if (state.form.kind === "dziecko" && rel.partners.length) {
+        // Dziecko pochodzi od pary: drugim rodzicem jest partner (do wyboru, gdy jest ich kilku).
+        var secondLabel = el("label", "tree-form__second", "Drugi rodzic");
+        var second = el("select");
+        second.setAttribute("data-second", "");
+        rel.partners.forEach(function (id) {
+          var mate = state.byId[id];
+          if (!mate) return;
+          var option = el("option", "", mate.name);
+          option.value = id;
+          second.appendChild(option);
+        });
+        var none = el("option", "", "nikt z drzewa / nie wiadomo");
+        none.value = "";
+        second.appendChild(none);
+        secondLabel.appendChild(second);
+        form.appendChild(secondLabel);
+      } else if (state.form.kind === "rodzic" && rel.parents.length === 1 && state.byId[rel.parents[0]]) {
+        form.appendChild(el("p", "hint", "Drugi rodzic: razem z " + state.byId[rel.parents[0]].name + " będą parą, a linia do " + to.name + " pójdzie od pary."));
+      }
     }
     var input = el("input");
     input.id = "drzewo-nowa-osoba";
@@ -588,6 +662,9 @@
     input.autocomplete = "off";
     input.setAttribute("list", "drzewo-osoby");
     input.placeholder = "Imię i nazwisko";
+    // Zmiana „kim jest” przebudowuje formularz: wpisane imię zostaje.
+    input.value = state.form.name || "";
+    input.addEventListener("input", function () { state.form.name = input.value; });
     form.appendChild(input);
     form.appendChild(el("p", "hint", "Nowa osoba albo ktoś, kto już jest w archiwum (podpowiedzi)."));
     var row = el("div", "tree-form__buttons");
@@ -610,12 +687,15 @@
       var spot = state.form.at;
       if (spot) { body.x = spot[0]; body.y = spot[1]; }
       if (to) body.relation = { to: to.id, kind: state.form.kind };
+      var secondChoice = form.querySelector("[data-second]");
+      if (to && secondChoice) body.relation.second = secondChoice.value ? Number(secondChoice.value) : null;
       send(urls.add, body).then(function () {
         state.form = null;
         var added = state.data.people.filter(function (p) { return p.name.toLowerCase() === name.toLowerCase(); })[0];
         if (!to && added) state.selected = added.id;
         render();
         renderSheet();
+        if (state.selected) reveal(state.selected);
         showMessage("Dodano: " + name + ".");
       });
     });
@@ -628,6 +708,7 @@
     if (personId) state.selected = personId;
     render();
     renderSheet();
+    if (personId) reveal(personId);
   }
 
   function select(id, center) {
@@ -635,7 +716,7 @@
     state.form = null;
     render();
     renderSheet();
-    if (center) focusOn(id);
+    if (center) { glide(); focusOn(id); } else reveal(id);
   }
 
   // --- Osoby ze zdjęć spoza drzewa -------------------------------------------
@@ -881,14 +962,16 @@
     var action = event.target.closest("[data-tree-action]");
     if (!action) return;
     var name = action.getAttribute("data-tree-action");
-    var rect = canvas.getBoundingClientRect();
-    if (name === "zoom-in") zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 1.25);
-    if (name === "zoom-out") zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 0.8);
+    var rect = canvas.getBoundingClientRect(), a = area();
+    if (name === "zoom-in") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 1.25);
+    if (name === "zoom-out") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 0.8);
     if (name === "fit") fit();
     if (name === "add") {
-      var center = viewCenter();
       state.selected = null;
-      openForm(null, null, freeSpot(center[0] - NODE_W / 2, center[1] - NODE_H / 2));
+      openForm(null, null, null);
+      // Środek tej części kanwy, której nie zasłoni karta z formularzem.
+      var center = viewCenter();
+      state.form.at = freeSpot(center[0] - NODE_W / 2, center[1] - NODE_H / 2);
     }
     if (name === "layout") {
       if (!window.confirm("Ułożyć całe drzewo od nowa? Kafelki staną w rzędach według pokoleń, a Twoje ręczne ustawienie zniknie.")) return;
@@ -900,7 +983,18 @@
     }
   });
 
-  window.addEventListener("resize", function () { if (state.data) applyView(); });
+  // Esc chowa wysuniętą kartę osoby.
+  root.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape" || sheet.hidden || event.defaultPrevented) return;
+    state.selected = null;
+    state.form = null;
+    render();
+    renderSheet();
+    canvas.focus();
+  });
+
+  window.addEventListener("resize", function () { sizeCanvas(); if (state.data) applyView(); });
+  sizeCanvas();
 
   request(urls.data).then(function (data) {
     root.classList.add("is-ready");

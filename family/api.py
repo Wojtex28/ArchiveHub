@@ -134,26 +134,35 @@ def save_positions(request):
 @tree_access(edit=True)
 @require_POST
 def add(request):
-    """Nowa osoba albo osoba ze zdjęć: ``{"name"|"id", "x", "y", "relation": {"to": id, "kind"}}``."""
+    """Nowa osoba albo osoba ze zdjęć: ``{"name"|"id", "x", "y", "relation": {"to", "kind", "second"}}``."""
     body = _body(request)
-    if body.get("id") is not None:
-        person = _person(body["id"])
-        if person is None:
-            return _error("Nie ma takiej osoby.", 404)
-    else:
-        name = _name(body.get("name"))
-        if not name:
-            return _error("Wpisz imię i nazwisko (najwyżej 100 znaków).")
-        person = Person.objects.get_or_create_named(name)
     relation = body.get("relation") or {}
+    other, second = None, tree.AUTO
+    if relation:
+        other = _person(relation.get("to"), in_tree=True)
+        if other is None:
+            return _error("Nie ma takiej osoby w drzewie.", 404)
+        # Drugi rodzic nowego dziecka: id, ``null`` (nie wiadomo) albo brak klucza (jedyny partner).
+        if "second" in relation:
+            second = None
+            if relation["second"] is not None:
+                second = _person(relation["second"], in_tree=True)
+                if second is None:
+                    return _error("Nie ma takiej osoby w drzewie.", 404)
     with transaction.atomic():
-        if relation:
-            other = _person(relation.get("to"), in_tree=True)
-            if other is None:
-                return _error("Nie ma takiej osoby w drzewie.", 404)
+        if body.get("id") is not None:
+            person = _person(body["id"])
+            if person is None:
+                return _error("Nie ma takiej osoby.", 404)
+        else:
+            name = _name(body.get("name"))
+            if not name:
+                return _error("Wpisz imię i nazwisko (najwyżej 100 znaków).")
+            person = Person.objects.get_or_create_named(name)
+        if other is not None:
             try:
                 # „kind” mówi, kim nowa osoba jest dla ``other``.
-                tree.add_relation(request.user, other, person, relation.get("kind"))
+                tree.add_relation(request.user, other, person, relation.get("kind"), second_parent=second)
             except ValidationError as exc:
                 transaction.set_rollback(True)
                 return _error(exc.messages[0])
