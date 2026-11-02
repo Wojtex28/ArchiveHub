@@ -52,9 +52,7 @@ def test_add_with_relation_and_position(editor, couple):
 
 def test_add_error_rolls_back(editor, couple):
     anna, _ = couple
-    response = post(
-        editor, "family:api_add", {"id": anna.pk, "relation": {"to": anna.pk, "kind": "rodzic"}}
-    )
+    response = post(editor, "family:api_add", {"id": anna.pk, "relation": {"to": anna.pk, "kind": "rodzic"}})
     assert response.status_code == 400
     assert "sama ze sobą" in response.json()["error"]
     response = post(editor, "family:api_add", {"name": "", "x": 0, "y": 0})
