@@ -8,6 +8,34 @@
   var ZOOM_DOUBLE = 2.5; // dwuklik albo dwukrotne stuknięcie
   var TAP_MS = 300;
 
+  // Podgląd zajmuje cały ekran, więc gest dwóch palców nie może powiększać całej strony:
+  // po takim powiększeniu nie było czego chwycić, żeby ją pomniejszyć (zostawało odświeżenie).
+  // Zablokowane jest to w CSS (touch-action), a tu jeszcze dla Safari na iPhonie i jako ratunek,
+  // gdy strona już jest powiększona (np. przed otwarciem podglądu): wraca do skali 1.
+  var viewportMeta = document.querySelector("meta[name=viewport]");
+  var viewportContent = viewportMeta ? viewportMeta.getAttribute("content") : "";
+  var zoomGuard = false;
+
+  function resetPageZoom() {
+    var vv = window.visualViewport;
+    if (!viewportMeta || !vv || vv.scale <= 1.01) return;
+    viewportMeta.setAttribute("content", viewportContent + ", maximum-scale=1");
+    window.setTimeout(function () { viewportMeta.setAttribute("content", viewportContent); }, 400);
+  }
+
+  function guardPageZoom(on) {
+    zoomGuard = on;
+    if (on) resetPageZoom();
+  }
+
+  // Safari na iPhonie: własne zdarzenia gestu powiększania strony.
+  ["gesturestart", "gesturechange"].forEach(function (name) {
+    document.addEventListener(name, function (event) { if (zoomGuard) event.preventDefault(); }, { passive: false });
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", function () { if (zoomGuard) resetPageZoom(); });
+  }
+
   // Przesunięcie palcem w lewo/prawo. Gdy zdjęcie jest powiększone, palec je przesuwa, a nie zmienia.
   function onSwipe(element, callback, blocked) {
     var start = null;
@@ -251,6 +279,7 @@
   // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
   var page = document.querySelector("[data-viewer-page]");
   if (page) {
+    guardPageZoom(true);
     var follow = function (selector) {
       var link = page.querySelector(selector);
       if (link) window.location.href = link.href;
@@ -625,6 +654,7 @@
     opener = trigger;
     viewer.hidden = false;
     document.body.classList.add("viewer-open");
+    guardPageZoom(true);
     show(index, false);
     closeButton.focus();
   }
@@ -640,6 +670,7 @@
     viewer.hidden = true;
     pushed = false;
     document.body.classList.remove("viewer-open");
+    guardPageZoom(false);
     var tile = tiles[current];
     if (tile) {
       tile.scrollIntoView({ block: "nearest" });
