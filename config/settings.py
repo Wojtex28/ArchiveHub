@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "core",
     "panel",
     "albums",
+    "family",
 ]
 
 MIDDLEWARE = [

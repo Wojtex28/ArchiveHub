@@ -28,7 +28,9 @@ w projekcie.
 | 15 | Bezpieczeństwo: logowanie dwuskładnikowe dla mastera, codzienna kopia bazy, snapshoty, kopia na Drive | **gotowe** |
 | 16 | Produkcja: stan serwera i dziennik w panelu, monitoring, dane na datasecie, odtwarzanie po awarii | **gotowe** |
 | 17 | Import wielu albumów: kolejka po jednym albumie, kontrola miejsca, postęp i podgląd udziału w panelu | **gotowe** |
-| 18+ | Testy końcowe, udostępnienie rodzinie… | zaplanowane |
+| 18–20 | Testy końcowe, udostępnienie rodzinie | po imporcie albumów |
+| 21 | Drzewo rodzinne: dane osób, relacje, karta osoby ze zdjęciami, dostęp per konto, historia zmian | **gotowe** |
+| 22–23 | Drzewo rodzinne: kanwa z przeciąganiem, historia z przywracaniem | zaplanowane |
 
 ## Technologie
 
@@ -566,6 +568,7 @@ config/        ustawienia (wszystko ze zmiennych środowiskowych), adresy URL
 accounts/      konta, grupy, kody rodzinne, logowanie, limit prób
 panel/         panel administratora (osoby, albumy, uprawnienia, synchronizacja, kody, grupy, tło)
 albums/        albumy, zdjęcia, widoczność dla grup, import z udziału, synchronizacja, miniatury
+family/        drzewo rodzinne: relacje między osobami ze zdjęć, karta osoby, historia zmian
 core/          strona powitalna, tło logowania, /healthz, stan serwera, dziennik, kopie bazy, nagłówki bezpieczeństwa
 templates/     szablony wspólne
 static/        CSS i JavaScript (tło logowania)

@@ -31,6 +31,7 @@ from config import __version__
 from core import backup, status
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import Event, LoginPhoto
+from family import tree as family_tree
 
 from .codes import suggest_code
 from .forms import (
@@ -561,6 +562,12 @@ def named_edit(request, kind, pk):
     # Nazwa jest w tekście do wyszukiwania tych zdjęć, więc po każdej zmianie trzeba go przeliczyć.
     photo_ids = list(item.photos.values_list("pk", flat=True))
     if request.POST.get("action") == "delete":
+        if model is Person and item.in_tree:
+            messages.error(
+                request,
+                f"„{item.name}” jest w drzewie rodzinnym. Usuń tę osobę najpierw z drzewa (Drzewo → osoba).",
+            )
+            return redirect("panel:descriptions")
         logger.info("Administrator %s usunął %s %r", request.user, model._meta.verbose_name, item.name)
         item.delete()
         refresh_search_text(photo_ids)
@@ -575,6 +582,8 @@ def named_edit(request, kind, pk):
         for photo in item.photos.all():
             photo_items = getattr(photo, "people" if model is Person else "tags")
             photo_items.add(other)
+        if model is Person:
+            family_tree.merge_into(item, other)
         logger.info("Administrator %s połączył %r z %r", request.user, item.name, other.name)
         messages.success(request, f"Połączono „{item.name}” z „{other.name}”.")
         item.delete()

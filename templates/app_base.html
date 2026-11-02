@@ -6,6 +6,7 @@
   <nav class="app-header__nav" aria-label="Menu">
     <a href="{% url 'archive' %}">Archiwum</a>
     <a href="{% url 'albums:search' %}">Szukaj</a>
+    {% if user.can_view_tree %}<a href="{% url 'family:tree' %}">Drzewo</a>{% endif %}
     {% if user.is_superuser %}<a href="{% url 'panel:dashboard' %}">Panel</a>{% endif %}
     <a href="{% url 'add_code' %}">Mam kod</a>
     <a href="{% url 'password_change' %}">Hasło</a>

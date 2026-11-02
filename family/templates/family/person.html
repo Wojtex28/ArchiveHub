@@ -1,0 +1,65 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}{{ person.name }} · Drzewo rodzinne · {{ site_title }}<script src="{% static 'js/confirm.js' %}" defer></script>
+{% endblock %}
+{% block main %}
+<p><a href="{% url 'family:tree' %}">← Drzewo rodzinne</a></p>
+<div class="person-head">
+  {% include "family/includes/avatar.html" with photo=portrait large=True %}
+  <div>
+    <h1>{{ person.name }}</h1>
+    {% if person.maiden_name %}<p class="hint">z domu {{ person.maiden_name }}</p>{% endif %}
+    {% if not person.in_tree %}<p class="notice">Ta osoba jest oznaczona na zdjęciach, ale nie ma jej jeszcze w drzewie.{% if can_edit %} Dodaj ją, łącząc z rodziną poniżej, albo uzupełniając dane.{% endif %}</p>{% endif %}
+  </div>
+  {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}
+</div>
+
+<dl class="person-facts">
+  {% if person.birth_date or person.birth_place %}<div><dt>Urodzenie</dt><dd>{{ person.birth_date }}{% if person.birth_date and person.birth_place %}, {% endif %}{{ person.birth_place }}</dd></div>{% endif %}
+  {% if person.death_date or person.death_place %}<div><dt>Śmierć</dt><dd>{{ person.death_date }}{% if person.death_date and person.death_place %}, {% endif %}{{ person.death_place }}</dd></div>{% endif %}
+</dl>
+{% if person.bio %}<div class="person-bio">{{ person.bio|linebreaks }}</div>{% endif %}
+
+<h2>Rodzina</h2>
+<div class="family-groups">
+  {% include "family/includes/relatives.html" with label="Rodzice" kind="rodzic" relatives=parents %}
+  {% include "family/includes/relatives.html" with label="Partnerzy" kind="partner" relatives=partners %}
+  {% include "family/includes/relatives.html" with label="Dzieci" kind="dziecko" relatives=children %}
+</div>
+
+{% if can_edit %}
+<form method="post" action="{% url 'family:relation_add' person.pk %}" class="card relation-form">
+  {% csrf_token %}
+  <h3>Dodaj członka rodziny</h3>
+  <div class="relation-form__row">
+    <div class="field">{{ relation_form.kind.label_tag }}{{ relation_form.kind }}</div>
+    <div class="field relation-form__name">{{ relation_form.name.label_tag }}{{ relation_form.name }}</div>
+    <button type="submit" class="button">Dodaj</button>
+  </div>
+  <p class="hint">{{ relation_form.name.help_text }}</p>
+  <datalist id="osoby-podpowiedzi">{% for name in suggestions %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+</form>
+{% endif %}
+
+<h2>Zdjęcia{% if photo_total %} ({{ photo_total }}){% endif %}</h2>
+{% if photos %}
+<p class="hint">Kliknij zdjęcie, żeby je obejrzeć. Pod zdjęciem jest album, z którego pochodzi.</p>
+<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="" data-csrf="{{ csrf_token }}">
+  {% for photo in photos %}
+  {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}
+  {% endfor %}
+</ul>
+<script src="{% static 'js/gallery.js' %}" defer></script>
+{% if photo_total > photos|length %}<p><a href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}">Wszystkie zdjęcia: {{ person.name }} ({{ photo_total }})</a></p>{% endif %}
+{% else %}
+<p class="hint">Nie ma jeszcze zdjęć z tą osobą{% if person.photos.exists %} w albumach, które widzisz{% endif %}. Zdjęcia dochodzą same, gdy ktoś oznaczy tę osobę w opisie zdjęcia (pole „Kto”).</p>
+{% endif %}
+
+{% if can_edit and person.in_tree %}
+<form method="post" action="{% url 'family:person_remove' person.pk %}" class="danger-zone">
+  {% csrf_token %}
+  <button type="submit" class="button button--quiet" data-confirm="Usunąć {{ person.name }} z drzewa razem z połączeniami z rodziną? Oznaczenia na zdjęciach zostaną.">Usuń z drzewa</button>
+</form>
+{% endif %}
+<script src="{% static 'js/confirm.js' %}" defer></script>
+{% endblock %}
