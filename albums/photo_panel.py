@@ -3,6 +3,7 @@
 Podgląd w galerii wczytuje go obok zdjęcia, a osobna strona zdjęcia wstawia ten sam szablon.
 """
 
+from django.db.models import Q
 from django.shortcuts import render
 
 from .forms import CommentForm, MetadataForm
@@ -17,6 +18,21 @@ def suggestions_for(user):
         "tags": Tag.objects.filter(photos__in=photos).distinct().values_list("name", flat=True),
         "places": photos.exclude(place="").order_by("place").values_list("place", flat=True).distinct(),
     }
+
+
+def people_choices(user):
+    """Osoby do wyboru w polu „Kto”: najpierw z drzewa (z latami życia), potem pozostałe ze zdjęć.
+
+    Osoby z drzewa widzi tylko konto z dostępem do drzewa; pozostałe tylko z albumów, które konto widzi.
+    """
+    visible = Q(photos__in=Photo.objects.visible_to(user))
+    if user.can_view_tree:
+        visible |= Q(in_tree=True)
+    people = Person.objects.filter(visible).distinct().order_by("-in_tree", "key")
+    return [
+        {"name": person.name, "years": person.years if person.in_tree else "", "tree": person.in_tree}
+        for person in people
+    ]
 
 
 def panel_context(request, photo, comment_form=None, metadata_form=None):
@@ -35,6 +51,7 @@ def panel_context(request, photo, comment_form=None, metadata_form=None):
         "photo_tags": tags,
         "has_metadata": bool(photo.date_text or photo.place or photo.description or people or tags),
         "suggestions": suggestions_for(request.user),
+        "people_choices": people_choices(request.user),
     }
 
 

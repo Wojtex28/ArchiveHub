@@ -15,6 +15,16 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.24.0 (2026-11-02) · ETAP 24: wybór osób na zdjęciu z listy
+
+### Zmienione
+- **„Kto jest na zdjęciu”** to teraz wybór z listy zamiast wpisywania nazw po przecinku. Po kilku literach lista podpowiada najpierw osoby z drzewa (z latami życia), potem pozostałe osoby ze zdjęć. Wyszukiwanie nie zwraca uwagi na wielkość liter ani polskie znaki („lucja” znajdzie „Łucję”).
+- Nową osobę dodaje się tylko świadomie, przyciskiem „+ Dodaj nową osobę”, więc literówka nie tworzy dubla. Wpisane, ale niewybrane imię zatrzymuje zapis z prośbą o wybór.
+- Wybrane osoby są kafelkami z „×”. Bez JavaScriptu zostaje dawne pole z nazwami po przecinku.
+
+### Poprawione
+- Zdjęcie osoby z jej ostatniego zdjęcia usuwało ją z archiwum, a razem z nią miejsce w drzewie i połączenia. Teraz osoby z drzewa (i z historią w drzewie) zostają.
+
 ## 0.23.0 (2026-11-02) · ETAP 23: drzewo rodzinne, historia zmian z przywracaniem
 
 ### Dodane

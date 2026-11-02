@@ -67,9 +67,15 @@ class MetadataForm(forms.Form):
         label="Kto jest na zdjęciu",
         required=False,
         max_length=2000,
-        help_text="Oddziel osoby przecinkami, np. babcia Helena, Jan Bereza.",
+        help_text="Wpisz kilka liter i wybierz osobę z listy. Osoby z drzewa są na górze.",
         widget=forms.TextInput(
-            attrs={"list": "osoby-podpowiedzi", "autocomplete": "off", "data-list-input": ""}
+            attrs={
+                "list": "osoby-podpowiedzi",
+                "autocomplete": "off",
+                "data-list-input": "",
+                # Bez JavaScriptu zostaje pole tekstowe z nazwami po przecinku.
+                "data-people-picker": "osoby-wybor",
+            }
         ),
     )
     tags = NamesField(
