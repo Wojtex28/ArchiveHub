@@ -6,12 +6,13 @@
 </div>
 <div class="table-wrap">
 <table class="table">
-  <thead><tr><th>Nick</th><th>Grupy</th><th>Stan</th><th>Ostatnie logowanie</th></tr></thead>
+  <thead><tr><th>Nick</th><th>Grupy</th><th>Drzewo</th><th>Stan</th><th>Ostatnie logowanie</th></tr></thead>
   <tbody>
   {% for person in users %}
   <tr{% if not person.is_active %} class="is-muted"{% endif %}>
     <td><a href="{% url 'panel:user_detail' person.pk %}">{{ person.username }}</a>{% if person.is_superuser %} <span class="badge">administrator</span>{% endif %}</td>
     <td>{% for g in person.family_groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="hint">brak</span>{% endfor %}</td>
+    <td>{% if person.is_superuser %}pełny dostęp{% else %}{{ person.get_tree_access_display }}{% endif %}</td>
     <td>{% if person.is_active %}aktywne{% else %}wyłączone{% endif %}</td>
     <td>{% if person.last_login %}{{ person.last_login|date:"j E Y" }}{% else %}<span class="hint">nigdy</span>{% endif %}</td>
   </tr>
@@ -19,4 +20,13 @@
   </tbody>
 </table>
 </div>
+<form method="post" action="{% url 'panel:tree_access_all' %}" class="bulk-form">
+  {% csrf_token %}
+  <label for="tree-access-all">Drzewo rodzinne dla wszystkich kont</label>
+  <select id="tree-access-all" name="tree_access">
+    {% for value, label in tree_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="button button--quiet" data-confirm="Ustawić ten dostęp do drzewa wszystkim kontom? Pojedyncze konto zmienisz potem na jego stronie.">Ustaw wszystkim</button>
+</form>
+<p class="hint">Np. „brak dostępu”, żeby ukryć drzewo przed wszystkimi, dopóki nie będzie gotowe. Administrator zawsze ma pełny dostęp.</p>
 {% endblock %}
