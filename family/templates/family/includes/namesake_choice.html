@@ -1,0 +1,8 @@
+{# Wpisana nazwa jest już zajęta: kogo z archiwum dotyczy albo czy to nowy imiennik. #}
+<fieldset class="namesake-choice">
+  <legend>W archiwum jest już „{{ namesakes.name }}”. Kogo dodajesz?</legend>
+  {% for match in namesakes.matches %}
+  <label><input type="radio" name="kto" value="{{ match.id }}" required> <span>Tę osobę: <strong>{{ match.name }}</strong> <span class="hint">{{ match.facts }}</span></span></label>
+  {% endfor %}
+  <label><input type="radio" name="kto" value="nowa" required> <span>Inną osobę o tym samym imieniu i nazwisku <span class="hint">(powstanie nowa osoba)</span></span></label>
+</fieldset>

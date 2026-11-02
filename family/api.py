@@ -63,8 +63,8 @@ def _portrait(photo):
     return {"url": url, "turn": photo.pending_front}
 
 
-def _ok(request):
-    return JsonResponse(tree_data(request.user))
+def _ok(request, **extra):
+    return JsonResponse({**tree_data(request.user), **extra})
 
 
 def _error(message, status=400):
@@ -134,7 +134,13 @@ def save_positions(request):
 @tree_access(edit=True)
 @require_POST
 def add(request):
-    """Nowa osoba albo osoba ze zdjęć: ``{"name"|"id", "x", "y", "relation": {"to", "kind", "second"}}``."""
+    """Nowa osoba albo osoba ze zdjęć.
+
+    Treść: ``{"name"|"id", "new", "x", "y", "relation": {"to", "kind", "second"}}``.
+
+    Nazwa, którą ktoś już ma, nie łączy się sama: odpowiedź 409 z listą ``matches`` i formularz pyta,
+    czy to ta sama osoba (wtedy ``id``), czy imiennik (``"new": true``).
+    """
     body = _body(request)
     relation = body.get("relation") or {}
     other, second = None, tree.AUTO
@@ -158,7 +164,11 @@ def add(request):
             name = _name(body.get("name"))
             if not name:
                 return _error("Wpisz imię i nazwisko (najwyżej 100 znaków).")
-            person = Person.objects.get_or_create_named(name)
+            try:
+                person = tree.person_for(name, tree.NEW if body.get("new") is True else None)
+            except tree.NeedsChoice as exc:
+                matches = [tree.namesake_info(p, request.user) for p in exc.matches[:10]]
+                return JsonResponse({"error": exc.message, "matches": matches}, status=409)
         if other is not None:
             try:
                 # „kind” mówi, kim nowa osoba jest dla ``other``.
@@ -167,11 +177,11 @@ def add(request):
                 transaction.set_rollback(True)
                 return _error(exc.messages[0])
         else:
-            tree.add_person(request.user, person.name)
+            tree.put_in_tree(request.user, person)
         x, y = _coord(body.get("x")), _coord(body.get("y"))
         if x is not None and y is not None and person.tree_x is None:
             Person.objects.filter(pk=person.pk).update(tree_x=round(x, 1), tree_y=round(y, 1))
-    return _ok(request)
+    return _ok(request, added=person.pk)
 
 
 @tree_access(edit=True)

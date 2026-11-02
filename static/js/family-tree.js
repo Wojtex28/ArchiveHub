@@ -50,7 +50,11 @@
     root.classList.add("is-busy");
     return fetch(url, options).then(function (response) {
       return response.json().catch(function () { return {}; }).then(function (data) {
-        if (!response.ok) throw new Error(data.error || "Nie udało się zapisać. Odśwież stronę i spróbuj jeszcze raz.");
+        if (!response.ok) {
+          var error = new Error(data.error || "Nie udało się zapisać. Odśwież stronę i spróbuj jeszcze raz.");
+          error.data = data;
+          throw error;
+        }
         return data;
       });
     }).finally(function () {
@@ -61,7 +65,8 @@
 
   function send(url, body) {
     return request(url, body).then(apply).catch(function (error) {
-      showMessage(error.message, true);
+      // Imiennicy: formularz sam pyta, o kogo chodzi, więc bez czerwonego komunikatu.
+      if (!(error.data && error.data.matches)) showMessage(error.message, true);
       throw error;
     });
   }
@@ -664,12 +669,26 @@
     input.placeholder = "Imię i nazwisko";
     // Zmiana „kim jest” przebudowuje formularz: wpisane imię zostaje.
     input.value = state.form.name || "";
-    input.addEventListener("input", function () { state.form.name = input.value; });
+    var choice = null;
+    input.addEventListener("input", function () {
+      state.form.name = input.value;
+      // Inna nazwa: pytanie o imienników przestaje dotyczyć wpisanej osoby.
+      if (state.form.matches) {
+        state.form.matches = null;
+        if (choice) choice.remove();
+        submit.hidden = false;
+      }
+    });
     form.appendChild(input);
     form.appendChild(el("p", "hint", "Nowa osoba albo ktoś, kto już jest w archiwum (podpowiedzi)."));
     var row = el("div", "tree-form__buttons");
     var submit = el("button", "button", "Dodaj");
     submit.type = "submit";
+    if (state.form.matches) {
+      choice = namesakeChoice(state.form.matches, function (extra) { save(extra); });
+      form.appendChild(choice);
+      submit.hidden = true;
+    }
     var cancel = el("button", "button button--quiet", "Anuluj");
     cancel.type = "button";
     cancel.addEventListener("click", function () {
@@ -679,28 +698,66 @@
     row.appendChild(submit);
     row.appendChild(cancel);
     form.appendChild(row);
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
+    // ``extra``: ``{id}`` (to ta osoba z archiwum) albo ``{new: true}`` (imiennik) po pytaniu o imienników.
+    function save(extra) {
       var name = input.value.trim();
       if (!name || state.busy) return;
-      var body = { name: name };
+      var body = extra && extra.id ? { id: extra.id } : { name: name };
+      if (extra && extra.new) body.new = true;
       var spot = state.form.at;
       if (spot) { body.x = spot[0]; body.y = spot[1]; }
       if (to) body.relation = { to: to.id, kind: state.form.kind };
       var secondChoice = form.querySelector("[data-second]");
       if (to && secondChoice) body.relation.second = secondChoice.value ? Number(secondChoice.value) : null;
-      send(urls.add, body).then(function () {
+      send(urls.add, body).then(function (data) {
         state.form = null;
-        var added = state.data.people.filter(function (p) { return p.name.toLowerCase() === name.toLowerCase(); })[0];
-        if (!to && added) state.selected = added.id;
+        if (!to && data.added) state.selected = data.added;
         render();
         renderSheet();
         if (state.selected) reveal(state.selected);
         showMessage("Dodano: " + name + ".");
+      }).catch(function (error) {
+        if (!(error.data && error.data.matches)) return;
+        state.form.name = name;
+        state.form.matches = error.data.matches;
+        renderSheet();
       });
+    }
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      save(null);
     });
-    setTimeout(function () { input.focus(); }, 0);
+    if (!choice) setTimeout(function () { input.focus(); }, 0);
     return form;
+  }
+
+  // „W archiwum jest już Jan Bereza”: wybór istniejącej osoby albo nowego imiennika.
+  function namesakeChoice(matches, pick) {
+    var box = el("div", "tree-namesakes");
+    box.setAttribute("role", "group");
+    var lead = el("p", "tree-namesakes__lead", "W archiwum jest już „" + matches[0].name + "”. Kogo dodajesz?");
+    lead.id = "drzewo-imiennicy";
+    box.setAttribute("aria-labelledby", lead.id);
+    box.appendChild(lead);
+    matches.forEach(function (match) {
+      var button = el("button", "tree-namesake");
+      button.type = "button";
+      button.appendChild(el("strong", "", "Tę osobę: " + match.name));
+      button.appendChild(el("span", "tree-namesake__facts", match.facts));
+      button.addEventListener("click", function () { pick({ id: match.id }); });
+      box.appendChild(button);
+    });
+    var fresh = el("button", "tree-namesake tree-namesake--new");
+    fresh.type = "button";
+    fresh.appendChild(el("strong", "", "Inną osobę o tym samym imieniu i nazwisku"));
+    fresh.appendChild(el("span", "tree-namesake__facts", "Powstanie nowa osoba. Dopisz jej lata życia, żeby łatwo było je odróżnić."));
+    fresh.addEventListener("click", function () { pick({ new: true }); });
+    box.appendChild(fresh);
+    setTimeout(function () {
+      box.querySelector("button").focus({ preventScroll: true });
+      box.scrollIntoView({ block: "nearest" });
+    }, 0);
+    return box;
   }
 
   function openForm(personId, kind, at) {

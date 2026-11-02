@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.shortcuts import render
 
 from .forms import CommentForm, MetadataForm
-from .models import Person, Photo, Tag
+from .models import Person, Photo, Tag, namesake_keys, person_token
 
 
 def suggestions_for(user):
@@ -28,9 +28,17 @@ def people_choices(user):
     visible = Q(photos__in=Photo.objects.visible_to(user))
     if user.can_view_tree:
         visible |= Q(in_tree=True)
-    people = Person.objects.filter(visible).distinct().order_by("-in_tree", "key")
+    people = Person.objects.filter(visible).distinct().order_by("-in_tree", "key", "pk")
+    namesakes = namesake_keys()
     return [
-        {"name": person.name, "years": person.years if person.in_tree else "", "tree": person.in_tree}
+        {
+            "name": person.name,
+            # Imiennika wskazuje numer („Jan Bereza #12”), resztę sama nazwa.
+            "token": person_token(person, namesakes),
+            "same": person.key in namesakes,
+            "years": person.years if person.in_tree else "",
+            "tree": person.in_tree,
+        }
         for person in people
     ]
 
@@ -40,6 +48,10 @@ def panel_context(request, photo, comment_form=None, metadata_form=None):
     for comment in comments:
         comment.deletable = comment.can_delete(request.user)
     people = list(photo.people.all())
+    namesakes = namesake_keys()
+    for person in people:
+        # Dwie osoby „Jan Bereza” na liście „Kto” odróżniają lata życia z drzewa.
+        person.namesake_years = person.years if person.key in namesakes and person.in_tree else ""
     tags = list(photo.tags.all())
     return {
         "photo": photo,

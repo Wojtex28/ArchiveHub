@@ -25,7 +25,17 @@ from albums.importer import (
     share_overview,
 )
 from albums.metadata import change_rows
-from albums.models import Album, Comment, ImportJob, Person, PhotoChange, SyncReport, Tag, name_key
+from albums.models import (
+    Album,
+    Comment,
+    ImportJob,
+    Person,
+    PhotoChange,
+    SyncReport,
+    Tag,
+    name_key,
+    namesake_keys,
+)
 from albums.search import refresh_search_text
 from albums.sync import albums_dir, sync_albums
 from config import __version__
@@ -560,13 +570,24 @@ def descriptions(request):
         "panel/descriptions.html",
         {
             "named": [
-                ("Osoby", "osoby", list(Person.objects.annotate(count=Count("photos")))),
+                ("Osoby", "osoby", _people_with_namesakes()),
                 ("Tagi", "tagi", list(Tag.objects.annotate(count=Count("photos")))),
             ],
             "changes": changes,
             "shown": CHANGES_SHOWN,
         },
     )
+
+
+def _people_with_namesakes():
+    namesakes = namesake_keys()
+    people = list(Person.objects.annotate(count=Count("photos")))
+    for person in people:
+        # Imienników odróżniają lata życia i to, czy są w drzewie.
+        if person.key in namesakes:
+            facts = [person.years, "w drzewie" if person.in_tree else "spoza drzewa"]
+            person.namesake_hint = "imiennik: " + " · ".join(filter(None, facts))
+    return people
 
 
 @master_required
@@ -596,7 +617,19 @@ def named_edit(request, kind, pk):
     if not name or len(name) > model.MAX_LENGTH:
         messages.error(request, "Wpisz nazwę (najwyżej 100 znaków).")
         return redirect("panel:descriptions")
-    other = model.objects.filter(key=name_key(name)).exclude(pk=item.pk).first()
+    others = list(model.objects.filter(key=name_key(name)).exclude(pk=item.pk)[:2])
+    other = others[0] if others else None
+    if model is Person and (len(others) > 1 or (other and other.in_tree and item.in_tree)):
+        # Imiennicy w drzewie (ETAP 26): to różni ludzie, więc tylko zmiana nazwy, bez łączenia.
+        if len(others) > 1:
+            messages.error(request, f"Jest kilka osób „{name}”, więc nie wiadomo, z którą połączyć.")
+            return redirect("panel:descriptions")
+        other = None
+        messages.info(
+            request,
+            f"W drzewie są teraz dwie osoby „{name}” (imiennicy). Jeśli to ta sama osoba, "
+            "usuń jedną z drzewa i zmień nazwę jeszcze raz, żeby je połączyć.",
+        )
     if other:
         for photo in item.photos.all():
             photo_items = getattr(photo, "people" if model is Person else "tags")

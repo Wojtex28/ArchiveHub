@@ -15,6 +15,19 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.26.0 (2026-11-02) · ETAP 26: imiennicy
+
+### Naprawione
+- **Druga osoba o tym samym imieniu i nazwisku nie łączy się już z pierwszą.** Wcześniej wpisanie w drzewie np. drugiego „Jan Bereza” podpinało istniejącego Jana pod nowe miejsce, a przy dziecku dokładało mu drugiego rodzica i parowało obcych rodziców, co rozsypywało drzewo.
+
+### Dodane
+- **Pytanie „Kogo dodajesz?”**, gdy wpisana nazwa jest już w archiwum (w drzewie albo na zdjęciach): „Tę osobę” z latami życia, rodzicami, partnerem i liczbą zdjęć albo „Inną osobę o tym samym imieniu i nazwisku”. Działa na kanwie, w formularzu „Dodaj osobę do drzewa” i na karcie osoby.
+- **Imiennicy w opisie zdjęcia:** w polu „Kto” obaj są na liście z latami życia i zapisuje się ten wybrany. Na liście „Kto” pod zdjęciem imiennicy z drzewa mają lata życia.
+- Zmiana imienia osoby na takie, które ktoś już ma, jest dozwolona; strona tylko o tym przypomina.
+- Panel → Opisy: imiennicy z drzewa są podpisani („imiennik: lata · w drzewie”), a zmiana nazwy nie łączy dwóch osób z drzewa w jedną.
+
+---
+
 ## 0.25.0 (2026-11-02) · ETAP 25: dziecko od pary rodziców, kanwa na cały ekran
 
 ### Zmienione

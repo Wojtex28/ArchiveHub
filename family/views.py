@@ -3,6 +3,7 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -41,6 +42,14 @@ def _suggestions():
 @tree_access()
 @require_safe
 def tree_home(request):
+    return _tree_page(request)
+
+
+def _namesakes(request, exc):
+    return {"name": exc.name, "matches": [tree.namesake_info(p, request.user) for p in exc.matches]}
+
+
+def _tree_page(request, form=None, namesakes=None):
     query = " ".join(request.GET.get("q", "").split())
     people = Person.objects.filter(in_tree=True).select_related("portrait")
     if query:
@@ -67,7 +76,8 @@ def tree_home(request):
             "people": people,
             "query": query,
             "outside": outside,
-            "form": NewPersonForm(),
+            "form": form or NewPersonForm(),
+            "namesakes": namesakes,
             "suggestions": _suggestions(),
         },
     )
@@ -80,7 +90,14 @@ def person_add(request):
     if not form.is_valid():
         messages.error(request, "Wpisz imię i nazwisko.")
         return redirect("family:tree")
-    person = tree.add_person(request.user, form.cleaned_data["name"])
+    try:
+        person = tree.person_for(form.cleaned_data["name"], request.POST.get("kto"))
+    except tree.NeedsChoice as exc:
+        return _tree_page(request, form, _namesakes(request, exc))
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect("family:tree")
+    tree.put_in_tree(request.user, person)
     messages.success(request, f"{person.name} jest w drzewie. Uzupełnij dane i dodaj rodzinę.")
     return redirect("family:person", person.pk)
 
@@ -99,7 +116,10 @@ def _visible_photos(user, person):
 @tree_access()
 @require_safe
 def person_detail(request, pk):
-    person = get_object_or_404(Person.objects.select_related("portrait"), pk=pk)
+    return _person_page(request, get_object_or_404(Person.objects.select_related("portrait"), pk=pk))
+
+
+def _person_page(request, person, relation_form=None, namesakes=None):
     photos = _visible_photos(request.user, person)
     portrait = person.portrait if person.portrait and photos.filter(pk=person.portrait_id).exists() else None
     return render(
@@ -113,7 +133,8 @@ def person_detail(request, pk):
             "children": tree.children(person),
             "photos": photos[:PHOTOS_SHOWN],
             "photo_total": photos.count(),
-            "relation_form": RelationForm(label_suffix=""),
+            "relation_form": relation_form or RelationForm(label_suffix=""),
+            "namesakes": namesakes,
             "suggestions": _suggestions(),
             "can_edit": request.user.can_edit_tree,
         },
@@ -133,6 +154,11 @@ def person_edit(request, pk):
         if person.name != old_name:
             # Nazwa osoby jest w tekście do wyszukiwania jej zdjęć.
             refresh_search_text(list(person.photos.values_list("pk", flat=True)))
+            if tree.same_name(person.name).exclude(pk=person.pk).exists():
+                messages.info(
+                    request,
+                    f"W archiwum jest też inna osoba „{person.name}”. Lata życia pomogą je odróżnić.",
+                )
         tree.edit_person(request.user, person, before)
         messages.success(request, "Zapisano.")
         return redirect("family:person", person.pk)
@@ -145,11 +171,14 @@ def person_edit(request, pk):
 @require_POST
 def relation_add(request, pk):
     person = get_object_or_404(Person, pk=pk)
-    form = RelationForm(request.POST)
+    form = RelationForm(request.POST, label_suffix="")
     if form.is_valid():
-        other = Person.objects.get_or_create_named(form.cleaned_data["name"])
         try:
-            tree.add_relation(request.user, person, other, form.cleaned_data["kind"])
+            with transaction.atomic():
+                other = tree.person_for(form.cleaned_data["name"], request.POST.get("kto"))
+                tree.add_relation(request.user, person, other, form.cleaned_data["kind"])
+        except tree.NeedsChoice as exc:
+            return _person_page(request, person, form, _namesakes(request, exc))
         except ValidationError as exc:
             messages.error(request, exc.messages[0])
         else:

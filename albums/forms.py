@@ -5,7 +5,7 @@ import re
 from django import forms
 
 from .dates import DateError, parse_date
-from .models import Comment, NamedModel, Photo, name_key
+from .models import Comment, NamedModel, Photo, name_key, namesake_keys, person_token, split_person_token
 
 MAX_NAMES = 30
 
@@ -38,7 +38,7 @@ class NamesField(forms.CharField):
         if len(names) > MAX_NAMES:
             raise forms.ValidationError(f"Najwyżej {MAX_NAMES} pozycji.")
         for name in names:
-            if len(name) > NamedModel.MAX_LENGTH:
+            if len(split_person_token(name)[0]) > NamedModel.MAX_LENGTH:
                 raise forms.ValidationError(f"„{name[:30]}…” jest za długie (najwyżej 100 znaków).")
         return names
 
@@ -108,7 +108,7 @@ class MetadataForm(forms.Form):
             initial={
                 "date": photo.date_text,
                 "place": photo.place,
-                "people": ", ".join(person.name for person in photo.people.all()),
+                "people": ", ".join(person_token(p, namesake_keys()) for p in photo.people.all()),
                 "tags": ", ".join(tag.name for tag in photo.tags.all()),
                 "description": photo.description,
             }

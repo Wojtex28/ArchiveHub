@@ -157,14 +157,23 @@ def test_editor_adds_person_relation_and_edits(client, make_user, db):
     assert "z domu Nowak" in page and "Ewa Bereza" in page and "Nauczycielka." in page
 
 
-def test_edit_rejects_bad_date_and_taken_name(client, make_user, family):
+def test_edit_rejects_bad_date(client, make_user, family):
     client.force_login(make_user("Karolina"))
     url = reverse("family:person_edit", args=[family["anna"].pk])
-    data = {"name": "jan bereza", "birth_date": "kiedyś", "death_date": "", "portrait": ""}
+    data = {"name": "Anna Bereza", "birth_date": "kiedyś", "death_date": "", "portrait": ""}
     page = client.post(url, data).content.decode()
     assert "Nie rozumiem tej daty" in page
-    assert "Jan Bereza (1921)" in page or "jan bereza (1921)" in page
     assert not TreeChange.objects.filter(kind="person_edited").exists()
+
+
+def test_edit_allows_namesake_name_with_reminder(client, make_user, family):
+    """ETAP 26: imiennicy są dozwoleni, zapis tylko o nich przypomina."""
+    client.force_login(make_user("Karolina"))
+    url = reverse("family:person_edit", args=[family["anna"].pk])
+    data = {"name": "Jan Bereza", "birth_date": "", "death_date": "", "portrait": ""}
+    page = client.post(url, data, follow=True).content.decode()
+    assert "W archiwum jest też inna osoba „Jan Bereza”" in page
+    assert Person.objects.filter(name="Jan Bereza").count() == 2
 
 
 def test_person_page_shows_only_visible_photos(client, make_user, group, imported):

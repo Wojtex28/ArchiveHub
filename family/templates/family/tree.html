@@ -43,13 +43,14 @@
 </section>
 
 <div class="tree-page">
-<details class="tree-list"{% if query %} open{% endif %}>
+<details class="tree-list"{% if query or namesakes %} open{% endif %}>
 <summary>Lista osób{% if people %} ({{ people|length }}){% endif %}</summary>
 {% if user.can_edit_tree %}
 <form method="post" action="{% url 'family:person_add' %}" class="card tree-add">
   {% csrf_token %}
   <label for="{{ form.name.id_for_label }}">Dodaj osobę do drzewa</label>
   <div class="tree-add__row">{{ form.name }}<button type="submit" class="button">Dodaj</button></div>
+  {% if namesakes %}{% include "family/includes/namesake_choice.html" %}{% endif %}
   <p class="hint">{{ form.name.help_text }}</p>
   <datalist id="osoby-podpowiedzi">{% for name in suggestions %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 </form>
