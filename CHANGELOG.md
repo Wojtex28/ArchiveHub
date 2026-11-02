@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.27.0 (2026-11-02) · ETAP 27: nazwisko rodowe na kafelku, czytelne linie rodzin
+
+### Zmienione
+- **Linie do dzieci nie zlewają się już między rodzinami.** Każda rodzina (para i jej dzieci) ma własną poziomą linię. Gdy linie dwóch rodzin zachodzą na siebie, leżą na różnych wysokościach i mają różne stonowane kolory, a kropki pokazują, gdzie dziecko odchodzi od linii. Wcześniej po „Ułóż automatycznie” wszystkie linie jednego pokolenia łączyły się w jedną i nie było widać, czyje jest które dziecko.
+- **Nazwisko rodowe jest na kafelku drzewa w nawiasie, jaśniejszym kolorem**, zaraz po imieniu i nazwisku: „Helena Bereza (Kowalska)”. Druga linia kafelka to teraz tylko lata życia, więc już się nie ucina. Nazwisko rodowe wpisuje się jak dotąd w karcie osoby → „Popraw dane”.
+
+---
+
 ## 0.26.0 (2026-11-02) · ETAP 26: imiennicy
 
 ### Naprawione

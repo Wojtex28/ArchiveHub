@@ -770,6 +770,7 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-node__avatar--empty { display: inline-flex; align-items: center; justify-content: center; font: 400 1.25rem/1 var(--serif); color: var(--accent); background: #ece2d2; }
 .tree-node__text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
 .tree-node__name { font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tree-node__maiden { font-weight: 400; color: var(--ink-quiet); }
 .tree-node__years { font-size: 0.8125rem; color: var(--ink-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-handle {
   position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--card);
@@ -891,3 +892,10 @@ a.chip { color: inherit; text-decoration: none; }
 .namesake-choice legend { font-weight: 600; padding: 0 0.25rem; }
 .namesake-choice label { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; }
 .namesake-choice .hint { margin: 0; }
+/* Rodziny, których linie dzieci zachodzą na siebie: każda swoim stonowanym kolorem. */
+.tree-joint { fill: #9c8b78; stroke: none; }
+.tree-line--f0 { stroke: #8a6d4f; } .tree-joint--f0 { fill: #8a6d4f; }
+.tree-line--f1 { stroke: #3f7a74; } .tree-joint--f1 { fill: #3f7a74; }
+.tree-line--f2 { stroke: #7a5a8c; } .tree-joint--f2 { fill: #7a5a8c; }
+.tree-line--f3 { stroke: #5f7a3a; } .tree-joint--f3 { fill: #5f7a3a; }
+.tree-line--f4 { stroke: #4d6a92; } .tree-joint--f4 { fill: #4d6a92; }
