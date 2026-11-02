@@ -340,7 +340,7 @@
     node.setAttribute("aria-label", person.name + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
     if (state.data.canEdit && state.selected === person.id) {
-      ["rodzic", "partner", "dziecko"].forEach(function (kind) {
+      kindsFor(person.id).forEach(function (kind) {
         var handle = el("button", "tree-handle tree-handle--" + kind, "+");
         handle.type = "button";
         handle.setAttribute("data-kind", kind);
@@ -350,6 +350,14 @@
       });
     }
     positionNode(person);
+  }
+
+  // Kogo można dodać: rodzica tylko do dwojga.
+  function kindsFor(id) {
+    var rel = relativesIndex(state.data)[id];
+    return ["rodzic", "partner", "dziecko"].filter(function (kind) {
+      return kind !== "rodzic" || !rel || rel.parents.length < 2;
+    });
   }
 
   function positionNode(person) {
@@ -373,7 +381,8 @@
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
       path("M" + (a.x + NODE_W / 2) + "," + (a.y + NODE_H / 2) + " L" + (b.x + NODE_W / 2) + "," + (b.y + NODE_H / 2), "tree-line tree-line--partner");
     });
-    // Dziecko pary: linia od środka między rodzicami; inaczej od rodzica.
+    // Dziecko dwojga rodziców: jedna linia od środka pary (rodzice są połączeni linią pary);
+    // dziecko jednego rodzica: linia od tego rodzica.
     var parentsOf = {};
     state.data.parents.forEach(function (link) {
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
@@ -383,7 +392,10 @@
       if (!child) return;
       var ps = parentsOf[childId].map(function (id) { return byId[id]; }).filter(Boolean);
       var sources = [];
-      if (ps.length === 2 && partnerOf[ps[0].id + "-" + ps[1].id]) {
+      if (ps.length === 2) {
+        if (!partnerOf[ps[0].id + "-" + ps[1].id]) {
+          path("M" + (ps[0].x + NODE_W / 2) + "," + (ps[0].y + NODE_H / 2) + " L" + (ps[1].x + NODE_W / 2) + "," + (ps[1].y + NODE_H / 2), "tree-line tree-line--partner");
+        }
         sources.push([(ps[0].x + ps[1].x) / 2 + NODE_W / 2, (ps[0].y + ps[1].y) / 2 + NODE_H / 2]);
       } else {
         ps.forEach(function (p) { sources.push([p.x + NODE_W / 2, p.y + NODE_H]); });
@@ -533,7 +545,7 @@
 
     if (person) {
       var actions = el("div", "tree-sheet__actions");
-      ["rodzic", "partner", "dziecko"].forEach(function (kind) {
+      kindsFor(person.id).forEach(function (kind) {
         var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko" }[kind]);
         button.type = "button";
         button.addEventListener("click", function () { openForm(person.id, kind); });
@@ -576,9 +588,30 @@
       });
       kind.addEventListener("change", function () {
         state.form.kind = kind.value;
-        label.textContent = "Dodaj " + KINDS[kind.value] + ": " + to.name;
+        renderSheet();
       });
       form.appendChild(kind);
+      var rel = relativesIndex(state.data)[to.id] || { parents: [], partners: [] };
+      if (state.form.kind === "dziecko" && rel.partners.length) {
+        // Dziecko pochodzi od pary: drugim rodzicem jest partner (do wyboru, gdy jest ich kilku).
+        var secondLabel = el("label", "tree-form__second", "Drugi rodzic");
+        var second = el("select");
+        second.setAttribute("data-second", "");
+        rel.partners.forEach(function (id) {
+          var mate = state.byId[id];
+          if (!mate) return;
+          var option = el("option", "", mate.name);
+          option.value = id;
+          second.appendChild(option);
+        });
+        var none = el("option", "", "nikt z drzewa / nie wiadomo");
+        none.value = "";
+        second.appendChild(none);
+        secondLabel.appendChild(second);
+        form.appendChild(secondLabel);
+      } else if (state.form.kind === "rodzic" && rel.parents.length === 1 && state.byId[rel.parents[0]]) {
+        form.appendChild(el("p", "hint", "Drugi rodzic: razem z " + state.byId[rel.parents[0]].name + " będą parą, a linia do " + to.name + " pójdzie od pary."));
+      }
     }
     var input = el("input");
     input.id = "drzewo-nowa-osoba";
@@ -588,6 +621,9 @@
     input.autocomplete = "off";
     input.setAttribute("list", "drzewo-osoby");
     input.placeholder = "Imię i nazwisko";
+    // Zmiana „kim jest” przebudowuje formularz: wpisane imię zostaje.
+    input.value = state.form.name || "";
+    input.addEventListener("input", function () { state.form.name = input.value; });
     form.appendChild(input);
     form.appendChild(el("p", "hint", "Nowa osoba albo ktoś, kto już jest w archiwum (podpowiedzi)."));
     var row = el("div", "tree-form__buttons");
@@ -610,6 +646,8 @@
       var spot = state.form.at;
       if (spot) { body.x = spot[0]; body.y = spot[1]; }
       if (to) body.relation = { to: to.id, kind: state.form.kind };
+      var secondChoice = form.querySelector("[data-second]");
+      if (to && secondChoice) body.relation.second = secondChoice.value ? Number(secondChoice.value) : null;
       send(urls.add, body).then(function () {
         state.form = null;
         var added = state.data.people.filter(function (p) { return p.name.toLowerCase() === name.toLowerCase(); })[0];

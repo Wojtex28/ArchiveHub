@@ -33,6 +33,7 @@ FIELD_LABELS = {
 }
 
 PARENT, CHILD, PARTNER = "rodzic", "dziecko", "partner"
+AUTO = object()  # drugi rodzic nowego dziecka: jedyny partner rodzica, jeśli jest
 RELATION_KINDS = {PARENT: "rodzic", CHILD: "dziecko", PARTNER: "partner / partnerka"}
 MAX_PARENTS = 2
 
@@ -150,12 +151,59 @@ def _create_link(person, other, kind):
 
 
 @transaction.atomic
-def add_relation(user, person, other, kind, reverts=None):
-    """``other`` zostaje rodzicem, dzieckiem albo partnerem osoby ``person``."""
+def add_relation(user, person, other, kind, reverts=None, second_parent=AUTO):
+    """``other`` zostaje rodzicem, dzieckiem albo partnerem osoby ``person``.
+
+    Dziecko w drzewie pochodzi od pary: nowe dziecko osoby z jednym partnerem dostaje od razu oboje
+    rodziców (``second_parent`` wskazuje drugiego rodzica wprost albo ``None``, gdy go nie ma), a drugi
+    rodzic dziecka zostaje parą z pierwszym. Każde takie połączenie jest osobnym wpisem w historii.
+    """
     data, summary = _create_link(person, other, kind)
     _put_in_tree(user, person)
     _put_in_tree(user, other)
-    return _record(user, TreeChange.RELATION_ADDED, person, summary, after=data, reverts=reverts)
+    change = _record(user, TreeChange.RELATION_ADDED, person, summary, after=data, reverts=reverts)
+    if kind in (PARENT, CHILD) and reverts is None:
+        parent, child = (other, person) if kind == PARENT else (person, other)
+        if kind == CHILD:
+            _add_second_parent(user, parent, child, second_parent)
+        _pair_parents(user, child)
+    return change
+
+
+def _add_second_parent(user, parent, child, second):
+    automatic = second is AUTO
+    if automatic:
+        if ParentChild.objects.filter(child=child).count() != 1:
+            return
+        mates = list(partners(parent))
+        second = mates[0] if len(mates) == 1 else None
+    if second is None or second.pk in {p.pk for p in parents(child)}:
+        return
+    try:
+        with transaction.atomic():
+            data, summary = _create_link(child, second, PARENT)
+    except ValidationError:
+        if automatic:
+            return  # np. partner jest dzieckiem tej osoby: zostaje jeden rodzic
+        raise
+    _put_in_tree(user, second)
+    _record(user, TreeChange.RELATION_ADDED, child, summary, after=data)
+
+
+def _pair_parents(user, child):
+    """Dwoje rodziców jednego dziecka to para (także gdy się rozstali): linia dziecka idzie od pary."""
+    pair = sorted(parents(child), key=lambda p: p.pk)
+    if len(pair) != 2 or Partnership.objects.filter(person1=pair[0], person2=pair[1]).exists():
+        return
+    Partnership.objects.create(person1=pair[0], person2=pair[1])
+    data = {"kind": PARTNER, "person1": pair[0].pk, "person2": pair[1].pk}
+    _record(
+        user,
+        TreeChange.RELATION_ADDED,
+        pair[0],
+        f"Para: {pair[0].name} i {pair[1].name} (rodzice: {child.name})",
+        after=data,
+    )
 
 
 @transaction.atomic

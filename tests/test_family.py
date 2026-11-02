@@ -45,7 +45,7 @@ def test_relation_errors(family):
     tree.add_relation(None, piotr, ewa, tree.PARENT)
     with pytest.raises(ValidationError, match="pętlę"):
         tree.add_relation(None, anna, piotr, tree.PARENT)  # wnuk jako rodzic babci
-    tree.add_relation(None, anna, jan, tree.PARTNER)
+    # Anna i Jan są parą od chwili, gdy oboje zostali rodzicami Ewy.
     with pytest.raises(ValidationError, match="już jest partnerem"):
         tree.add_relation(None, jan, anna, tree.PARTNER)
 

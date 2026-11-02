@@ -126,3 +126,73 @@ def test_csrf_required(make_user, couple):
 def test_tree_page_has_canvas(editor, couple):
     page = editor.get(reverse("family:tree")).content.decode()
     assert "data-family-tree" in page and "family-tree.js" in page
+
+
+# --- ETAP 25: dziecko od pary --------------------------------------------------------
+
+
+def test_child_of_person_with_one_partner_gets_both_parents(editor, couple):
+    anna, jan = couple
+    post(editor, "family:api_add", {"name": "Ewa Bereza", "relation": {"to": anna.pk, "kind": "dziecko"}})
+    ewa = Person.objects.get(name="Ewa Bereza")
+    assert set(tree.parents(ewa)) == {anna, jan}
+    # Dwa wpisy w historii, każdy do cofnięcia osobno.
+    assert TreeChange.objects.filter(kind="relation_added", after__child=ewa.pk).count() == 2
+
+
+def test_second_parent_can_be_chosen_or_left_out(editor, couple):
+    anna, jan = couple
+    zofia = tree.add_person(None, "Zofia Nowak")
+    tree.add_relation(None, anna, zofia, tree.PARTNER)  # Anna ma dwoje partnerów
+
+    def child(name, **second):
+        relation = {"to": anna.pk, "kind": "dziecko", **second}
+        return post(editor, "family:api_add", {"name": name, "relation": relation})
+
+    child("Ewa", second=zofia.pk)
+    child("Piotr", second=None)
+    child("Adam")
+    assert set(tree.parents(Person.objects.get(name="Ewa"))) == {anna, zofia}
+    assert list(tree.parents(Person.objects.get(name="Piotr"))) == [anna]
+    assert list(tree.parents(Person.objects.get(name="Adam"))) == [anna]  # kilku partnerów: bez zgadywania
+    response = child("X", second=999)
+    assert response.status_code == 404 and not Person.objects.filter(name="X").exists()
+
+
+def test_second_parent_becomes_partner(editor, db):
+    ewa = tree.add_person(None, "Ewa Bereza")
+    anna = tree.add_person(None, "Anna Bereza")
+    tree.add_relation(None, ewa, anna, tree.PARENT)
+    post(editor, "family:api_add", {"name": "Jan Bereza", "relation": {"to": ewa.pk, "kind": "rodzic"}})
+    jan = Person.objects.get(name="Jan Bereza")
+    assert set(tree.partners(anna)) == {jan}
+    change = TreeChange.objects.filter(kind="relation_added").order_by("-pk").first()
+    assert change.summary == "Para: Anna Bereza i Jan Bereza (rodzice: Ewa Bereza)"
+
+
+def test_dragging_child_onto_person_links_the_couple(editor, couple):
+    anna, jan = couple
+    ewa = tree.add_person(None, "Ewa Bereza")
+    post(editor, "family:api_relation", {"person": jan.pk, "other": ewa.pk, "kind": "dziecko"})
+    assert set(tree.parents(ewa)) == {anna, jan}
+
+
+def test_undo_does_not_add_second_parent(couple, master):
+    anna, jan = couple
+    ewa = tree.add_person(None, "Ewa Bereza")
+    tree.add_relation(None, anna, ewa, tree.CHILD, second_parent=None)
+    removed = tree.remove_relation(None, anna, ewa, tree.CHILD)
+    tree.undo(master, removed)
+    assert list(tree.parents(ewa)) == [anna]
+
+
+def test_migration_pairs_existing_co_parents(db):
+    from importlib import import_module
+
+    from django.apps import apps
+
+    anna, jan, ewa = (Person.objects.create(name=n, in_tree=True) for n in ("Anna", "Jan", "Ewa"))
+    ParentChild.objects.create(parent=anna, child=ewa)
+    ParentChild.objects.create(parent=jan, child=ewa)
+    import_module("family.migrations.0003_pary_rodzicow").pair_parents(apps, None)
+    assert Partnership.objects.filter(person1=anna, person2=jan).exists()
