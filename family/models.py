@@ -49,7 +49,7 @@ class Partnership(models.Model):
 
 
 class TreeChange(models.Model):
-    """Jedna zmiana w drzewie: kto, kiedy, co. ``before``/``after`` pozwalają ją cofnąć (ETAP 23)."""
+    """Jedna zmiana w drzewie: kto, kiedy, co. ``before``/``after`` pozwalają ją cofnąć (``tree.undo``)."""
 
     PERSON_ADDED = "person_added"
     PERSON_EDITED = "person_edited"
@@ -71,6 +71,10 @@ class TreeChange(models.Model):
     summary = models.CharField(max_length=300)
     before = models.JSONField(default=dict, blank=True)
     after = models.JSONField(default=dict, blank=True)
+    # Ta zmiana cofa inną (Panel → Drzewo → „Przywróć”). Cofnięcie też da się cofnąć.
+    reverts = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="reverted_by"
+    )
 
     class Meta:
         ordering = ["-created_at", "-pk"]

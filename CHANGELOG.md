@@ -15,6 +15,18 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.23.0 (2026-11-02) · ETAP 23: drzewo rodzinne, historia zmian z przywracaniem
+
+### Dodane
+- **Panel → Drzewo:** wszystkie zmiany w drzewie od najnowszych (kto, kiedy, co; przy zmianie danych: było → jest), z filtrem po osobie i koncie.
+- **„Przywróć” przy każdej zmianie:** usunięta osoba wraca razem z połączeniami (te, których już nie da się odtworzyć, np. bo dziecko ma w międzyczasie dwoje innych rodziców, aplikacja pomija i o tym pisze), zmienione dane wracają do poprzednich, usunięta relacja wraca, a dodana relacja albo osoba znika z drzewa.
+- Przywrócenie też jest zmianą w historii, więc i je da się cofnąć. Cofnięta zmiana jest przekreślona, z datą i kontem, które ją cofnęło.
+- Karta osoby (dla administratora): „Historia zmian” z historią tej osoby.
+- **Panel → Osoby:** kolumna „Drzewo” i „Ustaw wszystkim”, czyli dostęp do drzewa dla wszystkich kont naraz (np. ukrycie drzewa przed premierą).
+
+### Zmienione
+- Połączenie dwóch osób w Panel → Opisy przenosi też ich historię w drzewie.
+
 ## 0.22.0 (2026-11-02) · ETAP 22: drzewo rodzinne, kanwa z przeciąganiem
 
 ### Dodane

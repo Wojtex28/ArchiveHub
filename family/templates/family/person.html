@@ -13,6 +13,7 @@
   </div>
   <div class="person-head__actions">
     {% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
+    {% if user.is_superuser %}<a class="button button--quiet" href="{% url 'panel:tree_history' %}?osoba={{ person.pk }}">Historia zmian</a>{% endif %}
     {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}
   </div>
 </div>

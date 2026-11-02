@@ -1,0 +1,77 @@
+{% extends "panel/panel_base.html" %}
+{% block panel %}
+<div class="heading-row">
+  <h1>Drzewo rodzinne: historia</h1>
+  <a class="button button--quiet" href="{% url 'family:tree' %}">Otwórz drzewo</a>
+</div>
+<p class="hint">Każda zmiana w drzewie, od najnowszych. „Przywróć” cofa jedną zmianę: wraca usuniętą osobę razem z jej połączeniami, poprzednie dane albo usuniętą relację, a dodaną relację usuwa. Cofnięcie też trafia do historii, więc i je da się cofnąć.</p>
+
+<form method="get" class="tree-filters">
+  <label>Osoba
+    <select name="osoba">
+      <option value="">wszystkie</option>
+      {% for person in people %}<option value="{{ person.pk }}"{% if filters.osoba == person.pk %} selected{% endif %}>{{ person.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Konto
+    <select name="konto">
+      <option value="">wszystkie</option>
+      {% for account in accounts %}<option value="{{ account.pk }}"{% if filters.konto == account.pk %} selected{% endif %}>{{ account.username }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="button button--quiet">Pokaż</button>
+  {% if filters %}<a href="{% url 'panel:tree_history' %}">Wyczyść</a>{% endif %}
+</form>
+
+{% if page.object_list %}
+<ul class="tree-history">
+  {% for change in page %}
+  <li class="tree-history__item{% if change.undone %} is-undone{% endif %}">
+    <div class="tree-history__body">
+      <p class="tree-history__meta">
+        <strong>{% if change.user %}<a href="{% url 'panel:user_detail' change.user_id %}">{{ change.user.username }}</a>{% else %}konto usunięte{% endif %}</strong>
+        · {{ change.created_at|date:"j E Y, H:i" }}
+        · <span class="badge badge--muted">{% if change.reverts %}cofnięcie{% else %}{{ change.get_kind_display }}{% endif %}</span>
+      </p>
+      <p class="tree-history__summary">{{ change.summary }}</p>
+      {% if change.reverts %}<p class="hint">Cofa zmianę z {{ change.reverts.created_at|date:"j E Y, H:i" }}: {{ change.reverts.summary }}</p>{% endif %}
+      {% if change.rows %}
+      <dl class="change-rows change-rows--wide">
+        {% for label, before, after in change.rows %}
+        <div><dt>{{ label }}</dt><dd>{% if before %}<del>{{ before|truncatechars:160 }}</del> → {% endif %}{% if after %}<ins>{{ after|truncatechars:160 }}</ins>{% else %}<em>usunięto</em>{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+      {% endif %}
+      {% if change.links %}
+      <dl class="change-rows change-rows--wide">
+        {% for label, names in change.links %}<div><dt>{{ label }}</dt><dd>{{ names }}</dd></div>{% endfor %}
+      </dl>
+      {% endif %}
+      {% if change.undone %}<p class="tree-history__undone">Cofnięte {{ change.undone.created_at|date:"j E Y, H:i" }}{% if change.undone.user %} ({{ change.undone.user.username }}){% endif %}.</p>{% endif %}
+    </div>
+    <div class="tree-history__actions">
+      {% if change.person %}<a class="button button--quiet" href="{% url 'family:person' change.person_id %}">Karta osoby</a>{% endif %}
+      {% if not change.undone %}
+      <form method="post" action="{% url 'panel:tree_undo' change.pk %}">
+        {% csrf_token %}
+        {% if filters.osoba %}<input type="hidden" name="osoba" value="{{ filters.osoba }}">{% endif %}
+        {% if filters.konto %}<input type="hidden" name="konto" value="{{ filters.konto }}">{% endif %}
+        {% if page.number > 1 %}<input type="hidden" name="strona" value="{{ page.number }}">{% endif %}
+        <button type="submit" class="button" data-confirm="Cofnąć tę zmianę: {{ change.summary }}?">Przywróć</button>
+      </form>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% if page.has_other_pages %}
+<nav class="pager" aria-label="Strony historii">
+  {% if page.has_previous %}<a class="button button--quiet" href="{{ filter_query|default:'?' }}{% if filter_query %}&amp;{% endif %}strona={{ page.previous_page_number }}">← Nowsze</a>{% endif %}
+  <span class="hint">Strona {{ page.number }} z {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="button button--quiet" href="{{ filter_query|default:'?' }}{% if filter_query %}&amp;{% endif %}strona={{ page.next_page_number }}">Starsze →</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="empty-state"><p>{% if filters %}Brak zmian dla tych filtrów.{% else %}Nikt jeszcze nie zmieniał drzewa.{% endif %}</p></div>
+{% endif %}
+{% endblock %}

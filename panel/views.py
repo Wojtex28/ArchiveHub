@@ -6,8 +6,9 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Prefetch, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -32,6 +33,7 @@ from core import backup, status
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import Event, LoginPhoto
 from family import tree as family_tree
+from family.models import TreeChange
 
 from .codes import suggest_code
 from .forms import (
@@ -103,7 +105,24 @@ def dashboard(request):
 @master_required
 def user_list(request):
     users = User.objects.order_by("-is_active", "username").prefetch_related("family_groups")
-    return render(request, "panel/user_list.html", {"users": users})
+    return render(request, "panel/user_list.html", {"users": users, "tree_choices": User.TREE_ACCESS})
+
+
+@master_required
+@require_POST
+def tree_access_all(request):
+    """Dostęp do drzewa dla wszystkich kont naraz (administrator zawsze ma pełny)."""
+    access = request.POST.get("tree_access")
+    labels = dict(User.TREE_ACCESS)
+    if access not in labels:
+        messages.error(request, "Wybierz dostęp do drzewa.")
+        return redirect("panel:user_list")
+    changed = User.objects.filter(is_superuser=False).exclude(tree_access=access).update(tree_access=access)
+    logger.info("Administrator %s ustawił drzewo dla wszystkich kont: %s", request.user, access)
+    messages.success(
+        request, f"Drzewo rodzinne dla wszystkich kont: {labels[access]} (zmienione konta: {changed})."
+    )
+    return redirect("panel:user_list")
 
 
 @master_required
@@ -626,3 +645,91 @@ def server_status(request):
             "monitoring": bool(settings.ARCHIVEHUB_STATUS_TOKEN),
         },
     )
+
+
+# --- Drzewo rodzinne: historia zmian -----------------------------------------
+
+TREE_CHANGES_PER_PAGE = 50
+TREE_FILTERS = ("osoba", "konto")
+
+
+def _tree_filters(params):
+    """Filtry historii z adresu: tylko liczby, reszta jest pomijana."""
+    return {key: int(params[key]) for key in TREE_FILTERS if params.get(key, "").isdigit()}
+
+
+def _tree_query(filters, page=None):
+    parts = [f"{key}={value}" for key, value in filters.items()]
+    if page and page > 1:
+        parts.append(f"strona={page}")
+    return "?" + "&".join(parts) if parts else ""
+
+
+@master_required
+@require_safe
+def tree_history(request):
+    """Wszystkie zmiany w drzewie, od najnowszych, z przyciskiem „Przywróć” przy każdej."""
+    filters = _tree_filters(request.GET)
+    changes = TreeChange.objects.select_related("user", "person", "reverts").prefetch_related(
+        "reverted_by__user"
+    )
+    if "osoba" in filters:
+        pk = filters["osoba"]
+        # Relacja jest zapisana przy jednej osobie, a dotyczy dwóch.
+        changes = changes.filter(
+            Q(person_id=pk)
+            | Q(after__parent=pk)
+            | Q(after__child=pk)
+            | Q(after__person1=pk)
+            | Q(after__person2=pk)
+            | Q(before__parent=pk)
+            | Q(before__child=pk)
+            | Q(before__person1=pk)
+            | Q(before__person2=pk)
+        )
+    if "konto" in filters:
+        changes = changes.filter(user_id=filters["konto"])
+    page = Paginator(changes, TREE_CHANGES_PER_PAGE).get_page(request.GET.get("strona"))
+    ids = set()
+    for change in page:
+        ids |= family_tree.related_ids(change)
+    names = {pk: person.name for pk, person in Person.objects.in_bulk(ids).items()}
+    for change in page:
+        change.rows = family_tree.edit_rows(change)
+        change.links = family_tree.link_rows(change, names)
+        change.undone = next(iter(change.reverted_by.all()), None)
+    people = (
+        Person.objects.filter(Q(in_tree=True) | Q(pk=filters.get("osoba", 0)) | Q(tree_changes__isnull=False))
+        .distinct()
+        .order_by("key")
+    )
+    accounts = User.objects.filter(pk__in=TreeChange.objects.values("user")).order_by("username")
+    return render(
+        request,
+        "panel/tree_history.html",
+        {
+            "page": page,
+            "people": people,
+            "accounts": accounts,
+            "filters": filters,
+            "filter_query": _tree_query(filters),
+            "kinds": dict(TreeChange.KINDS),
+        },
+    )
+
+
+@master_required
+@require_POST
+def tree_undo(request, pk):
+    change = get_object_or_404(TreeChange, pk=pk)
+    try:
+        family_tree.undo(request.user, change)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+    else:
+        logger.info("Administrator %s cofnął zmianę w drzewie %s: %s", request.user, pk, change.summary)
+        messages.success(request, f"Cofnięto: {change.summary}")
+    filters = _tree_filters(request.POST)
+    page = request.POST.get("strona", "")
+    query = _tree_query(filters, int(page) if page.isdigit() else None)
+    return redirect(reverse("panel:tree_history") + query)

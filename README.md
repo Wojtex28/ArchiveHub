@@ -31,7 +31,7 @@ w projekcie.
 | 18–20 | Testy końcowe, udostępnienie rodzinie | po imporcie albumów |
 | 21 | Drzewo rodzinne: dane osób, relacje, karta osoby ze zdjęciami, dostęp per konto, historia zmian | **gotowe** |
 | 22 | Drzewo rodzinne: kanwa z przeciąganiem, łączeniem osób i automatycznym układem, także na telefonie | **gotowe** |
-| 23 | Drzewo rodzinne: historia zmian z przywracaniem | zaplanowane |
+| 23 | Drzewo rodzinne: historia zmian z przywracaniem | **gotowe** |
 
 ## Technologie
 
