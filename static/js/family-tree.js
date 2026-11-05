@@ -11,6 +11,7 @@
   var NODE_H = 72;
   var GAP_X = 48;
   var ROW_H = 180;
+  var BIRTH_WEIGHT = 3; // kara za rodzeństwo nie po kolei urodzenia (zob. autoLayout)
   var ZOOM_MIN = 0.2;
   var ZOOM_MAX = 2.5;
   var MOVE_MIN = 5; // px: mniejszy ruch to kliknięcie, nie przeciąganie
@@ -23,6 +24,7 @@
     add: root.getAttribute("data-url-add"),
     relation: root.getAttribute("data-url-relation"),
     remove: root.getAttribute("data-url-remove"),
+    alive: root.getAttribute("data-url-alive"),
   };
   var csrf = root.getAttribute("data-csrf");
   var canvas = root.querySelector(".tree-canvas");
@@ -160,7 +162,56 @@
       });
       if (!changed) break;
     }
+    alignByBirth(data, gen);
     return gen;
+  }
+
+  // Osobne gałęzie (jeszcze niepołączone z resztą drzewa) i pojedyncze osoby trafiają do rzędu
+  // swoich rówieśników według dat urodzenia, zamiast zawsze do górnego rzędu (ETAP 30).
+  var YEARS_PER_GENERATION = 25;
+  function alignByBirth(data, gen) {
+    var rel = relativesIndex(data);
+    var component = {}, groups = [];
+    data.people.forEach(function (p) {
+      if (component[p.id] !== undefined) return;
+      var members = [], queue = [p.id];
+      component[p.id] = groups.length;
+      while (queue.length) {
+        var id = queue.shift();
+        members.push(id);
+        var r = rel[id];
+        r.parents.concat(r.children, r.partners).forEach(function (q) {
+          if (component[q] === undefined) { component[q] = groups.length; queue.push(q); }
+        });
+      }
+      groups.push(members);
+    });
+    if (groups.length < 2) return;
+    var born = {};
+    data.people.forEach(function (p) { if (p.born !== null && p.born !== undefined) born[p.id] = p.born; });
+    // „Rok zerowego pokolenia” gałęzi: średnia z (rok urodzenia − pokolenie × 25 lat).
+    function base(members) {
+      var known = members.filter(function (id) { return born[id] !== undefined; });
+      if (!known.length) return null;
+      return known.reduce(function (sum, id) { return sum + born[id] - gen[id] * YEARS_PER_GENERATION; }, 0) / known.length;
+    }
+    // Wzorem jest największa gałąź z datami.
+    var main = null;
+    groups.forEach(function (members) {
+      if (base(members) !== null && (!main || members.length > main.length)) main = members;
+    });
+    if (!main) return;
+    var mainBase = base(main);
+    groups.forEach(function (members) {
+      if (members === main) return;
+      var b = base(members);
+      if (b === null) return;
+      var shift = Math.round((b - mainBase) / YEARS_PER_GENERATION);
+      members.forEach(function (id) { gen[id] += shift; });
+    });
+    var low = Infinity;
+    data.people.forEach(function (p) { low = Math.min(low, gen[p.id]); });
+    if (low !== 0 && isFinite(low)) data.people.forEach(function (p) { gen[p.id] -= low; });
   }
 
   function autoLayout(data) {
@@ -242,9 +293,36 @@
       return n;
     }
 
+    // Rodzeństwo od najstarszego z lewej (ETAP 30): każda para rodzeństwa w złej kolejności to kara
+    // BIRTH_WEIGHT, więc data urodzenia wygrywa z pojedynczym przecięciem linii, ale nie z kilkoma.
+    // Rodzeństwo bez daty urodzenia nie ma kary i może stać gdziekolwiek.
+    function bornOf(id) { return byId[id].born === null || byId[id].born === undefined ? null : byId[id].born; }
+    function familyKeyIn(id, up) {
+      var f = (familiesOf[id] || []).filter(function (family) { return up[family[0]] !== undefined; });
+      return f.map(function (family) { return family.join("+"); });
+    }
+    function inversions(upper, lower) {
+      var up = indexOf(upper), groups = {}, n = 0;
+      lower.forEach(function (unit) {
+        unit.forEach(function (id) {
+          if (bornOf(id) === null) return;
+          familyKeyIn(id, up).forEach(function (key) { (groups[key] = groups[key] || []).push(bornOf(id)); });
+        });
+      });
+      Object.keys(groups).forEach(function (key) {
+        var born = groups[key];
+        for (var i = 0; i < born.length; i++) {
+          for (var j = i + 1; j < born.length; j++) if (born[i] > born[j]) n++;
+        }
+      });
+      return n;
+    }
+
     function total(orders) {
       var n = 0;
-      for (var d = 1; d < orders.length; d++) n += crossingsBetween(orders[d - 1], orders[d]);
+      for (var d = 1; d < orders.length; d++) {
+        n += crossingsBetween(orders[d - 1], orders[d]) + BIRTH_WEIGHT * inversions(orders[d - 1], orders[d]);
+      }
       return n;
     }
 
@@ -310,9 +388,40 @@
     }
     orders = best;
 
+    // Rodzeństwo jednej rodziny może stać przemieszane z innymi osobami, więc zamiana sąsiadów nie
+    // wystarczy: tu rodzeństwo zamienia się miejscami między sobą, od najstarszego z lewej.
+    function birthOrderPass() {
+      var improved = false;
+      for (var d = 1; d < orders.length; d++) {
+        var row = orders[d];
+        var up = indexOf(orders[d - 1]);
+        var keys = {};
+        row.forEach(function (unit, i) {
+          unit.forEach(function (id) {
+            if (bornOf(id) === null) return;
+            familyKeyIn(id, up).forEach(function (key) { (keys[key] = keys[key] || []).push({ i: i, born: bornOf(id) }); });
+          });
+        });
+        Object.keys(keys).forEach(function (key) {
+          var entries = keys[key];
+          var slots = entries.map(function (e) { return e.i; });
+          if (entries.length < 2 || slots.some(function (i, k) { return slots.indexOf(i) !== k; })) return;
+          slots.sort(function (a, b) { return a - b; });
+          var sorted = entries.slice().sort(function (a, b) { return a.born - b.born || a.i - b.i; });
+          var before = row.slice();
+          var units = sorted.map(function (e) { return before[e.i]; });
+          slots.forEach(function (slot, k) { row[slot] = units[k]; });
+          var now = total(orders);
+          if (now < bestScore) { bestScore = now; improved = true; }
+          else { for (var k = 0; k < row.length; k++) row[k] = before[k]; }
+        });
+      }
+      return improved;
+    }
+
     // Poprawki lokalne: zamiana sąsiednich jednostek i odwrócenie par, dopóki ubywa przecięć.
     for (var round = 0; round < 20 && bestScore > 0; round++) {
-      var improved = false;
+      var improved = birthOrderPass();
       for (d = 0; d < orders.length; d++) {
         var row = orders[d];
         for (var i = 0; i < row.length; i++) {
@@ -588,9 +697,11 @@
       name.appendChild(maiden);
     }
     text.appendChild(name);
+    // Osoba zmarła: lata z † (serwer, Person.life) i przygaszony kafelek (ETAP 30).
     if (person.years) text.appendChild(el("span", "tree-node__years", person.years));
     node.appendChild(text);
-    node.setAttribute("aria-label", person.name + (person.years ? ", " + person.years : ""));
+    node.classList.toggle("tree-node--deceased", !!person.deceased);
+    node.setAttribute("aria-label", person.name + (person.deceased ? ", nie żyje" : "") + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
     if (state.data.canEdit && state.selected === person.id) {
       kindsFor(person.id).forEach(function (kind) {
@@ -832,6 +943,21 @@
       if (sub) title.appendChild(el("p", "hint", sub));
       head.appendChild(title);
       sheet.appendChild(head);
+      if (state.data.canEdit) {
+        // Przełącznik „Żyje / Nie żyje”: widać go od razu na kafelku (†).
+        var alive = el("label", "check tree-sheet__alive");
+        var box = el("input");
+        box.type = "checkbox";
+        box.checked = !!person.deceased;
+        box.addEventListener("change", function () {
+          send(urls.alive, { id: person.id, deceased: box.checked }).then(function () {
+            showMessage(person.name + (box.checked ? ": nie żyje." : ": żyje."));
+          }).catch(function () { box.checked = !box.checked; });
+        });
+        alive.appendChild(box);
+        alive.appendChild(document.createTextNode(" Nie żyje †"));
+        sheet.appendChild(alive);
+      }
       var card = el("a", "button button--quiet tree-sheet__card", "Karta osoby i zdjęcia");
       card.href = person.url;
       sheet.appendChild(card);

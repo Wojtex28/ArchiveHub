@@ -17,6 +17,7 @@ PERSON_FIELDS = [
     "birth_place",
     "death_date",
     "death_place",
+    "deceased",
     "bio",
     "portrait_id",
     "in_tree",
@@ -28,6 +29,7 @@ FIELD_LABELS = {
     "birth_place": "miejsce urodzenia",
     "death_date": "data śmierci",
     "death_place": "miejsce śmierci",
+    "deceased": "czy żyje",
     "bio": "historia",
     "portrait_id": "portret",
 }
@@ -486,6 +488,8 @@ def undo(user, change):
 
 
 def _show(field, value):
+    if field == "deceased":
+        return "nie żyje" if value else "żyje"
     if field == "portrait_id":
         return f"zdjęcie nr {value}" if value else ""
     return value or ""

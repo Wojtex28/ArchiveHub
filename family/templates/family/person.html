@@ -20,7 +20,8 @@
 
 <dl class="person-facts">
   {% if person.birth_date or person.birth_place %}<div><dt>Urodzenie</dt><dd>{{ person.birth_date }}{% if person.birth_date and person.birth_place %}, {% endif %}{{ person.birth_place }}</dd></div>{% endif %}
-  {% if person.death_date or person.death_place %}<div><dt>Śmierć</dt><dd>{{ person.death_date }}{% if person.death_date and person.death_place %}, {% endif %}{{ person.death_place }}</dd></div>{% endif %}
+  {% if person.death_date or person.death_place %}<div><dt>Śmierć</dt><dd>† {{ person.death_date }}{% if person.death_date and person.death_place %}, {% endif %}{{ person.death_place }}</dd></div>
+  {% elif person.deceased %}<div><dt>Śmierć</dt><dd>† nie żyje</dd></div>{% endif %}
 </dl>
 {% if person.bio %}<div class="person-bio">{{ person.bio|linebreaks }}</div>{% endif %}
 

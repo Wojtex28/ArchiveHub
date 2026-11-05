@@ -774,6 +774,10 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-node__name { font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .tree-node__maiden { font-weight: 400; color: var(--ink-quiet); }
 .tree-node__years { font-size: 0.8125rem; color: var(--ink-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Osoba zmarła (ETAP 30): szarawy kafelek, portret w odcieniach szarości, † przed latami. */
+.tree-node--deceased { background: #f1ede7; border-color: #cfc6b8; }
+.tree-node--deceased .tree-node__avatar { filter: grayscale(1); opacity: 0.85; }
+.tree-sheet__alive { margin: 0.5rem 0; }
 .tree-handle {
   position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--card);
   background: var(--accent); color: var(--accent-ink); font: 600 1.125rem/1 var(--sans); cursor: crosshair;
