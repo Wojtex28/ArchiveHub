@@ -129,7 +129,7 @@ def _person_page(request, person, relation_form=None, namesakes=None):
             "person": person,
             "portrait": portrait,
             "parents": tree.parents(person),
-            "partners": tree.partners(person),
+            "partners": tree.partners_in_order(person),
             "children": tree.children(person),
             "photos": photos[:PHOTOS_SHOWN],
             "photo_total": photos.count(),
@@ -211,3 +211,21 @@ def person_remove(request, pk):
         request, f"Usunięto z drzewa: {person.name}. Oznaczenia na zdjęciach zostały, a zmianę da się cofnąć."
     )
     return redirect("family:tree")
+
+
+@tree_access(edit=True)
+@require_POST
+def couple_edit(request, pk, other_pk):
+    """Rok ślubu i rozwód pary (formularz pod partnerem na karcie osoby)."""
+    person = get_object_or_404(Person, pk=pk)
+    other = get_object_or_404(Person, pk=other_pk)
+    try:
+        changed = tree.edit_couple(
+            request.user, person, other, request.POST.get("since", ""), request.POST.get("ended") == "on"
+        )
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+    else:
+        if changed:
+            messages.success(request, f"Zapisano: {person.name} i {other.name}.")
+    return redirect("family:person", person.pk)

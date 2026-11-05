@@ -15,6 +15,18 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.31.0 (2026-11-06) · ETAP 31: kilku partnerów jednej osoby
+
+### Dodane
+- **Osoba z kilkoma partnerami stoi w środku**: pierwszy związek po lewej, drugi po prawej (kolejne na zmianę dalej od środka). Każda para ma własną linię, a dzieci schodzą ze środka swojej pary, więc widać, z którego związku jest które dziecko.
+- **Rok ślubu i rozwód.** W drzewie po kliknięciu osoby, przy partnerze, jest „Ślub, rozwód”, a na karcie osoby to samo pod partnerem. Rok ślubu ustala kolejność związków (bez roku liczy się kolejność dodania). Para po rozwodzie lub rozstaniu ma linię przerywaną. Nad linią osoby z kilkoma partnerami jest opis, np. „1. ślub 1950”, „2. ślub 1960 rozwód”. Zmiany trafiają do historii i da się je cofnąć. Usunięcie pary i cofnięcie tego przywraca też rok ślubu i rozwód.
+
+### Zmienione
+- **Linia pary jest teraz ciągła** (była przerywana), bo przerywana oznacza rozwód. Gdy między partnerami stoi ktoś inny, linia przechodzi łukiem nad jego kafelkiem zamiast pod nim.
+- Partnerzy na karcie osoby i w panelu bocznym drzewa są w kolejności związków.
+
+---
+
 ## 0.30.0 (2026-11-06) · ETAP 30: drzewo według dat urodzenia, przełącznik „Nie żyje”
 
 ### Dodane

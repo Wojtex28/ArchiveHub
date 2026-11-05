@@ -33,6 +33,11 @@ class Partnership(models.Model):
 
     person1 = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
     person2 = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    # ETAP 31: kilku partnerów jednej osoby. Rok ślubu ustala kolejność (1. związek po lewej,
+    # 2. po prawej), rozwód rysuje linię przerywaną. Oba pola są opcjonalne.
+    since = models.CharField("rok ślubu", max_length=60, blank=True)
+    since_year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    ended = models.BooleanField("rozwód lub rozstanie", default=False)
 
     class Meta:
         constraints = [
@@ -56,12 +61,14 @@ class TreeChange(models.Model):
     PERSON_REMOVED = "person_removed"
     RELATION_ADDED = "relation_added"
     RELATION_REMOVED = "relation_removed"
+    COUPLE_EDITED = "couple_edited"
     KINDS = [
         (PERSON_ADDED, "dodanie osoby"),
         (PERSON_EDITED, "zmiana danych"),
         (PERSON_REMOVED, "usunięcie z drzewa"),
         (RELATION_ADDED, "dodanie relacji"),
         (RELATION_REMOVED, "usunięcie relacji"),
+        (COUPLE_EDITED, "zmiana związku"),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")

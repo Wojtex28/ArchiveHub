@@ -25,6 +25,7 @@
     relation: root.getAttribute("data-url-relation"),
     remove: root.getAttribute("data-url-remove"),
     alive: root.getAttribute("data-url-alive"),
+    couple: root.getAttribute("data-url-couple"),
   };
   var csrf = root.getAttribute("data-csrf");
   var canvas = root.querySelector(".tree-canvas");
@@ -83,6 +84,27 @@
   }
 
   // --- Układ -----------------------------------------------------------------
+
+  // Związki (ETAP 31): kolejność wg roku ślubu, bez roku w kolejności dodania; rozwód.
+  function coupleKey(a, b) { return a < b ? a + "-" + b : b + "-" + a; }
+  function couplesIndex(data) {
+    var info = {};
+    (data.partners || []).forEach(function (pair, i) { info[coupleKey(pair[0], pair[1])] = { order: i, year: null, since: "", ended: false }; });
+    (data.couples || []).forEach(function (c) {
+      var item = info[coupleKey(c.a, c.b)];
+      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; }
+    });
+    return info;
+  }
+  // Partnerzy osoby od pierwszego związku.
+  function partnersInOrder(id, rel, couples) {
+    return rel[id].partners.slice().sort(function (a, b) {
+      var x = couples[coupleKey(id, a)] || {}, y = couples[coupleKey(id, b)] || {};
+      var xy = x.year === null || x.year === undefined ? Infinity : x.year;
+      var yy = y.year === null || y.year === undefined ? Infinity : y.year;
+      return xy - yy || (x.order || 0) - (y.order || 0);
+    });
+  }
 
   function relativesIndex(data) {
     var index = {};
@@ -229,6 +251,7 @@
     var people = data.people.slice().sort(function (a, b) {
       return (a.born || 9999) - (b.born || 9999) || a.name.localeCompare(b.name, "pl") || a.id - b.id;
     });
+    var couples = couplesIndex(data);
     people.forEach(function (p) {
       if (seen[p.id]) return;
       var members = [], queue = [p.id];
@@ -240,8 +263,45 @@
           if (!seen[q] && gen[q] === gen[id]) { seen[q] = true; queue.push(q); }
         });
       }
-      rows[gen[p.id]].push(members);
+      rows[gen[p.id]].push(arrangeUnit(members));
     });
+
+    // Osoba z kilkoma partnerami stoi w środku: 1. związek po lewej, 2. po prawej (kolejne na zmianę
+    // dalej od środka). Łańcuch par (A+B, B+C, C+D) stoi po kolei. Takiej jednostki nie odwracamy.
+    function arrangeUnit(members) {
+      if (members.length < 3) return members;
+      var inUnit = {};
+      members.forEach(function (id) { inUnit[id] = true; });
+      var mates = {};
+      members.forEach(function (id) {
+        mates[id] = partnersInOrder(id, rel, couples).filter(function (q) { return inUnit[q] && gen[q] === gen[id]; });
+      });
+      var hub = members.slice().sort(function (a, b) { return mates[b].length - mates[a].length; })[0];
+      var edges = members.reduce(function (n, id) { return n + mates[id].length; }, 0) / 2;
+      var isPath = edges === members.length - 1 && members.every(function (id) { return mates[id].length <= 2; });
+      var order;
+      if (isPath) {
+        var start = members.filter(function (id) { return mates[id].length === 1; })[0];
+        order = [start];
+        var prev = null, cur = start;
+        while (order.length < members.length) {
+          var next = mates[cur].filter(function (q) { return q !== prev; })[0];
+          if (next === undefined) break;
+          order.push(next);
+          prev = cur;
+          cur = next;
+        }
+        // Pierwszy związek osoby w środku ma być po lewej.
+        var at = order.indexOf(hub);
+        if (at > 0 && at < order.length - 1 && mates[hub][0] !== order[at - 1]) order.reverse();
+      } else {
+        var left = [], right = [];
+        mates[hub].forEach(function (q, i) { if (i % 2) right.push(q); else left.unshift(q); });
+        order = left.concat([hub], right);
+      }
+      members.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
+      return order;
+    }
 
     // Krawędzie rodzic → dziecko między sąsiednimi rzędami: źródło to środek pary albo jeden rodzic.
     var familiesOf = {};
@@ -338,7 +398,7 @@
 
     // W parze pierwszy stoi ten, którego rodzina jest bardziej po lewej (wtedy linie się nie krzyżują).
     function orderMembers(unit, keyOfPerson) {
-      if (unit.length < 2) return unit;
+      if (unit.length !== 2) return unit;
       var keyed = unit.map(function (id, i) { var k = keyOfPerson(id); return { id: id, k: k, i: i }; });
       var known = keyed.filter(function (e) { return e.k !== null; });
       if (!known.length) return unit;
@@ -427,7 +487,7 @@
         for (var i = 0; i < row.length; i++) {
           var tries = [];
           if (i + 1 < row.length) tries.push(function () { var t = row[i]; row[i] = row[i + 1]; row[i + 1] = t; });
-          if (row[i].length > 1) tries.push(function () { row[i] = row[i].slice().reverse(); });
+          if (row[i].length === 2) tries.push(function () { row[i] = row[i].slice().reverse(); });
           for (var t = 0; t < tries.length; t++) {
             var before = row.slice();
             tries[t]();
@@ -450,7 +510,7 @@
         return f ? f.join("+") : null;
       };
       order.forEach(function (unit, i) {
-        if (unit.length < 2) return;
+        if (unit.length !== 2) return;
         var rooted = unit.filter(function (id) { return keyOf(id) !== null; });
         if (rooted.length !== 1) return;
         var key = keyOf(rooted[0]), left = 0, right = 0;
@@ -735,15 +795,58 @@
     lines.appendChild(line);
   }
 
+  function label(x, y, text, className) {
+    var node = document.createElementNS(SVG_NS, "text");
+    node.setAttribute("x", x);
+    node.setAttribute("y", y);
+    node.setAttribute("class", className);
+    node.textContent = text;
+    lines.appendChild(node);
+  }
+
+  // Linia pary (ETAP 31): ciągła, a po rozwodzie przerywana. Gdy między partnerami stoi ktoś inny,
+  // linia przechodzi łukiem nad jego kafelkiem. Przy osobie z kilkoma partnerami opis „1. ślub 1950”.
+  function drawCouple(a, b, info, rel, couples) {
+    var left = a.x <= b.x ? a : b, right = left === a ? b : a;
+    var ax = left.x + NODE_W / 2, bx = right.x + NODE_W / 2;
+    var ay = left.y + NODE_H / 2, by = right.y + NODE_H / 2;
+    var blocked = Math.abs(a.y - b.y) < 1 && state.data.people.some(function (p) {
+      return p !== a && p !== b && Math.abs(p.y - a.y) < NODE_H && p.x > left.x + 1 && p.x < right.x - 1;
+    });
+    var cls = "tree-line tree-line--partner" + (info.ended ? " tree-line--ended" : "");
+    if (blocked) {
+      var top = Math.min(left.y, right.y) - 26;
+      path("M" + ax + "," + left.y + " C" + ax + "," + top + " " + bx + "," + top + " " + bx + "," + right.y, cls);
+    } else if (Math.abs(a.y - b.y) < 1 && right.x - left.x >= NODE_W) {
+      path("M" + (left.x + NODE_W) + "," + ay + " L" + right.x + "," + by, cls);
+    } else {
+      path("M" + ax + "," + ay + " L" + bx + "," + by, cls);
+    }
+    var hub = [a, b].filter(function (p) { return rel[p.id] && rel[p.id].partners.length > 1; })[0];
+    var parts = [];
+    if (hub) {
+      var other = hub === a ? b : a;
+      parts.push(partnersInOrder(hub.id, rel, couples).indexOf(other.id) + 1 + ".");
+    }
+    if (info.since) parts.push("ślub " + info.since);
+    if (info.ended) parts.push((parts.length > 1 || info.since ? "· " : "") + "rozwód");
+    if (parts.length) {
+      var y = blocked ? Math.min(left.y, right.y) - 24 : Math.min(left.y, right.y) - 8;
+      label((ax + bx) / 2, y, parts.join(" "), "tree-couple-label" + (info.ended ? " tree-couple-label--ended" : ""));
+    }
+  }
+
   function drawLines() {
     lines.textContent = "";
     var byId = state.byId;
     var partnerOf = {};
+    var couples = couplesIndex(state.data);
+    var rel = relativesIndex(state.data);
     state.data.partners.forEach(function (pair) {
       var a = byId[pair[0]], b = byId[pair[1]];
       if (!a || !b) return;
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
-      path("M" + (a.x + NODE_W / 2) + "," + (a.y + NODE_H / 2) + " L" + (b.x + NODE_W / 2) + "," + (b.y + NODE_H / 2), "tree-line tree-line--partner");
+      drawCouple(a, b, couples[coupleKey(a.id, b.id)] || {}, rel, couples);
     });
     // Rodzina = rodzice (para albo jedna osoba) i ich dzieci w jednym rzędzie. Każda rodzina ma własną
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
@@ -905,15 +1008,58 @@
   // --- Panel osoby (z boku albo od dołu na telefonie) ------------------------
 
   function relationRows(person) {
-    var rel = relativesIndex(state.data)[person.id];
+    var index = relativesIndex(state.data);
+    var rel = index[person.id];
     var rows = [];
     rel.parents.forEach(function (id) { rows.push(["rodzic", id]); });
-    rel.partners.forEach(function (id) { rows.push(["partner", id]); });
+    partnersInOrder(person.id, index, couplesIndex(state.data)).forEach(function (id) { rows.push(["partner", id]); });
     rel.children.forEach(function (id) { rows.push(["dziecko", id]); });
     return rows;
   }
 
   var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko" };
+
+  // Opis związku w panelu bocznym: „1. związek · ślub 1950 · rozwód”.
+  function coupleInfo(id, otherId) {
+    var index = relativesIndex(state.data);
+    var couples = couplesIndex(state.data);
+    var item = couples[coupleKey(id, otherId)] || {};
+    var parts = [];
+    if (index[id].partners.length > 1) parts.push(partnersInOrder(id, index, couples).indexOf(otherId) + 1 + ". związek");
+    if (item.since) parts.push("ślub " + item.since);
+    if (item.ended) parts.push("rozwód");
+    return { text: parts.join(" · "), since: item.since || "", ended: !!item.ended };
+  }
+
+  function coupleForm(person, other, info) {
+    var form = el("form", "tree-couple");
+    var since = el("input");
+    since.type = "text";
+    since.value = info.since;
+    since.placeholder = "np. 1950";
+    since.maxLength = 60;
+    since.id = "slub-" + other.id;
+    var sinceLabel = el("label", "", "Rok ślubu");
+    sinceLabel.htmlFor = since.id;
+    var ended = el("label", "check");
+    var box = el("input");
+    box.type = "checkbox";
+    box.checked = info.ended;
+    ended.appendChild(box);
+    ended.appendChild(document.createTextNode(" Rozwód lub rozstanie"));
+    var save = el("button", "button button--quiet", "Zapisz");
+    save.type = "submit";
+    [sinceLabel, since, ended, save].forEach(function (node) { form.appendChild(node); });
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      send(urls.couple, { person: person.id, other: other.id, since: since.value, ended: box.checked }).then(function () {
+        state.coupleEdit = null;
+        renderSheet();
+        showMessage("Zapisano: " + person.name + " i " + other.name + ".");
+      }).catch(function () {});
+    });
+    return form;
+  }
 
   function renderSheet() {
     sheet.textContent = "";
@@ -974,6 +1120,7 @@
           link.addEventListener("click", function () { select(other.id, true); });
           item.appendChild(link);
           item.appendChild(el("span", "hint", " " + LABELS[row[0]]));
+          var info = row[0] === "partner" ? coupleInfo(person.id, other.id) : null;
           if (state.data.canEdit) {
             var remove = el("button", "icon-button icon-button--small", "×");
             remove.type = "button";
@@ -985,6 +1132,19 @@
               });
             });
             item.appendChild(remove);
+          }
+          if (info) {
+            if (info.text) item.appendChild(el("span", "hint tree-sheet__couple", info.text));
+            if (state.data.canEdit) {
+              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : "Ślub, rozwód");
+              edit.type = "button";
+              edit.addEventListener("click", function () {
+                state.coupleEdit = state.coupleEdit === other.id ? null : other.id;
+                renderSheet();
+              });
+              item.appendChild(edit);
+              if (state.coupleEdit === other.id) item.appendChild(coupleForm(person, other, info));
+            }
           }
           list.appendChild(item);
         });
@@ -1176,6 +1336,7 @@
   function select(id, center) {
     state.selected = id;
     state.form = null;
+    state.coupleEdit = null;
     render();
     renderSheet();
     if (center) { glide(); focusOn(id); } else reveal(id);
