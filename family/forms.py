@@ -25,14 +25,16 @@ class PersonForm(forms.ModelForm):
             "maiden_name",
             "birth_date",
             "birth_place",
+            "deceased",
             "death_date",
             "death_place",
             "bio",
             "portrait",
         ]
-        labels = {"name": "Imię i nazwisko"}
+        labels = {"name": "Imię i nazwisko", "deceased": "Nie żyje"}
         help_texts = {
             "birth_date": "Np. 12.06.1921, czerwiec 1921, 1921, ok. 1920 albo lata 20.",
+            "deceased": "Na kafelku w drzewie pojawi się †. Zaznacza się samo, gdy wpiszesz datę śmierci.",
             "death_date": "Jak data urodzenia. Puste, jeśli osoba żyje albo nie wiadomo.",
             "bio": "Kim była, gdzie mieszkała, czym się zajmowała, rodzinne historie.",
         }
@@ -66,6 +68,13 @@ class PersonForm(forms.ModelForm):
     def clean_death_date(self):
         self._death = self._clean_date("death_date")
         return self._death.text
+
+    def clean(self):
+        data = super().clean()
+        # Data śmierci przesądza sprawę, nawet jeśli ktoś zapomniał o przełączniku.
+        if data.get("death_date") or data.get("death_place"):
+            data["deceased"] = True
+        return data
 
     def save(self, commit=True):
         person = super().save(commit=False)

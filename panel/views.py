@@ -585,7 +585,7 @@ def _people_with_namesakes():
     for person in people:
         # Imienników odróżniają lata życia i to, czy są w drzewie.
         if person.key in namesakes:
-            facts = [person.years, "w drzewie" if person.in_tree else "spoza drzewa"]
+            facts = [person.life, "w drzewie" if person.in_tree else "spoza drzewa"]
             person.namesake_hint = "imiennik: " + " · ".join(filter(None, facts))
     return people
 

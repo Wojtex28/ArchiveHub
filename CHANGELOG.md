@@ -15,6 +15,18 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.30.0 (2026-11-06) · ETAP 30: drzewo według dat urodzenia, przełącznik „Nie żyje”
+
+### Dodane
+- **Przełącznik „Nie żyje” (†).** W drzewie, po kliknięciu osoby, jest pole „Nie żyje †” (dla kont z prawem edycji), a w „Edytuj dane” to samo pole nad datą śmierci. Kafelek osoby zmarłej jest przygaszony (szare tło, portret w odcieniach szarości), a lata mają †: „† 1918–1990”, „1946 – †” (data śmierci nieznana) albo „† nie żyje”. Wpisanie daty lub miejsca śmierci zaznacza przełącznik samo. Każda zmiana trafia do historii (Panel → Drzewo) i da się ją cofnąć. Osoby z wpisaną już datą śmierci mają przełącznik zaznaczony od razu po aktualizacji.
+
+### Zmienione
+- **„Ułóż automatycznie” bierze pod uwagę daty urodzenia.** Rodzeństwo stoi od najstarszego z lewej do najmłodszego z prawej. Kolejność urodzenia wygrywa z jednym-dwoma przecięciami linii, ale nie z większym bałaganem. Rodzeństwo bez daty urodzenia może stać gdziekolwiek.
+- **Osobne gałęzie i pojedyncze osoby trafiają do rzędu swoich rówieśników** według roku urodzenia (np. ktoś urodzony w 1990 do rzędu wnuków), a nie zawsze do górnego rzędu.
+- Już ułożone drzewo zostaje jak było. Nowy układ widać po kliknięciu „Ułóż automatycznie”.
+
+---
+
 ## 0.29.0 (2026-11-02) · ETAP 29: osoby na zdjęciu na wierzchu, ulubione
 
 ### Dodane
