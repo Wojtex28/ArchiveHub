@@ -15,6 +15,27 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.33.0 (2026-11-08) · ETAP 33: rodzeństwo
+
+- **Dodawanie rodzeństwa bez rodziców.** Na karcie osoby i w drzewie jest nowy rodzaj połączenia „brat / siostra” (przycisk „+ Rodzeństwo” i uchwyt „+” po lewej stronie kafelka, który można też przeciągnąć na kogoś z drzewa).
+- Gdy osoba ma już rodziców w drzewie, brat lub siostra zostaje po prostu ich dzieckiem, tak jak dotąd.
+- Gdy rodziców jeszcze nie ma, rodzeństwo jest zapisane jako osobne połączenie i w drzewie łączy je przerywana klamra z podpisem „rodzeństwo”. Kafelki rodzeństwa stoją obok siebie w jednym pokoleniu, w kolejności urodzenia.
+- Gdy później ktoś doda rodzica jednemu z rodzeństwa, ten rodzic trafia do całego rodzeństwa, a klamra zamienia się w zwykłe linie od rodziców.
+- Połączenie rodzeństwa można usunąć (×) i cofnąć w Panelu → Drzewo, jak każdą zmianę.
+
+## 0.32.0 (2026-11-08) · ETAP 32: pasy pokoleń i oś czasu w drzewie
+
+Pomysły podpatrzone w aplikacji Strom, dopasowane do naszego drzewa.
+
+### Dodane
+- **Pasy pokoleń.** Za kafelkami leżą poziome pasy, po jednym na pokolenie, z podpisem przy lewej krawędzi: „1. pokolenie”, „2. pokolenie”… i lata urodzenia osób w tym pasie. Po kliknięciu osoby podpisy liczą się od niej: „Pokolenie dziadków”, „Pokolenie rodziców”, „Pokolenie: Jan Bereza”, „Pokolenie dzieci”, „Pokolenie wnuków”. Pasy idą za kafelkami także przy ręcznym ułożeniu. Podpis zostaje na ekranie przy przewijaniu, a przy mocnym pomniejszeniu (np. na telefonie) skraca się do „Pok. 1” albo „Rodzice”.
+- **Oś czasu: drugi widok drzewa.** Przełącznik „Drzewo | Oś czasu” we wstążce. Każda osoba to pasek od roku urodzenia do roku śmierci, ułożone według dat urodzenia. Kolor paska to kolor jej pokolenia (ten sam co kropka przy pasie). Na pasku: złote kółko to ślub (przerywane: ślub zakończony rozwodem), kropka to urodzenie dziecka. Osoba żyjąca ma strzałkę do dziś, a nieznany rok śmierci (albo urodzenia) rozmywa koniec paska. Kliknięcie osoby otwiera tę samą kartę co w drzewie. Przyciski −, ⤢, + zmieniają skalę lat. Osoby bez żadnej daty są w liście „Bez dat” pod osią. Widok zapamiętuje się w adresie (`?widok=os`), więc odświeżenie zostawia oś.
+
+### Zmienione
+- Dane drzewa dla kanwy zawierają też rok śmierci osoby (potrzebny osi czasu).
+
+---
+
 ## 0.31.0 (2026-11-06) · ETAP 31: kilku partnerów jednej osoby
 
 ### Dodane

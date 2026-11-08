@@ -16,7 +16,8 @@
   var ZOOM_MAX = 2.5;
   var MOVE_MIN = 5; // px: mniejszy ruch to kliknięcie, nie przeciąganie
   var SVG_NS = "http://www.w3.org/2000/svg";
-  var KINDS = { rodzic: "rodzica", partner: "partnera lub partnerkę", dziecko: "dziecko" };
+  var KINDS = { rodzic: "rodzica", partner: "partnera lub partnerkę", dziecko: "dziecko", rodzenstwo: "brata lub siostrę" };
+  var KIND_NAMES = { rodzic: "rodzic", partner: "partner / partnerka", dziecko: "dziecko", rodzenstwo: "brat / siostra" };
 
   var urls = {
     data: root.getAttribute("data-url-data"),
@@ -36,8 +37,21 @@
   var outsideList = root.querySelector("[data-outside]");
   var messageBox = root.querySelector(".tree-message");
   var namesList = root.querySelector("#drzewo-osoby");
+  var bandsLayer = root.querySelector(".tree-bands");
+  // Podpisy pasów leżą nad kafelkami i liniami (pas jest pod nimi), więc linia ich nie przekreśla.
+  var bandLabels = null;
+  if (bandsLayer) {
+    bandLabels = document.createElement("div");
+    bandLabels.className = "tree-band-labels";
+    bandLabels.setAttribute("aria-hidden", "true");
+    canvas.insertBefore(bandLabels, world.nextSibling);
+  }
+  var timeline = root.querySelector(".tree-timeline");
 
-  var state = { data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false };
+  var state = {
+    data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false,
+    gen: {}, bands: [], mode: "drzewo", tl: { px: null },
+  };
   var nodeEls = {};
 
   // --- Serwer ----------------------------------------------------------------
@@ -108,7 +122,14 @@
 
   function relativesIndex(data) {
     var index = {};
-    data.people.forEach(function (p) { index[p.id] = { parents: [], children: [], partners: [] }; });
+    data.people.forEach(function (p) { index[p.id] = { parents: [], children: [], partners: [], siblings: [] }; });
+    // ETAP 33: rodzeństwo zapisane wprost (bez wspólnego rodzica w drzewie).
+    (data.siblings || []).forEach(function (pair) {
+      if (index[pair[0]] && index[pair[1]]) {
+        index[pair[0]].siblings.push(pair[1]);
+        index[pair[1]].siblings.push(pair[0]);
+      }
+    });
     data.parents.forEach(function (link) {
       if (index[link[0]] && index[link[1]]) {
         index[link[0]].children.push(link[1]);
@@ -174,7 +195,7 @@
           changed = true;
         }
       });
-      data.partners.forEach(function (pair) {
+      data.partners.concat(data.siblings || []).forEach(function (pair) {
         if (gen[pair[0]] === undefined || gen[pair[1]] === undefined) return;
         var g = Math.max(gen[pair[0]], gen[pair[1]]);
         if (gen[pair[0]] !== g || gen[pair[1]] !== g) {
@@ -202,7 +223,7 @@
         var id = queue.shift();
         members.push(id);
         var r = rel[id];
-        r.parents.concat(r.children, r.partners).forEach(function (q) {
+        r.parents.concat(r.children, r.partners, r.siblings).forEach(function (q) {
           if (component[q] === undefined) { component[q] = groups.length; queue.push(q); }
         });
       }
@@ -264,6 +285,46 @@
         });
       }
       rows[gen[p.id]].push(arrangeUnit(members));
+    });
+    // Rodzeństwo bez wspólnego rodzica (ETAP 33) stoi obok siebie, od najstarszego: łączymy ich
+    // jednostki (każde ze swoimi partnerami) w jedną.
+    rows = rows.map(function (row) {
+      var unitOf = {};
+      row.forEach(function (unit, i) { unit.forEach(function (id) { unitOf[id] = i; }); });
+      var groupOf = row.map(function (_, i) { return i; });
+      function find(i) { while (groupOf[i] !== i) i = groupOf[i] = groupOf[groupOf[i]]; return i; }
+      row.forEach(function (unit, i) {
+        unit.forEach(function (id) {
+          rel[id].siblings.forEach(function (q) {
+            if (unitOf[q] !== undefined && gen[q] === gen[id]) groupOf[find(unitOf[q])] = find(i);
+          });
+        });
+      });
+      var merged = {}, out = [];
+      row.forEach(function (unit, i) {
+        var root = find(i);
+        if (!merged[root]) { merged[root] = []; out.push(merged[root]); }
+        merged[root].push(unit);
+      });
+      return out.map(function (units) {
+        if (units.length === 1) return units[0];
+        var born = function (unit) {
+          var years = unit.filter(function (id) { return rel[id].siblings.length; })
+            .map(function (id) { return byId[id].born; }).filter(function (y) { return y !== null && y !== undefined; });
+          return years.length ? Math.min.apply(null, years) : 9999;
+        };
+        units.sort(function (a, b) { return born(a) - born(b); });
+        // Para: brat lub siostra stoi bliżej rodzeństwa, a partner/ka na zewnątrz.
+        var linked = function (id) { return rel[id].siblings.length > 0; };
+        units = units.map(function (unit, i) {
+          if (unit.length !== 2 || linked(unit[0]) === linked(unit[1])) return unit;
+          var first = i === 0, last = i === units.length - 1;
+          if (first && linked(unit[0])) return [unit[1], unit[0]];
+          if (last && !first && linked(unit[1])) return [unit[1], unit[0]];
+          return unit;
+        });
+        return [].concat.apply([], units);
+      });
     });
 
     // Osoba z kilkoma partnerami stoi w środku: 1. związek po lewej, 2. po prawej (kolejne na zmianę
@@ -604,10 +665,16 @@
         var ps = placedOf(r.parents);
         var cs = placedOf(r.children);
         var partners = placedOf(r.partners);
+        var sibs = placedOf(r.siblings);
         if (ps.length) {
           anchor = [ps.reduce(function (s, q) { return s + q.x; }, 0) / ps.length, ps[0].y + ROW_H];
         } else if (partners.length) {
           anchor = [partners[0].x + NODE_W + GAP_X, partners[0].y];
+        } else if (sibs.length) {
+          // Obok rodzeństwa, po stronie bez partnera (partner/ka zwykle stoi tuż obok).
+          var sib = sibs[sibs.length - 1];
+          var mateRight = placedOf(rel[sib.id].partners).some(function (q) { return q.x > sib.x && Math.abs(q.y - sib.y) < NODE_H; });
+          anchor = [mateRight ? sib.x - NODE_W - GAP_X : sib.x + NODE_W + GAP_X, sib.y];
         } else if (cs.length) {
           anchor = [cs[0].x, cs[0].y - ROW_H];
         } else if (pass === 2) {
@@ -630,6 +697,7 @@
     world.style.transform = "translate(" + v.x + "px," + v.y + "px) scale(" + v.scale + ")";
     canvas.style.backgroundPosition = v.x + "px " + v.y + "px";
     canvas.style.backgroundSize = 24 * v.scale + "px " + 24 * v.scale + "px";
+    positionBands();
   }
 
   // Część kanwy, której nie zasłania wysunięta karta osoby (z prawej albo, na telefonie, od dołu).
@@ -674,8 +742,9 @@
 
   // Kanwa sięga do dołu okna: odejmujemy to, co jest nad nią (nagłówek, wstążka, komunikaty).
   function sizeCanvas() {
-    var top = canvas.getBoundingClientRect().top + window.scrollY;
-    canvas.style.setProperty("--tree-top", Math.round(top) + "px");
+    var stage = canvas.parentNode;
+    var top = stage.getBoundingClientRect().top + window.scrollY;
+    stage.style.setProperty("--tree-top", Math.round(top) + "px");
   }
 
   function toWorld(clientX, clientY) {
@@ -685,6 +754,8 @@
   }
 
   function fit() {
+    // Kanwa schowana (oś czasu): dopasujemy widok, gdy wróci.
+    if (canvas.hidden) { state.needFit = true; return; }
     var people = state.data.people;
     var rect = area();
     if (!people.length) {
@@ -711,6 +782,7 @@
   function focusOn(id) {
     var p = state.byId[id];
     if (!p) return;
+    if (canvas.hidden) { state.needFit = true; return; }
     var a = area();
     var scale = Math.max(state.view.scale, 0.8);
     state.view = { scale: scale, x: a.w / 2 - (p.x + NODE_W / 2) * scale, y: a.h / 2 - (p.y + NODE_H / 2) * scale };
@@ -779,7 +851,7 @@
   // Kogo można dodać: rodzica tylko do dwojga.
   function kindsFor(id) {
     var rel = relativesIndex(state.data)[id];
-    return ["rodzic", "partner", "dziecko"].filter(function (kind) {
+    return ["rodzic", "partner", "dziecko", "rodzenstwo"].filter(function (kind) {
       return kind !== "rodzic" || !rel || rel.parents.length < 2;
     });
   }
@@ -937,6 +1009,37 @@
       });
       dot(f.x, bus, cls);
     });
+    drawSiblings(rel);
+    drawBands();
+  }
+
+  // Rodzeństwo bez wspólnego rodzica w drzewie (ETAP 33): klamra nad kafelkami, przerywana, bo
+  // rodziców jeszcze nie ma. Rodzeństwo ze wspólnym rodzicem łączy już szyna rodziny.
+  function drawSiblings(rel) {
+    var seen = {};
+    state.data.people.forEach(function (p) {
+      if (seen[p.id] || !rel[p.id].siblings.length) return;
+      var group = [], queue = [p.id];
+      seen[p.id] = true;
+      while (queue.length) {
+        var id = queue.shift();
+        group.push(id);
+        rel[id].siblings.forEach(function (q) {
+          var shared = rel[q].parents.some(function (x) { return rel[id].parents.indexOf(x) >= 0; });
+          if (!seen[q] && !shared) { seen[q] = true; queue.push(q); }
+        });
+      }
+      var nodes = group.map(function (id) { return state.byId[id]; }).filter(function (q) { return q && q.x !== null; });
+      if (nodes.length < 2) return;
+      // Kafelki rodzeństwa w różnych rzędach: klamra nad najwyższym z nich.
+      var top = Math.min.apply(null, nodes.map(function (q) { return q.y; }));
+      var bus = top - 26;
+      var xs = nodes.map(function (q) { return q.x + NODE_W / 2; });
+      var cls = "tree-line tree-line--sibling";
+      path("M" + Math.min.apply(null, xs) + "," + bus + " H" + Math.max.apply(null, xs), cls);
+      nodes.forEach(function (q) { path("M" + (q.x + NODE_W / 2) + "," + bus + " V" + q.y, cls); });
+      label((Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2, bus - 6, "rodzeństwo", "tree-couple-label tree-sibling-label");
+    });
   }
 
   function dot(x, y, cls) {
@@ -946,6 +1049,305 @@
     c.setAttribute("r", 3);
     c.setAttribute("class", cls.split("tree-line").join("tree-joint"));
     lines.appendChild(c);
+  }
+
+
+  // --- Pasy pokoleń (ETAP 32) --------------------------------------------------
+  // Za kafelkami leżą poziome pasy, po jednym na pokolenie, z podpisem przy lewej krawędzi.
+  // Pokolenie liczy generations() (to samo co „Ułóż automatycznie”), a pas obejmuje kafelki
+  // tego pokolenia tam, gdzie akurat stoją, więc działa też przy ręcznym ułożeniu.
+  var BAND_PAD = 44;
+  var GEN_COLORS = 6;
+  var RELATIVE = {
+    "-4": "Pokolenie prapradziadków", "-3": "Pokolenie pradziadków", "-2": "Pokolenie dziadków",
+    "-1": "Pokolenie rodziców", "1": "Pokolenie dzieci", "2": "Pokolenie wnuków",
+    "3": "Pokolenie prawnuków", "4": "Pokolenie praprawnuków",
+  };
+
+  function yearsRange(ids) {
+    var years = ids.map(function (id) { return state.byId[id].born; })
+      .filter(function (y) { return y !== null && y !== undefined; });
+    if (!years.length) return "";
+    var lo = Math.min.apply(null, years), hi = Math.max.apply(null, years);
+    return lo === hi ? "ur. " + lo : "ur. " + lo + "–" + hi;
+  }
+
+  var RELATIVE_SHORT = {
+    "-4": "Prapradziadkowie", "-3": "Pradziadkowie", "-2": "Dziadkowie", "-1": "Rodzice",
+    "1": "Dzieci", "2": "Wnuki", "3": "Prawnuki", "4": "Praprawnuki",
+  };
+
+  // Pełny podpis i krótki (gdy drzewo jest mocno pomniejszone, np. na telefonie).
+  function bandLabel(g, low) {
+    var sel = state.selected && state.byId[state.selected];
+    if (sel && state.gen[sel.id] !== undefined) {
+      var d = g - state.gen[sel.id];
+      if (d === 0) return ["Pokolenie: " + sel.name, sel.name.split(" ")[0]];
+      if (RELATIVE[d]) return [RELATIVE[d], RELATIVE_SHORT[d]];
+      var far = d < 0 ? (-d) + " pokoleń wstecz" : d + " pokoleń dalej";
+      return [far, (d < 0 ? "−" : "+") + Math.abs(d)];
+    }
+    return [(g - low + 1) + ". pokolenie", "Pok. " + (g - low + 1)];
+  }
+
+  function genClass(g) { return "gen-c" + (((g % GEN_COLORS) + GEN_COLORS) % GEN_COLORS); }
+
+  function drawBands() {
+    if (!bandsLayer) return;
+    var rows = {};
+    state.data.people.forEach(function (p) {
+      var g = state.gen[p.id];
+      if (g === undefined || p.x === null) return;
+      var r = rows[g] = rows[g] || { gen: g, ids: [], top: Infinity, bottom: -Infinity, centers: [] };
+      r.ids.push(p.id);
+      r.top = Math.min(r.top, p.y);
+      r.bottom = Math.max(r.bottom, p.y + NODE_H);
+      r.centers.push(p.y + NODE_H / 2);
+    });
+    var list = Object.keys(rows).map(function (g) {
+      var r = rows[g];
+      r.centers.sort(function (a, b) { return a - b; });
+      r.center = r.centers[Math.floor(r.centers.length / 2)];
+      return r;
+    });
+    bandsLayer.textContent = "";
+    bandLabels.textContent = "";
+    state.bands = [];
+    if (list.length < 2) return;
+    list.sort(function (a, b) { return a.center - b.center; });
+    var low = Math.min.apply(null, list.map(function (r) { return r.gen; }));
+    list.forEach(function (r, i) {
+      var prev = list[i - 1], next = list[i + 1];
+      // Granica między pasami: w połowie przerwy między rzędami (albo między ich środkami, gdy
+      // ktoś przestawił kafelki tak, że rzędy na siebie zachodzą).
+      var top = !prev ? r.top - BAND_PAD : (prev.bottom <= r.top ? (prev.bottom + r.top) / 2 : (prev.center + r.center) / 2);
+      var bottom = !next ? r.bottom + BAND_PAD : (r.bottom <= next.top ? (r.bottom + next.top) / 2 : (r.center + next.center) / 2);
+      var band = el("div", "tree-band " + genClass(r.gen) + (i % 2 ? " tree-band--odd" : ""));
+      var text = el("span", "tree-band__label " + genClass(r.gen));
+      text.appendChild(el("span", "tree-band__dot"));
+      var names = bandLabel(r.gen, low);
+      text.appendChild(el("span", "tree-band__name", names[0]));
+      text.appendChild(el("span", "tree-band__short", names[1]));
+      var years = yearsRange(r.ids);
+      if (years) text.appendChild(el("span", "tree-band__years", years));
+      bandLabels.appendChild(text);
+      bandsLayer.appendChild(band);
+      state.bands.push({ el: band, label: text, top: top, bottom: bottom });
+    });
+    positionBands();
+  }
+
+  function positionBands() {
+    var v = state.view;
+    var h = canvas.clientHeight;
+    bandLabels.classList.toggle("is-small", v.scale < 0.55);
+    state.bands.forEach(function (b) {
+      var top = v.y + b.top * v.scale, bottom = v.y + b.bottom * v.scale;
+      b.el.style.top = top + "px";
+      b.el.style.height = Math.max(0, bottom - top) + "px";
+      // Podpis zostaje na ekranie, dopóki widać choć kawałek pasa.
+      // Przy mocnym pomniejszeniu odstęp nad kafelkami jest mały: podpis przylega do górnej krawędzi pasa.
+      var edge = v.scale < 0.55 ? 1 : 4;
+      var inside = Math.min(Math.max(0, -top) + edge, Math.max(edge, bottom - top - 22));
+      b.label.style.transform = "translateY(" + (top + inside) + "px)";
+      b.el.hidden = b.label.hidden = bottom < 0 || top > h;
+    });
+  }
+
+  // --- Oś czasu (ETAP 32) --------------------------------------------------------
+  // Drugi tryb widoku: każda osoba to pasek od roku urodzenia do roku śmierci, ułożone według
+  // dat urodzenia. Kropki na pasku: ślub (kółko), urodzenie dziecka (mała kropka).
+  var TL_ROW = 36;
+  var TL_MAX_AGE = 105; // starszych bez „nie żyje” nie rysujemy do dziś, tylko z rozmytym końcem
+  var NOW = new Date().getFullYear();
+
+  function tlNameWidth() { return timeline.clientWidth < 520 ? 136 : 220; }
+
+  function tlRows() {
+    var rel = relativesIndex(state.data);
+    var couples = couplesIndex(state.data);
+    var rows = [], undated = [];
+    state.data.people.forEach(function (p) {
+      var born = p.born, died = p.died;
+      if (born == null && died == null) { undated.push(p); return; }
+      var marks = [];
+      rel[p.id].partners.forEach(function (q) {
+        var c = couples[coupleKey(p.id, q)];
+        if (c && c.year) marks.push({ year: c.year, kind: c.ended ? "ended" : "marriage", text: "Ślub: " + state.byId[q].name + " (" + c.since + ")" + (c.ended ? ", potem rozwód" : "") });
+      });
+      rel[p.id].children.forEach(function (q) {
+        var child = state.byId[q];
+        if (child && child.born != null) marks.push({ year: child.born, kind: "child", text: "Urodzenie dziecka: " + child.name + " (" + child.born + ")" });
+      });
+      var start = born != null ? born : null, end = died != null ? died : null, open = false;
+      if (end === null && start !== null && !p.deceased && NOW - start <= TL_MAX_AGE) { end = NOW; open = true; }
+      rows.push({ p: p, start: start, end: end, open: open, marks: marks, sort: born != null ? born : died - 60 });
+    });
+    rows.sort(function (a, b) { return a.sort - b.sort || a.p.name.localeCompare(b.p.name, "pl"); });
+    undated.sort(function (a, b) { return a.name.localeCompare(b.name, "pl"); });
+    return { rows: rows, undated: undated };
+  }
+
+  function renderTimeline() {
+    if (!timeline || state.mode !== "os" || !state.data) return;
+    var keep = { left: timeline.scrollLeft, top: timeline.scrollTop };
+    var focusName = document.activeElement && document.activeElement.closest && document.activeElement.closest(".tl-row") && document.activeElement.closest(".tl-row").getAttribute("data-id");
+    timeline.textContent = "";
+    var data = tlRows();
+    if (!data.rows.length) {
+      timeline.appendChild(el("p", "tl-empty", state.data.people.length
+        ? "Nikt w drzewie nie ma jeszcze wpisanego roku urodzenia ani śmierci. Uzupełnij daty w karcie osoby, a pojawi się tutaj."
+        : "Drzewo jest puste."));
+    } else {
+      var lo = Infinity, hi = -Infinity;
+      data.rows.forEach(function (r) {
+        [r.start, r.end].concat(r.marks.map(function (m) { return m.year; })).forEach(function (y) {
+          if (y !== null) { lo = Math.min(lo, y); hi = Math.max(hi, y); }
+        });
+      });
+      lo = Math.floor((lo - 5) / 10) * 10;
+      hi = Math.ceil((hi + 5) / 10) * 10;
+      var nameW = tlNameWidth();
+      var fitPx = (timeline.clientWidth - nameW - 24) / (hi - lo);
+      var px = state.tl.px || Math.min(24, Math.max(2.5, fitPx));
+      state.tl.lastPx = px;
+      var step = px * 10 >= 44 ? 10 : px * 20 >= 44 ? 20 : 50;
+      var trackW = Math.ceil((hi - lo) * px) + 16;
+      var sheetEl = el("div", "tl");
+      sheetEl.style.width = nameW + trackW + "px";
+      sheetEl.style.setProperty("--tl-name", nameW + "px");
+      sheetEl.style.setProperty("--tl-step", step * px + "px");
+
+      var head = el("div", "tl-head");
+      head.appendChild(el("div", "tl-name tl-name--head", data.rows.length + " os."));
+      var axis = el("div", "tl-track tl-axis");
+      for (var y = lo; y <= hi; y += step) {
+        var tick = el("span", "tl-tick", String(y));
+        tick.style.left = (y - lo) * px + "px";
+        axis.appendChild(tick);
+      }
+      head.appendChild(axis);
+      sheetEl.appendChild(head);
+
+      data.rows.forEach(function (r) {
+        var p = r.p;
+        var row = el("div", "tl-row" + (state.selected === p.id ? " is-selected" : "") + (p.deceased ? " is-deceased" : ""));
+        row.setAttribute("data-id", p.id);
+        var name = el("button", "tl-name");
+        name.type = "button";
+        name.appendChild(el("span", "tl-name__text", p.name));
+        if (p.years) name.appendChild(el("span", "tl-name__years", p.years));
+        name.title = p.name + (p.years ? ", " + p.years : "");
+        row.appendChild(name);
+        var track = el("div", "tl-track");
+        var g = state.gen[p.id];
+        var s = r.start !== null ? r.start : r.end - 30, e = r.end !== null ? r.end : r.start + 30;
+        var bar = el("span", "tl-bar " + genClass(g === undefined ? 0 : g)
+          + (r.start === null ? " tl-bar--fade-start" : "") + (r.end === null ? " tl-bar--fade-end" : "") + (r.open ? " tl-bar--open" : ""));
+        bar.style.left = (s - lo) * px + "px";
+        bar.style.width = Math.max(4, (e - s) * px) + "px";
+        bar.title = p.name + (r.start === null ? ": rok urodzenia nieznany" : "") + (r.end === null ? ": rok śmierci nieznany" : "") + (r.open ? ": żyje" : "");
+        track.appendChild(bar);
+        r.marks.forEach(function (m) {
+          var mark = el("span", "tl-mark tl-mark--" + m.kind);
+          mark.style.left = (m.year - lo) * px + "px";
+          mark.title = m.text;
+          track.appendChild(mark);
+        });
+        row.appendChild(track);
+        sheetEl.appendChild(row);
+      });
+      timeline.appendChild(sheetEl);
+    }
+    if (data.undated.length) {
+      var rest = el("div", "tl-undated");
+      // Lista zostaje pod osią, nawet gdy oś jest przewinięta w bok.
+      rest.style.width = timeline.clientWidth + "px";
+      rest.appendChild(el("h2", "", "Bez dat (" + data.undated.length + ")"));
+      rest.appendChild(el("p", "hint", "Te osoby nie mają wpisanego roku urodzenia ani śmierci, więc nie ma ich na osi."));
+      var list = el("ul", "chips chips--light");
+      data.undated.forEach(function (p) {
+        var li = el("li", "tl-row");
+        li.setAttribute("data-id", p.id);
+        var b = el("button", "chip" + (state.selected === p.id ? " is-selected" : ""), p.name);
+        b.type = "button";
+        li.appendChild(b);
+        list.appendChild(li);
+      });
+      rest.appendChild(list);
+      timeline.appendChild(rest);
+    }
+    timeline.scrollLeft = keep.left;
+    timeline.scrollTop = keep.top;
+    if (focusName) {
+      var again = timeline.querySelector('.tl-row[data-id="' + focusName + '"] button');
+      if (again) again.focus({ preventScroll: true });
+    }
+  }
+
+  // Wybrany wiersz osi nie może się chować pod kartą osoby (na telefonie karta wysuwa się od dołu).
+  function revealRow(id) {
+    var row = timeline.querySelector('.tl-row[data-id="' + id + '"]');
+    if (!row || !row.offsetParent || !row.closest(".tl")) return;
+    var limit = timeline.clientHeight;
+    if (!sheet.hidden && sheet.offsetLeft < timeline.clientWidth / 3) limit = Math.min(limit, sheet.offsetTop - timeline.offsetTop);
+    var y = row.offsetTop - timeline.scrollTop;
+    if (y < 40 || y + TL_ROW > limit - 8) timeline.scrollTop = Math.max(0, row.offsetTop - Math.max(40, (limit - TL_ROW) / 2));
+  }
+
+  function zoomTimeline(factor) {
+    var px = state.tl.lastPx || 4;
+    var nameW = tlNameWidth();
+    // Rok na środku widoku zostaje na środku.
+    var middle = (timeline.scrollLeft + (timeline.clientWidth - nameW) / 2) / px;
+    state.tl.px = Math.min(40, Math.max(1.5, px * factor));
+    renderTimeline();
+    timeline.scrollLeft = Math.max(0, middle * state.tl.px - (timeline.clientWidth - nameW) / 2);
+  }
+
+  function setMode(mode, remember) {
+    state.mode = mode === "os" ? "os" : "drzewo";
+    var isTimeline = state.mode === "os";
+    root.classList.toggle("is-timeline", isTimeline);
+    canvas.hidden = isTimeline;
+    if (timeline) timeline.hidden = !isTimeline;
+    root.querySelectorAll("[data-tree-mode]").forEach(function (b) {
+      var on = b.getAttribute("data-tree-mode") === state.mode;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (remember) {
+      var params = new URLSearchParams(location.search);
+      if (isTimeline) params.set("widok", "os"); else params.delete("widok");
+      var query = params.toString();
+      history.replaceState(null, "", location.pathname + (query ? "?" + query : ""));
+    }
+    if (!state.data) return;
+    if (isTimeline) {
+      renderTimeline();
+      var row = state.selected && timeline.querySelector('.tl-row[data-id="' + state.selected + '"]');
+      // Tylko oś przewija się do wybranej osoby, strona zostaje na miejscu.
+      if (row && row.offsetParent) timeline.scrollTop = Math.max(0, row.offsetTop - timeline.clientHeight / 2);
+    } else {
+      sizeCanvas();
+      if (state.needFit) {
+        state.needFit = false;
+        if (state.selected) focusOn(state.selected); else fit();
+      } else {
+        applyView();
+        if (state.selected) reveal(state.selected);
+      }
+    }
+  }
+
+  if (timeline) {
+    timeline.addEventListener("click", function (event) {
+      var row = event.target.closest(".tl-row");
+      if (!row) return;
+      var id = parseInt(row.getAttribute("data-id"), 10);
+      if (state.selected === id && !sheet.hidden) return;
+      select(id, false);
+    });
   }
 
   function render() {
@@ -961,6 +1363,7 @@
       }
     });
     drawLines();
+    renderTimeline();
     root.classList.toggle("is-empty", !state.data.people.length);
   }
 
@@ -969,6 +1372,7 @@
     state.data = data;
     state.byId = {};
     data.people.forEach(function (p) { state.byId[p.id] = p; });
+    state.gen = generations(data);
     if (state.selected && !state.byId[state.selected]) state.selected = null;
     var placed = placeMissing();
     render();
@@ -1013,11 +1417,27 @@
     var rows = [];
     rel.parents.forEach(function (id) { rows.push(["rodzic", id]); });
     partnersInOrder(person.id, index, couplesIndex(state.data)).forEach(function (id) { rows.push(["partner", id]); });
+    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     rel.children.forEach(function (id) { rows.push(["dziecko", id]); });
     return rows;
   }
 
-  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko" };
+  // Rodzeństwo: przez wspólnego rodzica i zapisane wprost. ``linked`` = da się usunąć samo połączenie.
+  function siblingsOf(id, index) {
+    var rel = index[id], viaParent = {}, list = [];
+    rel.parents.forEach(function (p) {
+      index[p].children.forEach(function (c) { if (c !== id) viaParent[c] = true; });
+    });
+    Object.keys(viaParent).forEach(function (c) { list.push({ id: +c, linked: false }); });
+    rel.siblings.forEach(function (c) { if (!viaParent[c]) list.push({ id: c, linked: true }); });
+    list.sort(function (a, b) {
+      var x = state.byId[a.id].born, y = state.byId[b.id].born;
+      return (x == null ? 9999 : x) - (y == null ? 9999 : y);
+    });
+    return list;
+  }
+
+  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko", rodzenstwo: "rodzeństwo" };
 
   // Opis związku w panelu bocznym: „1. związek · ślub 1950 · rozwód”.
   function coupleInfo(id, otherId) {
@@ -1121,7 +1541,7 @@
           item.appendChild(link);
           item.appendChild(el("span", "hint", " " + LABELS[row[0]]));
           var info = row[0] === "partner" ? coupleInfo(person.id, other.id) : null;
-          if (state.data.canEdit) {
+          if (state.data.canEdit && (row[0] !== "rodzenstwo" || row[2])) {
             var remove = el("button", "icon-button icon-button--small", "×");
             remove.type = "button";
             remove.setAttribute("aria-label", "Usuń połączenie z: " + other.name);
@@ -1157,7 +1577,7 @@
     if (person) {
       var actions = el("div", "tree-sheet__actions");
       kindsFor(person.id).forEach(function (kind) {
-        var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko" }[kind]);
+        var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko", rodzenstwo: "Rodzeństwo" }[kind]);
         button.type = "button";
         button.addEventListener("click", function () { openForm(person.id, kind); });
         actions.appendChild(button);
@@ -1192,7 +1612,7 @@
       var kind = el("select", "tree-form__kind");
       kind.setAttribute("aria-label", "Kim jest ta osoba");
       Object.keys(KINDS).forEach(function (key) {
-        var option = el("option", "", { rodzic: "rodzic", partner: "partner / partnerka", dziecko: "dziecko" }[key]);
+        var option = el("option", "", KIND_NAMES[key]);
         option.value = key;
         option.selected = key === state.form.kind;
         kind.appendChild(option);
@@ -1339,6 +1759,7 @@
     state.coupleEdit = null;
     render();
     renderSheet();
+    if (state.mode === "os") { revealRow(id); return; }
     if (center) { glide(); focusOn(id); } else reveal(id);
   }
 
@@ -1536,7 +1957,7 @@
         var source = state.byId[g.from];
         var other = state.byId[target];
         send(urls.relation, { person: g.from, other: target, kind: g.kind }).then(function () {
-          showMessage({ rodzic: other.name + " jest rodzicem: " + source.name, partner: "Para: " + source.name + " i " + other.name, dziecko: other.name + " jest dzieckiem: " + source.name }[g.kind] + ".");
+          showMessage({ rodzic: other.name + " jest rodzicem: " + source.name, partner: "Para: " + source.name + " i " + other.name, dziecko: other.name + " jest dzieckiem: " + source.name, rodzenstwo: "Rodzeństwo: " + source.name + " i " + other.name }[g.kind] + ".");
         });
       } else {
         var at = g.moved ? toWorld(event.clientX, event.clientY) : null;
@@ -1582,9 +2003,15 @@
   // --- Przyciski nad kanwą ---------------------------------------------------
 
   root.addEventListener("click", function (event) {
+    var modeButton = event.target.closest("[data-tree-mode]");
+    if (modeButton) { setMode(modeButton.getAttribute("data-tree-mode"), true); return; }
     var action = event.target.closest("[data-tree-action]");
     if (!action) return;
     var name = action.getAttribute("data-tree-action");
+    if (state.mode === "os" && /^(zoom-in|zoom-out|fit)$/.test(name)) {
+      if (name === "fit") { state.tl.px = null; renderTimeline(); } else zoomTimeline(name === "zoom-in" ? 1.25 : 0.8);
+      return;
+    }
     var rect = canvas.getBoundingClientRect(), a = area();
     if (name === "zoom-in") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 1.25);
     if (name === "zoom-out") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 0.8);
@@ -1616,12 +2043,18 @@
     canvas.focus();
   });
 
-  window.addEventListener("resize", function () { sizeCanvas(); if (state.data) applyView(); });
+  window.addEventListener("resize", function () {
+    sizeCanvas();
+    if (!state.data) return;
+    if (state.mode === "os") renderTimeline(); else applyView();
+  });
   sizeCanvas();
+  setMode(new URLSearchParams(location.search).get("widok"), false);
 
   request(urls.data).then(function (data) {
     root.classList.add("is-ready");
     apply(data);
+    if (state.mode === "os") setMode("os", false);
   }).catch(function (error) {
     showMessage(error.message, true);
   });

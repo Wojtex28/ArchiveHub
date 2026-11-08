@@ -131,6 +131,7 @@ def _person_page(request, person, relation_form=None, namesakes=None):
             "parents": tree.parents(person),
             "partners": tree.partners_in_order(person),
             "children": tree.children(person),
+            "siblings": tree.siblings(person),
             "photos": photos[:PHOTOS_SHOWN],
             "photo_total": photos.count(),
             "relation_form": relation_form or RelationForm(label_suffix=""),

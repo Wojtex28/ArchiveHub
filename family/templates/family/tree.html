@@ -11,6 +11,10 @@
   <div class="tree-ribbon">
     <h1 class="tree-ribbon__title">Drzewo rodzinne</h1>
     <div class="tree-toolbar" role="toolbar" aria-label="Narzędzia drzewa">
+      <span class="tree-modes" role="group" aria-label="Widok">
+        <button type="button" class="tree-mode is-active" data-tree-mode="drzewo" aria-pressed="true">Drzewo</button>
+        <button type="button" class="tree-mode" data-tree-mode="os" aria-pressed="false">Oś czasu</button>
+      </span>
       {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>
       <button type="button" class="button button--quiet" data-tree-action="layout" title="Ułóż automatycznie">Ułóż<span class="tree-toolbar__more"> automatycznie</span></button>{% endif %}
       <span class="tree-toolbar__zoom">
@@ -22,6 +26,7 @@
   </div>
   <div class="tree-stage">
     <div class="tree-canvas" aria-label="Drzewo rodzinne: przeciągnij tło, żeby przesunąć widok">
+      <div class="tree-bands" aria-hidden="true"></div>
       <div class="tree-world">
         <svg class="tree-lines" aria-hidden="true" width="1" height="1"></svg>
         <div class="tree-nodes"></div>
@@ -29,6 +34,7 @@
       <p class="tree-empty">Drzewo jest puste.{% if user.can_edit_tree %} Kliknij „+ Osoba” albo przeciągnij kogoś z listy osób ze zdjęć.{% endif %}</p>
       <p class="tree-message" role="status" hidden></p>
     </div>
+    <div class="tree-timeline" hidden aria-label="Oś czasu: lata życia osób z drzewa"></div>
     <aside class="tree-sheet" hidden aria-label="Wybrana osoba"></aside>
   </div>
   <div class="tree-page">

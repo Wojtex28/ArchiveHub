@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST, require_safe
 from albums.models import NamedModel, Person, Photo
 
 from . import tree
-from .models import ParentChild, Partnership
+from .models import ParentChild, Partnership, Sibling
 from .views import tree_access
 
 # Kanwa ma granice, żeby kafelek nie uciekł w nieskończoność po błędzie.
@@ -42,6 +42,7 @@ def tree_data(user):
                 "years": p.life,
                 "deceased": p.deceased,
                 "born": p.birth_year,
+                "died": p.death_year,
                 "x": p.tree_x,
                 "y": p.tree_y,
                 "url": reverse("family:person", args=[p.pk]),
@@ -51,6 +52,8 @@ def tree_data(user):
         ],
         "parents": list(ParentChild.objects.values_list("parent_id", "child_id")),
         "partners": list(Partnership.objects.values_list("person1_id", "person2_id")),
+        # ETAP 33: rodzeństwo bez wspólnego rodzica w drzewie.
+        "siblings": list(Sibling.objects.values_list("person1_id", "person2_id")),
         # ETAP 31: rok ślubu (kolejność związków) i rozwód (linia przerywana).
         "couples": [
             {"a": c.person1_id, "b": c.person2_id, "since": c.since, "year": c.since_year, "ended": c.ended}

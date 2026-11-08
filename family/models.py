@@ -53,6 +53,30 @@ class Partnership(models.Model):
         return f"{self.person1} + {self.person2}"
 
 
+class Sibling(models.Model):
+    """Rodzeństwo bez wspólnego rodzica w drzewie (ETAP 33): np. brat osoby, której rodziców nikt nie dodał.
+
+    Rodzeństwo ze wspólnym rodzicem wynika z ``ParentChild`` i nie potrzebuje tego zapisu. Gdy ktoś
+    z rodzeństwa dostaje rodzica, reszta dostaje go też (``tree.share_parents``).
+    """
+
+    person1 = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    person2 = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["person1", "person2"], name="family_sibling_unique"),
+            models.CheckConstraint(
+                condition=models.Q(person1__lt=models.F("person2")), name="family_sibling_order"
+            ),
+        ]
+        verbose_name = "rodzeństwo"
+        verbose_name_plural = "rodzeństwo"
+
+    def __str__(self):
+        return f"{self.person1} i {self.person2} (rodzeństwo)"
+
+
 class TreeChange(models.Model):
     """Jedna zmiana w drzewie: kto, kiedy, co. ``before``/``after`` pozwalają ją cofnąć (``tree.undo``)."""
 
