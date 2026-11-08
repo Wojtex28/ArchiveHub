@@ -42,6 +42,7 @@ def tree_data(user):
                 "years": p.life,
                 "deceased": p.deceased,
                 "born": p.birth_year,
+                "died": p.death_year,
                 "x": p.tree_x,
                 "y": p.tree_y,
                 "url": reverse("family:person", args=[p.pk]),
