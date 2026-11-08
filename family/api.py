@@ -51,6 +51,12 @@ def tree_data(user):
         ],
         "parents": list(ParentChild.objects.values_list("parent_id", "child_id")),
         "partners": list(Partnership.objects.values_list("person1_id", "person2_id")),
+        # ETAP 31: rok ślubu (kolejność związków) i rozwód (linia przerywana).
+        "couples": [
+            {"a": c.person1_id, "b": c.person2_id, "since": c.since, "year": c.since_year, "ended": c.ended}
+            for c in Partnership.objects.all()
+            if c.since or c.ended
+        ],
         "outside": [{"id": p.pk, "name": p.name, "count": p.count} for p in outside[:200]],
         "names": list(Person.objects.values_list("name", flat=True)),
         "canEdit": user.can_edit_tree,
@@ -234,4 +240,19 @@ def alive(request):
         person.deceased = deceased
         person.save(update_fields=["deceased"])
         tree.edit_person(request.user, person, before)
+    return _ok(request)
+
+
+@tree_access(edit=True)
+@require_POST
+def couple(request):
+    """Rok ślubu i rozwód pary z kanwy: ``{"person", "other", "since", "ended"}``."""
+    body = _body(request)
+    person, other = _person(body.get("person"), in_tree=True), _person(body.get("other"), in_tree=True)
+    if person is None or other is None:
+        return _error("Nie ma takiej osoby w drzewie.", 404)
+    try:
+        tree.edit_couple(request.user, person, other, str(body.get("since") or ""), body.get("ended") is True)
+    except ValidationError as exc:
+        return _error(exc.messages[0])
     return _ok(request)

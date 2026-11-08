@@ -1,7 +1,7 @@
 """Operacje na drzewie: relacje z kontrolą błędów i zapis każdej zmiany do historii."""
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 
 from albums.dates import DateError, parse_date
 from albums.models import Person, Photo, name_key
@@ -289,8 +289,11 @@ def _pair_parents(user, child):
 def remove_relation(user, person, other, kind, reverts=None):
     if kind == PARTNER:
         first, second = sorted([person, other], key=lambda p: p.pk)
-        deleted, _ = Partnership.objects.filter(person1=first, person2=second).delete()
+        couple = Partnership.objects.filter(person1=first, person2=second).first()
         data = {"kind": PARTNER, "person1": first.pk, "person2": second.pk}
+        if couple is not None:
+            data.update(_couple_data(couple))
+        deleted, _ = Partnership.objects.filter(person1=first, person2=second).delete()
         summary = f"Usunięto parę: {person.name} i {other.name}"
     else:
         parent, child = (other, person) if kind == PARENT else (person, other)
@@ -300,6 +303,78 @@ def remove_relation(user, person, other, kind, reverts=None):
     if not deleted:
         return None
     return _record(user, TreeChange.RELATION_REMOVED, person, summary, before=data, reverts=reverts)
+
+
+# --- Związki (ETAP 31) ----------------------------------------------------------------------------
+
+COUPLE_LABELS = {"since": "rok ślubu", "ended": "rozwód"}
+
+
+def couple(person, other):
+    first, second = sorted([person, other], key=lambda p: p.pk)
+    return Partnership.objects.filter(person1=first, person2=second).first()
+
+
+def _couple_data(couple):
+    return {"since": couple.since, "ended": couple.ended}
+
+
+def partners_in_order(person):
+    """Partnerzy osoby od pierwszego związku: wg roku ślubu, bez roku na końcu w kolejności dodania.
+
+    Każdy ma atrybut ``couple`` (Partnership) i ``couple_text``.
+    """
+    couples = Partnership.objects.filter(models.Q(person1=person) | models.Q(person2=person))
+    couples = sorted(couples, key=lambda c: (c.since_year is None, c.since_year or 0, c.pk))
+
+    def other_id(c):
+        return c.person2_id if c.person1_id == person.pk else c.person1_id
+
+    people = Person.objects.in_bulk([other_id(c) for c in couples])
+    result = []
+    for c in couples:
+        other = people[other_id(c)]
+        other.couple, other.couple_text = c, couple_text(c)
+        result.append(other)
+    return result
+
+
+def couple_text(couple):
+    """„ślub 1950 · rozwód” do list i karty osoby."""
+    parts = [f"ślub {couple.since}" if couple.since else "", "rozwód" if couple.ended else ""]
+    return " · ".join(part for part in parts if part)
+
+
+@transaction.atomic
+def edit_couple(user, person, other, since, ended, reverts=None):
+    """Rok ślubu i rozwód pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło."""
+    pair = couple(person, other)
+    if pair is None:
+        raise ValidationError(f"{person.name} i {other.name} nie są parą.")
+    try:
+        date = parse_date(" ".join(str(since or "").split()))
+    except DateError as exc:
+        raise ValidationError(str(exc)) from None
+    before = _couple_data(pair)
+    pair.since = date.text if date else ""
+    pair.since_year = (date.year_from + date.year_to) // 2 if date else None
+    pair.ended = bool(ended)
+    after = _couple_data(pair)
+    changed = [field for field in COUPLE_LABELS if before[field] != after[field]]
+    if not changed:
+        return None
+    pair.save()
+    ids = {"kind": PARTNER, "person1": pair.person1_id, "person2": pair.person2_id}
+    labels = ", ".join(COUPLE_LABELS[field] for field in changed)
+    return _record(
+        user,
+        TreeChange.COUPLE_EDITED,
+        person,
+        f"Para {person.name} i {other.name}: zmiana ({labels})",
+        {**ids, **{field: before[field] for field in changed}},
+        {**ids, **{field: after[field] for field in changed}},
+        reverts,
+    )
 
 
 @transaction.atomic
@@ -468,6 +543,23 @@ def undo(user, change):
     elif kind == TreeChange.RELATION_REMOVED:
         person, other, relation = _link_from(change.before)
         result = add_relation(user, person, other, relation, reverts=change)
+        if relation == PARTNER and (change.before.get("since") or change.before.get("ended")):
+            Partnership.objects.filter(
+                person1=change.before["person1"], person2=change.before["person2"]
+            ).update(
+                since=change.before.get("since", ""),
+                since_year=sort_year(change.before.get("since", "")),
+                ended=bool(change.before.get("ended")),
+            )
+    elif kind == TreeChange.COUPLE_EDITED:
+        person, other, _ = _link_from(change.before)
+        pair = couple(person, other)
+        if pair is None:
+            raise ValidationError("Tej pary już nie ma w drzewie.")
+        values = {**_couple_data(pair), **{f: change.before[f] for f in COUPLE_LABELS if f in change.before}}
+        result = edit_couple(user, person, other, values["since"], values["ended"], reverts=change)
+        if result is None:
+            raise ValidationError("Ta para już jest taka jak przed zmianą.")
     elif kind == TreeChange.PERSON_EDITED:
         result = _restore_fields(user, _person_of(change), change.before, change)
         if result is None:
@@ -495,8 +587,20 @@ def _show(field, value):
     return value or ""
 
 
+def _show_couple(field, value):
+    if field == "ended":
+        return "tak" if value else "nie"
+    return value or ""
+
+
 def edit_rows(change):
     """Zmienione pola jako (co, było, jest), do Panel → Drzewo."""
+    if change.kind == TreeChange.COUPLE_EDITED:
+        return [
+            (label, _show_couple(f, change.before.get(f)), _show_couple(f, change.after.get(f)))
+            for f, label in COUPLE_LABELS.items()
+            if f in change.after
+        ]
     if change.kind != TreeChange.PERSON_EDITED:
         return []
     return [

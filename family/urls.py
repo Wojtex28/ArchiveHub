@@ -16,10 +16,12 @@ urlpatterns = [
         views.relation_remove,
         name="relation_remove",
     ),
+    path("drzewo/osoba/<int:pk>/para/<int:other_pk>/", views.couple_edit, name="couple_edit"),
     path("drzewo/dane.json", api.data, name="data"),
     path("drzewo/api/polozenie/", api.save_positions, name="api_positions"),
     path("drzewo/api/dodaj/", api.add, name="api_add"),
     path("drzewo/api/relacja/", api.relation, name="api_relation"),
     path("drzewo/api/usun/", api.remove, name="api_remove"),
     path("drzewo/api/zyje/", api.alive, name="api_alive"),
+    path("drzewo/api/para/", api.couple, name="api_couple"),
 ]

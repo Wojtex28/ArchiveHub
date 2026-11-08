@@ -751,7 +751,20 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .tree-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .tree-line { fill: none; stroke: #9c8b78; stroke-width: 2; }
-.tree-line--partner { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 5; }
+.tree-line--partner { stroke: var(--accent); stroke-width: 2.5; }
+/* ETAP 31: para po rozwodzie / rozstaniu: przerywana, przygaszona; opisy związków nad linią. */
+.tree-line--ended { stroke: #a8836f; stroke-dasharray: 6 5; }
+.tree-couple-label {
+  font: 600 12px/1 var(--sans, system-ui, sans-serif); fill: var(--accent); text-anchor: middle;
+  paint-order: stroke; stroke: var(--paper, #f5f0e8); stroke-width: 4px; stroke-linejoin: round;
+}
+.tree-couple-label--ended { fill: #8a6a58; }
+.couple-text { font-size: 0.8125rem; }
+.couple-edit { margin: 0.25rem 0 0.5rem; }
+.couple-edit summary { cursor: pointer; color: var(--ink-quiet); font-size: 0.875rem; }
+.couple-edit form { display: grid; gap: 0.5rem; padding-top: 0.5rem; max-width: 18rem; }
+.tree-couple { display: grid; gap: 0.375rem; padding: 0.5rem 0 0.625rem; }
+.tree-couple input[type="text"] { max-width: 8rem; }
 .tree-line--draft { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 4; }
 .tree-nodes { position: absolute; left: 0; top: 0; }
 .tree-node {
@@ -923,3 +936,11 @@ a.chip { color: inherit; text-decoration: none; }
 @media (max-width: 40rem) {
   .viewer__favorite { width: 2.25rem; height: 2.25rem; }
 }
+
+/* ETAP 31: związek w panelu bocznym drzewa (opis, „Ślub, rozwód” i formularz w nowym wierszu). */
+.tree-sheet__relatives li { flex-wrap: wrap; }
+.tree-sheet__relatives .tree-sheet__couple { flex: 1 0 100%; margin-top: -0.25rem; font-size: 0.8125rem; }
+.tree-sheet__relatives .tree-sheet__couple-edit { flex: 0 0 auto; font-weight: 400; font-size: 0.875rem; color: var(--ink-quiet); }
+.tree-sheet__relatives .tree-couple { flex: 1 0 100%; }
+.person-list--compact li { flex-wrap: wrap; }
+.person-list--compact .couple-edit { flex: 1 0 100%; margin: 0 0 0.25rem 0.75rem; }
