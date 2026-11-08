@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.33.0 (2026-11-08) · ETAP 33: rodzeństwo
+
+- **Dodawanie rodzeństwa bez rodziców.** Na karcie osoby i w drzewie jest nowy rodzaj połączenia „brat / siostra” (przycisk „+ Rodzeństwo” i uchwyt „+” po lewej stronie kafelka, który można też przeciągnąć na kogoś z drzewa).
+- Gdy osoba ma już rodziców w drzewie, brat lub siostra zostaje po prostu ich dzieckiem, tak jak dotąd.
+- Gdy rodziców jeszcze nie ma, rodzeństwo jest zapisane jako osobne połączenie i w drzewie łączy je przerywana klamra z podpisem „rodzeństwo”. Kafelki rodzeństwa stoją obok siebie w jednym pokoleniu, w kolejności urodzenia.
+- Gdy później ktoś doda rodzica jednemu z rodzeństwa, ten rodzic trafia do całego rodzeństwa, a klamra zamienia się w zwykłe linie od rodziców.
+- Połączenie rodzeństwa można usunąć (×) i cofnąć w Panelu → Drzewo, jak każdą zmianę.
+
 ## 0.32.0 (2026-11-08) · ETAP 32: pasy pokoleń i oś czasu w drzewie
 
 Pomysły podpatrzone w aplikacji Strom, dopasowane do naszego drzewa.

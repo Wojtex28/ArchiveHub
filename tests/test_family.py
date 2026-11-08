@@ -73,7 +73,12 @@ def test_remove_from_tree_keeps_person_and_snapshots_links(family):
     anna.refresh_from_db()
     assert not anna.in_tree
     assert not ParentChild.objects.exists() and not Partnership.objects.exists()
-    assert change.before["links"] == {"parents": [], "children": [ewa.pk], "partners": [jan.pk]}
+    assert change.before["links"] == {
+        "parents": [],
+        "children": [ewa.pk],
+        "partners": [jan.pk],
+        "siblings": [],
+    }
 
 
 def test_merge_moves_tree_data(family):

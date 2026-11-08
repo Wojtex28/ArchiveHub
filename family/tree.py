@@ -7,7 +7,7 @@ from albums.dates import DateError, parse_date
 from albums.models import Person, Photo, name_key
 from albums.search import refresh_search_text
 
-from .models import ParentChild, Partnership, TreeChange
+from .models import ParentChild, Partnership, Sibling, TreeChange
 
 # Pola osoby, które zapisuje historia (i które ETAP 23 przywraca).
 PERSON_FIELDS = [
@@ -34,9 +34,15 @@ FIELD_LABELS = {
     "portrait_id": "portret",
 }
 
-PARENT, CHILD, PARTNER = "rodzic", "dziecko", "partner"
+PARENT, CHILD, PARTNER, SIBLING = "rodzic", "dziecko", "partner", "rodzenstwo"
 AUTO = object()  # drugi rodzic nowego dziecka: jedyny partner rodzica, jeśli jest
-RELATION_KINDS = {PARENT: "rodzic", CHILD: "dziecko", PARTNER: "partner / partnerka"}
+RELATION_KINDS = {
+    PARENT: "rodzic",
+    CHILD: "dziecko",
+    PARTNER: "partner / partnerka",
+    SIBLING: "brat / siostra",
+}
+PAIR_KINDS = {PARTNER: Partnership, SIBLING: Sibling}
 MAX_PARENTS = 2
 
 
@@ -57,11 +63,37 @@ def partners(person):
     return Person.objects.filter(pk__in=list(ids))
 
 
+def linked_siblings(person):
+    """Rodzeństwo zapisane wprost (``Sibling``), bez rodzeństwa przez wspólnego rodzica."""
+    ids = (
+        Sibling.objects.filter(person1=person)
+        .values_list("person2", flat=True)
+        .union(Sibling.objects.filter(person2=person).values_list("person1", flat=True))
+    )
+    return Person.objects.filter(pk__in=list(ids))
+
+
+def siblings(person):
+    """Całe rodzeństwo: przez wspólnego rodzica i zapisane wprost. Każdy ma ``linked`` (da się usunąć)."""
+    linked = {p.pk for p in linked_siblings(person)}
+    by_parent = set(
+        ParentChild.objects.filter(parent__in=parents(person))
+        .exclude(child=person)
+        .values_list("child", flat=True)
+    )
+    people = list(Person.objects.filter(pk__in=linked | by_parent))
+    people.sort(key=lambda p: (p.birth_year is None, p.birth_year or 0, p.name))
+    for p in people:
+        p.linked = p.pk in linked and p.pk not in by_parent
+    return people
+
+
 def _links(person):
     return {
         "parents": sorted(parents(person).values_list("pk", flat=True)),
         "children": sorted(children(person).values_list("pk", flat=True)),
         "partners": sorted(partners(person).values_list("pk", flat=True)),
+        "siblings": sorted(linked_siblings(person).values_list("pk", flat=True)),
     }
 
 
@@ -200,12 +232,23 @@ def _create_link(person, other, kind):
         parent, child = other, person
     elif kind == CHILD:
         parent, child = person, other
-    elif kind == PARTNER:
+    elif kind in (PARTNER, SIBLING):
         parent = child = None
     else:
         raise ValidationError("Nieznany rodzaj relacji.")
 
-    if kind == PARTNER:
+    if kind == SIBLING:
+        first, second = sorted([person, other], key=lambda p: p.pk)
+        if Sibling.objects.filter(person1=first, person2=second).exists():
+            raise ValidationError(f"{other.name} już jest rodzeństwem tej osoby.")
+        family = _ancestor_ids(person) | {c.pk for c in _descendants(person)}
+        family |= {p.pk for p in partners(person)}
+        if other.pk in family:
+            raise ValidationError(f"{other.name} jest już w tej rodzinie kimś innym niż rodzeństwo.")
+        Sibling.objects.create(person1=first, person2=second)
+        data = {"kind": SIBLING, "person1": first.pk, "person2": second.pk}
+        summary = f"Rodzeństwo: {person.name} i {other.name}"
+    elif kind == PARTNER:
         first, second = sorted([person, other], key=lambda p: p.pk)
         if Partnership.objects.filter(person1=first, person2=second).exists():
             raise ValidationError(f"{other.name} już jest partnerem lub partnerką tej osoby.")
@@ -229,6 +272,14 @@ def _create_link(person, other, kind):
     return data, summary
 
 
+def _descendants(person):
+    seen, frontier = set(), {person.pk}
+    while frontier:
+        frontier = set(ParentChild.objects.filter(parent__in=frontier).values_list("child", flat=True)) - seen
+        seen |= frontier
+    return Person.objects.filter(pk__in=seen)
+
+
 @transaction.atomic
 def add_relation(user, person, other, kind, reverts=None, second_parent=AUTO):
     """``other`` zostaje rodzicem, dzieckiem albo partnerem osoby ``person``.
@@ -237,6 +288,8 @@ def add_relation(user, person, other, kind, reverts=None, second_parent=AUTO):
     rodziców (``second_parent`` wskazuje drugiego rodzica wprost albo ``None``, gdy go nie ma), a drugi
     rodzic dziecka zostaje parą z pierwszym. Każde takie połączenie jest osobnym wpisem w historii.
     """
+    if kind == SIBLING and reverts is None:
+        return _add_sibling(user, person, other)
     data, summary = _create_link(person, other, kind)
     _put_in_tree(user, person)
     _put_in_tree(user, other)
@@ -246,7 +299,81 @@ def add_relation(user, person, other, kind, reverts=None, second_parent=AUTO):
         if kind == CHILD:
             _add_second_parent(user, parent, child, second_parent)
         _pair_parents(user, child)
+        share_parents(user, child)
     return change
+
+
+def _add_parent_link(user, child, parent):
+    data, summary = _create_link(child, parent, PARENT)
+    _put_in_tree(user, parent)
+    return _record(user, TreeChange.RELATION_ADDED, child, summary, after=data)
+
+
+def _add_sibling(user, person, other):
+    """``other`` zostaje bratem lub siostrą osoby ``person`` (ETAP 33).
+
+    Gdy któreś z nich ma rodziców w drzewie, drugie dostaje tych samych rodziców (rodzeństwo wynika
+    wtedy z rodziców). Gdy nikt nie ma rodziców, zostaje zapis ``Sibling`` łączący całe rodzeństwo.
+    """
+    if other.pk == person.pk:
+        raise ValidationError("Osoba nie może być spokrewniona sama ze sobą.")
+    _put_in_tree(user, person)
+    _put_in_tree(user, other)
+    mine, theirs = list(parents(person)), list(parents(other))
+    if mine or theirs:
+        source, target = (person, other) if mine else (other, person)
+        have = {p.pk for p in parents(target)}
+        missing = [p for p in parents(source) if p.pk not in have]
+        if not missing:
+            raise ValidationError(f"{other.name} już jest rodzeństwem tej osoby.")
+        if len(have) + len(missing) > MAX_PARENTS:
+            raise ValidationError(
+                f"{target.name} ma już innych rodziców w drzewie. Dodaj rodzica ręcznie albo usuń "
+                "niepotrzebne połączenie."
+            )
+        changes = [_add_parent_link(user, target, p) for p in missing]
+        _pair_parents(user, target)
+        share_parents(user, target)
+        return changes[0]
+    # Nikt nie ma rodziców: łączymy całe rodzeństwo obu osób ze sobą.
+    group_a = [person] + list(linked_siblings(person))
+    group_b = [other] + list(linked_siblings(other))
+    if other.pk in {p.pk for p in group_a}:
+        raise ValidationError(f"{other.name} już jest rodzeństwem tej osoby.")
+    first = None
+    for a in group_a:
+        for b in group_b:
+            if a.pk == b.pk:
+                continue
+            pair = sorted([a, b], key=lambda p: p.pk)
+            if Sibling.objects.filter(person1=pair[0], person2=pair[1]).exists():
+                continue
+            data, summary = _create_link(a, b, SIBLING)
+            change = _record(user, TreeChange.RELATION_ADDED, a, summary, after=data)
+            first = first or change
+    return first
+
+
+def share_parents(user, child):
+    """Rodzic dodany komuś z rodzeństwa (zapis ``Sibling``) staje się też rodzicem reszty rodzeństwa."""
+    mine = list(parents(child))
+    if not mine:
+        return
+    for other in linked_siblings(child):
+        have = {p.pk for p in parents(other)}
+        added = False
+        for parent in mine:
+            if parent.pk in have or len(have) >= MAX_PARENTS:
+                continue
+            try:
+                with transaction.atomic():
+                    _add_parent_link(user, other, parent)
+            except ValidationError:
+                continue
+            have.add(parent.pk)
+            added = True
+        if added:
+            _pair_parents(user, other)
 
 
 def _add_second_parent(user, parent, child, second):
@@ -287,7 +414,12 @@ def _pair_parents(user, child):
 
 @transaction.atomic
 def remove_relation(user, person, other, kind, reverts=None):
-    if kind == PARTNER:
+    if kind == SIBLING:
+        first, second = sorted([person, other], key=lambda p: p.pk)
+        deleted, _ = Sibling.objects.filter(person1=first, person2=second).delete()
+        data = {"kind": SIBLING, "person1": first.pk, "person2": second.pk}
+        summary = f"Usunięto rodzeństwo: {person.name} i {other.name}"
+    elif kind == PARTNER:
         first, second = sorted([person, other], key=lambda p: p.pk)
         couple = Partnership.objects.filter(person1=first, person2=second).first()
         data = {"kind": PARTNER, "person1": first.pk, "person2": second.pk}
@@ -404,6 +536,7 @@ def remove_from_tree(user, person, reverts=None):
     ParentChild.objects.filter(child=person).delete()
     Partnership.objects.filter(person1=person).delete()
     Partnership.objects.filter(person2=person).delete()
+    Sibling.objects.filter(models.Q(person1=person) | models.Q(person2=person)).delete()
     person.in_tree = False
     person.tree_x = person.tree_y = None
     person.save(update_fields=["in_tree", "tree_x", "tree_y"])
@@ -437,6 +570,10 @@ def merge_into(source, target):
         if other.pk != target.pk:
             first, second = sorted([target, other], key=lambda p: p.pk)
             Partnership.objects.get_or_create(person1=first, person2=second)
+    for other in linked_siblings(source):
+        if other.pk != target.pk:
+            first, second = sorted([target, other], key=lambda p: p.pk)
+            Sibling.objects.get_or_create(person1=first, person2=second)
     for field in PERSON_FIELDS:
         if field != "name" and not getattr(target, field) and getattr(source, field):
             setattr(target, field, getattr(source, field))
@@ -463,8 +600,8 @@ def sort_year(text):
 
 def _link_from(data):
     """Zapis relacji z historii jako (osoba, druga osoba, kim druga jest dla pierwszej)."""
-    if data.get("kind") == PARTNER:
-        ids, kind = [data.get("person1"), data.get("person2")], PARTNER
+    if data.get("kind") in (PARTNER, SIBLING):
+        ids, kind = [data.get("person1"), data.get("person2")], data["kind"]
     else:
         ids, kind = [data.get("child"), data.get("parent")], PARENT
     people = Person.objects.in_bulk([pk for pk in ids if pk])
@@ -506,6 +643,7 @@ def _restore_person(user, person, before, change):
         [(pk, PARENT) for pk in links.get("parents", [])]
         + [(pk, CHILD) for pk in links.get("children", [])]
         + [(pk, PARTNER) for pk in links.get("partners", [])]
+        + [(pk, SIBLING) for pk in links.get("siblings", [])]
     )
     others = Person.objects.in_bulk([pk for pk, _ in wanted])
     skipped = []
@@ -615,7 +753,12 @@ def link_rows(change, names):
     data = change.before if change.kind == TreeChange.PERSON_REMOVED else change.after
     links = data.get("links") or {}
     rows = []
-    for key, label in (("parents", "rodzice"), ("partners", "partnerzy"), ("children", "dzieci")):
+    for key, label in (
+        ("parents", "rodzice"),
+        ("partners", "partnerzy"),
+        ("siblings", "rodzeństwo"),
+        ("children", "dzieci"),
+    ):
         people = ", ".join(names.get(pk, "osoba usunięta z archiwum") for pk in links.get(key, []))
         if people:
             rows.append((label, people))

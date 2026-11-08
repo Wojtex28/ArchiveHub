@@ -16,7 +16,8 @@
   var ZOOM_MAX = 2.5;
   var MOVE_MIN = 5; // px: mniejszy ruch to kliknięcie, nie przeciąganie
   var SVG_NS = "http://www.w3.org/2000/svg";
-  var KINDS = { rodzic: "rodzica", partner: "partnera lub partnerkę", dziecko: "dziecko" };
+  var KINDS = { rodzic: "rodzica", partner: "partnera lub partnerkę", dziecko: "dziecko", rodzenstwo: "brata lub siostrę" };
+  var KIND_NAMES = { rodzic: "rodzic", partner: "partner / partnerka", dziecko: "dziecko", rodzenstwo: "brat / siostra" };
 
   var urls = {
     data: root.getAttribute("data-url-data"),
@@ -121,7 +122,14 @@
 
   function relativesIndex(data) {
     var index = {};
-    data.people.forEach(function (p) { index[p.id] = { parents: [], children: [], partners: [] }; });
+    data.people.forEach(function (p) { index[p.id] = { parents: [], children: [], partners: [], siblings: [] }; });
+    // ETAP 33: rodzeństwo zapisane wprost (bez wspólnego rodzica w drzewie).
+    (data.siblings || []).forEach(function (pair) {
+      if (index[pair[0]] && index[pair[1]]) {
+        index[pair[0]].siblings.push(pair[1]);
+        index[pair[1]].siblings.push(pair[0]);
+      }
+    });
     data.parents.forEach(function (link) {
       if (index[link[0]] && index[link[1]]) {
         index[link[0]].children.push(link[1]);
@@ -187,7 +195,7 @@
           changed = true;
         }
       });
-      data.partners.forEach(function (pair) {
+      data.partners.concat(data.siblings || []).forEach(function (pair) {
         if (gen[pair[0]] === undefined || gen[pair[1]] === undefined) return;
         var g = Math.max(gen[pair[0]], gen[pair[1]]);
         if (gen[pair[0]] !== g || gen[pair[1]] !== g) {
@@ -215,7 +223,7 @@
         var id = queue.shift();
         members.push(id);
         var r = rel[id];
-        r.parents.concat(r.children, r.partners).forEach(function (q) {
+        r.parents.concat(r.children, r.partners, r.siblings).forEach(function (q) {
           if (component[q] === undefined) { component[q] = groups.length; queue.push(q); }
         });
       }
@@ -277,6 +285,46 @@
         });
       }
       rows[gen[p.id]].push(arrangeUnit(members));
+    });
+    // Rodzeństwo bez wspólnego rodzica (ETAP 33) stoi obok siebie, od najstarszego: łączymy ich
+    // jednostki (każde ze swoimi partnerami) w jedną.
+    rows = rows.map(function (row) {
+      var unitOf = {};
+      row.forEach(function (unit, i) { unit.forEach(function (id) { unitOf[id] = i; }); });
+      var groupOf = row.map(function (_, i) { return i; });
+      function find(i) { while (groupOf[i] !== i) i = groupOf[i] = groupOf[groupOf[i]]; return i; }
+      row.forEach(function (unit, i) {
+        unit.forEach(function (id) {
+          rel[id].siblings.forEach(function (q) {
+            if (unitOf[q] !== undefined && gen[q] === gen[id]) groupOf[find(unitOf[q])] = find(i);
+          });
+        });
+      });
+      var merged = {}, out = [];
+      row.forEach(function (unit, i) {
+        var root = find(i);
+        if (!merged[root]) { merged[root] = []; out.push(merged[root]); }
+        merged[root].push(unit);
+      });
+      return out.map(function (units) {
+        if (units.length === 1) return units[0];
+        var born = function (unit) {
+          var years = unit.filter(function (id) { return rel[id].siblings.length; })
+            .map(function (id) { return byId[id].born; }).filter(function (y) { return y !== null && y !== undefined; });
+          return years.length ? Math.min.apply(null, years) : 9999;
+        };
+        units.sort(function (a, b) { return born(a) - born(b); });
+        // Para: brat lub siostra stoi bliżej rodzeństwa, a partner/ka na zewnątrz.
+        var linked = function (id) { return rel[id].siblings.length > 0; };
+        units = units.map(function (unit, i) {
+          if (unit.length !== 2 || linked(unit[0]) === linked(unit[1])) return unit;
+          var first = i === 0, last = i === units.length - 1;
+          if (first && linked(unit[0])) return [unit[1], unit[0]];
+          if (last && !first && linked(unit[1])) return [unit[1], unit[0]];
+          return unit;
+        });
+        return [].concat.apply([], units);
+      });
     });
 
     // Osoba z kilkoma partnerami stoi w środku: 1. związek po lewej, 2. po prawej (kolejne na zmianę
@@ -617,10 +665,16 @@
         var ps = placedOf(r.parents);
         var cs = placedOf(r.children);
         var partners = placedOf(r.partners);
+        var sibs = placedOf(r.siblings);
         if (ps.length) {
           anchor = [ps.reduce(function (s, q) { return s + q.x; }, 0) / ps.length, ps[0].y + ROW_H];
         } else if (partners.length) {
           anchor = [partners[0].x + NODE_W + GAP_X, partners[0].y];
+        } else if (sibs.length) {
+          // Obok rodzeństwa, po stronie bez partnera (partner/ka zwykle stoi tuż obok).
+          var sib = sibs[sibs.length - 1];
+          var mateRight = placedOf(rel[sib.id].partners).some(function (q) { return q.x > sib.x && Math.abs(q.y - sib.y) < NODE_H; });
+          anchor = [mateRight ? sib.x - NODE_W - GAP_X : sib.x + NODE_W + GAP_X, sib.y];
         } else if (cs.length) {
           anchor = [cs[0].x, cs[0].y - ROW_H];
         } else if (pass === 2) {
@@ -797,7 +851,7 @@
   // Kogo można dodać: rodzica tylko do dwojga.
   function kindsFor(id) {
     var rel = relativesIndex(state.data)[id];
-    return ["rodzic", "partner", "dziecko"].filter(function (kind) {
+    return ["rodzic", "partner", "dziecko", "rodzenstwo"].filter(function (kind) {
       return kind !== "rodzic" || !rel || rel.parents.length < 2;
     });
   }
@@ -955,7 +1009,37 @@
       });
       dot(f.x, bus, cls);
     });
+    drawSiblings(rel);
     drawBands();
+  }
+
+  // Rodzeństwo bez wspólnego rodzica w drzewie (ETAP 33): klamra nad kafelkami, przerywana, bo
+  // rodziców jeszcze nie ma. Rodzeństwo ze wspólnym rodzicem łączy już szyna rodziny.
+  function drawSiblings(rel) {
+    var seen = {};
+    state.data.people.forEach(function (p) {
+      if (seen[p.id] || !rel[p.id].siblings.length) return;
+      var group = [], queue = [p.id];
+      seen[p.id] = true;
+      while (queue.length) {
+        var id = queue.shift();
+        group.push(id);
+        rel[id].siblings.forEach(function (q) {
+          var shared = rel[q].parents.some(function (x) { return rel[id].parents.indexOf(x) >= 0; });
+          if (!seen[q] && !shared) { seen[q] = true; queue.push(q); }
+        });
+      }
+      var nodes = group.map(function (id) { return state.byId[id]; }).filter(function (q) { return q && q.x !== null; });
+      if (nodes.length < 2) return;
+      // Kafelki rodzeństwa w różnych rzędach: klamra nad najwyższym z nich.
+      var top = Math.min.apply(null, nodes.map(function (q) { return q.y; }));
+      var bus = top - 26;
+      var xs = nodes.map(function (q) { return q.x + NODE_W / 2; });
+      var cls = "tree-line tree-line--sibling";
+      path("M" + Math.min.apply(null, xs) + "," + bus + " H" + Math.max.apply(null, xs), cls);
+      nodes.forEach(function (q) { path("M" + (q.x + NODE_W / 2) + "," + bus + " V" + q.y, cls); });
+      label((Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2, bus - 6, "rodzeństwo", "tree-couple-label tree-sibling-label");
+    });
   }
 
   function dot(x, y, cls) {
@@ -1333,11 +1417,27 @@
     var rows = [];
     rel.parents.forEach(function (id) { rows.push(["rodzic", id]); });
     partnersInOrder(person.id, index, couplesIndex(state.data)).forEach(function (id) { rows.push(["partner", id]); });
+    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     rel.children.forEach(function (id) { rows.push(["dziecko", id]); });
     return rows;
   }
 
-  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko" };
+  // Rodzeństwo: przez wspólnego rodzica i zapisane wprost. ``linked`` = da się usunąć samo połączenie.
+  function siblingsOf(id, index) {
+    var rel = index[id], viaParent = {}, list = [];
+    rel.parents.forEach(function (p) {
+      index[p].children.forEach(function (c) { if (c !== id) viaParent[c] = true; });
+    });
+    Object.keys(viaParent).forEach(function (c) { list.push({ id: +c, linked: false }); });
+    rel.siblings.forEach(function (c) { if (!viaParent[c]) list.push({ id: c, linked: true }); });
+    list.sort(function (a, b) {
+      var x = state.byId[a.id].born, y = state.byId[b.id].born;
+      return (x == null ? 9999 : x) - (y == null ? 9999 : y);
+    });
+    return list;
+  }
+
+  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko", rodzenstwo: "rodzeństwo" };
 
   // Opis związku w panelu bocznym: „1. związek · ślub 1950 · rozwód”.
   function coupleInfo(id, otherId) {
@@ -1441,7 +1541,7 @@
           item.appendChild(link);
           item.appendChild(el("span", "hint", " " + LABELS[row[0]]));
           var info = row[0] === "partner" ? coupleInfo(person.id, other.id) : null;
-          if (state.data.canEdit) {
+          if (state.data.canEdit && (row[0] !== "rodzenstwo" || row[2])) {
             var remove = el("button", "icon-button icon-button--small", "×");
             remove.type = "button";
             remove.setAttribute("aria-label", "Usuń połączenie z: " + other.name);
@@ -1477,7 +1577,7 @@
     if (person) {
       var actions = el("div", "tree-sheet__actions");
       kindsFor(person.id).forEach(function (kind) {
-        var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko" }[kind]);
+        var button = el("button", "button button--quiet", "+ " + { rodzic: "Rodzic", partner: "Partner/ka", dziecko: "Dziecko", rodzenstwo: "Rodzeństwo" }[kind]);
         button.type = "button";
         button.addEventListener("click", function () { openForm(person.id, kind); });
         actions.appendChild(button);
@@ -1512,7 +1612,7 @@
       var kind = el("select", "tree-form__kind");
       kind.setAttribute("aria-label", "Kim jest ta osoba");
       Object.keys(KINDS).forEach(function (key) {
-        var option = el("option", "", { rodzic: "rodzic", partner: "partner / partnerka", dziecko: "dziecko" }[key]);
+        var option = el("option", "", KIND_NAMES[key]);
         option.value = key;
         option.selected = key === state.form.kind;
         kind.appendChild(option);
@@ -1857,7 +1957,7 @@
         var source = state.byId[g.from];
         var other = state.byId[target];
         send(urls.relation, { person: g.from, other: target, kind: g.kind }).then(function () {
-          showMessage({ rodzic: other.name + " jest rodzicem: " + source.name, partner: "Para: " + source.name + " i " + other.name, dziecko: other.name + " jest dzieckiem: " + source.name }[g.kind] + ".");
+          showMessage({ rodzic: other.name + " jest rodzicem: " + source.name, partner: "Para: " + source.name + " i " + other.name, dziecko: other.name + " jest dzieckiem: " + source.name, rodzenstwo: "Rodzeństwo: " + source.name + " i " + other.name }[g.kind] + ".");
         });
       } else {
         var at = g.moved ? toWorld(event.clientX, event.clientY) : null;
