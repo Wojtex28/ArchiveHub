@@ -21,4 +21,5 @@ urlpatterns = [
     path("drzewo/api/dodaj/", api.add, name="api_add"),
     path("drzewo/api/relacja/", api.relation, name="api_relation"),
     path("drzewo/api/usun/", api.remove, name="api_remove"),
+    path("drzewo/api/zyje/", api.alive, name="api_alive"),
 ]

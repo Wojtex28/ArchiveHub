@@ -7,9 +7,10 @@
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
   {% for field in form %}{% if field.name != "portrait" %}
-  <div class="field{% if field.errors %} field--error{% endif %}">
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {{ field }}
+  <div class="field{% if field.errors %} field--error{% endif %}{% if field.name == "deceased" %} field--check{% endif %}">
+    {% if field.name == "deceased" %}<label class="check">{{ field }} {{ field.label }} <span aria-hidden="true">†</span></label>
+    {% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}{% endif %}
     {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
     {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
   </div>

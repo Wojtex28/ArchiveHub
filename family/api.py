@@ -39,7 +39,8 @@ def tree_data(user):
                 "id": p.pk,
                 "name": p.name,
                 "maiden": p.maiden_name,
-                "years": p.years,
+                "years": p.life,
+                "deceased": p.deceased,
                 "born": p.birth_year,
                 "x": p.tree_x,
                 "y": p.tree_y,
@@ -212,4 +213,25 @@ def remove(request):
     if person is None:
         return _error("Nie ma takiej osoby w drzewie.", 404)
     tree.remove_from_tree(request.user, person)
+    return _ok(request)
+
+
+@tree_access(edit=True)
+@require_POST
+def alive(request):
+    """Przełącznik „Żyje / Nie żyje” z kanwy: ``{"id", "deceased": bool}``."""
+    body = _body(request)
+    person = _person(body.get("id"), in_tree=True)
+    if person is None:
+        return _error("Nie ma takiej osoby w drzewie.", 404)
+    deceased = body.get("deceased")
+    if not isinstance(deceased, bool):
+        return _error("Brak wartości przełącznika.")
+    if not deceased and (person.death_date or person.death_place):
+        return _error("Ta osoba ma wpisaną datę lub miejsce śmierci. Usuń je w „Edytuj dane”.")
+    with transaction.atomic():
+        before = tree.snapshot(person)
+        person.deceased = deceased
+        person.save(update_fields=["deceased"])
+        tree.edit_person(request.user, person, before)
     return _ok(request)

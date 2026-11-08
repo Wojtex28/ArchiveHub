@@ -427,6 +427,8 @@ class Person(NamedModel):
     death_date = models.CharField("data śmierci", max_length=60, blank=True)
     death_year = models.SmallIntegerField(null=True, blank=True, editable=False)
     death_place = models.CharField("miejsce śmierci", max_length=200, blank=True)
+    # Przełącznik „Nie żyje” (ETAP 30): widać go na kafelku drzewa (†), także gdy daty śmierci nie znamy.
+    deceased = models.BooleanField("nie żyje", default=False)
     bio = models.TextField("historia", blank=True)
     portrait = models.ForeignKey(
         "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="portret"
@@ -461,6 +463,21 @@ class Person(NamedModel):
         if died:
             return f"zm. {died}"
         return ""
+
+    @property
+    def life(self):
+        """Lata do kafelka drzewa i list, z † dla osoby zmarłej: „† 1918–1990”, „1946 – †”."""
+        if not self.deceased:
+            return self.years
+        born = self._short_date(self.birth_date, self.birth_year)
+        died = self._short_date(self.death_date, self.death_year)
+        if born and died:
+            return f"† {self.years}"
+        if born:
+            return f"{born} – †"
+        if died:
+            return f"† {died}"
+        return "† nie żyje"
 
 
 class Tag(NamedModel):
