@@ -15,9 +15,22 @@
   const photos = dataNode ? JSON.parse(dataNode.textContent) : [];
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const css = getComputedStyle(document.documentElement);
-  const DOT = css.getPropertyValue("--grid-dot").trim() || "59 51 43";
-  const DOT_ACTIVE = css.getPropertyValue("--grid-dot-active").trim() || "111 47 42";
+  // Kolory kropek z CSS; czytane ponownie po zmianie trybu nocnego (ETAP 40).
+  let DOT = "59 51 43";
+  let DOT_ACTIVE = "111 47 42";
+  function readColors() {
+    const css = getComputedStyle(document.documentElement);
+    DOT = css.getPropertyValue("--grid-dot").trim() || DOT;
+    DOT_ACTIVE = css.getPropertyValue("--grid-dot-active").trim() || DOT_ACTIVE;
+  }
+  readColors();
+  function recolor() {
+    readColors();
+    gridDirty = true;
+  }
+  document.addEventListener("themechange", recolor);
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  if (darkQuery.addEventListener) darkQuery.addEventListener("change", recolor);
 
   // reach: zasięg kursora (px), push: o ile odsuwa punkty, rise/fall: szybkość narastania i wygasania.
   const GRID = { spacing: 26, size: 2, reach: 170, push: 7, rise: 7, fall: 1.1 };
