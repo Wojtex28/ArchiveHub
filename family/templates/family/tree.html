@@ -6,7 +6,7 @@
 <section class="family-tree" data-family-tree
   data-url-data="{% url 'family:data' %}" data-url-positions="{% url 'family:api_positions' %}"
   data-url-add="{% url 'family:api_add' %}" data-url-relation="{% url 'family:api_relation' %}"
-  data-url-remove="{% url 'family:api_remove' %}" data-url-alive="{% url 'family:api_alive' %}" data-url-couple="{% url 'family:api_couple' %}" data-csrf="{{ csrf_token }}">
+  data-url-remove="{% url 'family:api_remove' %}" data-url-alive="{% url 'family:api_alive' %}" data-url-couple="{% url 'family:api_couple' %}" data-url-person="{% url 'family:api_person' 0 %}" data-csrf="{{ csrf_token }}">
   {# Wstążka: tytuł i wszystkie narzędzia kanwy. Nowe narzędzia też trafiają tutaj. #}
   <div class="tree-ribbon">
     <h1 class="tree-ribbon__title">Drzewo rodzinne</h1>
@@ -15,8 +15,11 @@
         <button type="button" class="tree-mode is-active" data-tree-mode="drzewo" aria-pressed="true">Drzewo</button>
         <button type="button" class="tree-mode" data-tree-mode="os" aria-pressed="false">Oś czasu</button>
       </span>
-      {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>
-      <button type="button" class="button button--quiet" data-tree-action="layout" title="Ułóż automatycznie">Ułóż<span class="tree-toolbar__more"> automatycznie</span></button>{% endif %}
+      <span class="tree-modes tree-scopes" role="group" aria-label="Kogo pokazać">
+        <button type="button" class="tree-mode is-active" data-tree-scope="osoba" aria-pressed="true">Wokół osoby</button>
+        <button type="button" class="tree-mode" data-tree-scope="wszyscy" aria-pressed="false">Całe drzewo</button>
+      </span>
+      {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>{% endif %}
       <span class="tree-toolbar__zoom">
         <button type="button" class="icon-button" data-tree-action="zoom-out" aria-label="Pomniejsz" title="Pomniejsz">−</button>
         <button type="button" class="icon-button" data-tree-action="fit" aria-label="Pokaż całe drzewo" title="Pokaż całe drzewo">⤢</button>
@@ -31,14 +34,28 @@
         <svg class="tree-lines" aria-hidden="true" width="1" height="1"></svg>
         <div class="tree-nodes"></div>
       </div>
+      {# ETAP 35: czyje drzewo widać i ile pokoleń w górę i w dół. #}
+      <div class="tree-focus" hidden>
+        <span class="tree-focus__who"><span class="tree-focus__long">Wokół: </span><strong data-focus-name></strong> <span class="tree-focus__count" data-focus-count></span></span>
+        <span class="tree-focus__depth"><span class="tree-focus__long">Przodkowie</span><span class="tree-focus__short" aria-hidden="true">↑</span> <button type="button" class="tree-focus__step" data-depth-step="-up" aria-label="Mniej pokoleń przodków">−</button><span data-depth="up"></span><button type="button" class="tree-focus__step" data-depth-step="+up" aria-label="Więcej pokoleń przodków">+</button></span>
+        <span class="tree-focus__depth"><span class="tree-focus__long">Potomkowie</span><span class="tree-focus__short" aria-hidden="true">↓</span> <button type="button" class="tree-focus__step" data-depth-step="-down" aria-label="Mniej pokoleń potomków">−</button><span data-depth="down"></span><button type="button" class="tree-focus__step" data-depth-step="+down" aria-label="Więcej pokoleń potomków">+</button></span>
+      </div>
       <p class="tree-empty">Drzewo jest puste.{% if user.can_edit_tree %} Kliknij „+ Osoba” albo przeciągnij kogoś z listy osób ze zdjęć.{% endif %}</p>
       <p class="tree-message" role="status" hidden></p>
     </div>
     <div class="tree-timeline" hidden aria-label="Oś czasu: lata życia osób z drzewa"></div>
     <aside class="tree-sheet" hidden aria-label="Wybrana osoba"></aside>
+    {# ETAP 34: edycja danych jako nakładka na panel boczny i karta osoby w okienku nad drzewem. #}
+    <aside class="tree-edit" hidden aria-label="Edycja danych osoby"></aside>
+    <div class="tree-card" hidden role="dialog" aria-modal="true" aria-label="Karta osoby">
+      <div class="tree-card__box">
+        <button type="button" class="tree-card__close" aria-label="Zamknij kartę osoby">×</button>
+        <iframe class="tree-card__frame" title="Karta osoby"></iframe>
+      </div>
+    </div>
   </div>
   <div class="tree-page">
-  <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć jej kartę albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). Kafelki przesuwasz przeciąganiem, a „+” przeciągnięty na inną osobę łączy was w rodzinę.{% else %}Kliknij osobę, żeby zobaczyć jej kartę i zdjęcia.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
+  <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć i zmienić jej dane albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). „+” przeciągnięty na inną osobę łączy was w rodzinę. Drzewo układa się samo. Znaczki ↑ i ↓ na kafelku pokazują rodzinę poza widokiem.{% else %}Kliknij osobę, żeby zobaczyć jej dane. Znaczki ↑ i ↓ na kafelku pokazują rodzinę poza widokiem.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
   <div class="tree-outside" hidden>
     <h2>Osoby ze zdjęć spoza drzewa</h2>
     <p class="hint">Przeciągnij na drzewo albo kliknij, żeby dodać.</p>

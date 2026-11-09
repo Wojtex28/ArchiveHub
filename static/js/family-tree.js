@@ -27,6 +27,7 @@
     remove: root.getAttribute("data-url-remove"),
     alive: root.getAttribute("data-url-alive"),
     couple: root.getAttribute("data-url-couple"),
+    person: root.getAttribute("data-url-person"),
   };
   var csrf = root.getAttribute("data-csrf");
   var canvas = root.querySelector(".tree-canvas");
@@ -34,6 +35,9 @@
   var lines = root.querySelector(".tree-lines");
   var nodesLayer = root.querySelector(".tree-nodes");
   var sheet = root.querySelector(".tree-sheet");
+  var editPanel = root.querySelector(".tree-edit");
+  var cardBox = root.querySelector(".tree-card");
+  var cardFrame = root.querySelector(".tree-card__frame");
   var outsideList = root.querySelector("[data-outside]");
   var messageBox = root.querySelector(".tree-message");
   var namesList = root.querySelector("#drzewo-osoby");
@@ -50,7 +54,10 @@
 
   var state = {
     data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false,
-    gen: {}, bands: [], mode: "drzewo", tl: { px: null },
+    gen: {}, bands: [], mode: "drzewo", tl: { px: null }, edit: null,
+    // ETAP 35: drzewo zawsze ułożone automatycznie. ``scope`` „osoba” = widok wokół jednej osoby
+    // (jak w Strom: przodkowie w górę, potomkowie w dół, bez krzyżujących się linii), „wszyscy” = całość.
+    scope: "osoba", focus: null, up: 2, down: 3, shown: null, layoutGen: {}, hidden: {},
   };
   var nodeEls = {};
 
@@ -641,55 +648,6 @@
     return [x, y + NODE_H * 2];
   }
 
-  // Nowe osoby (bez miejsca na kanwie) stają przy krewnych: rodzic nad, dziecko pod, partner obok.
-  function placeMissing() {
-    var missing = state.data.people.filter(function (p) { return p.x === null || p.y === null; });
-    if (!missing.length) return {};
-    var placedAny = state.data.people.some(function (p) { return p.x !== null; });
-    var result = {};
-    if (!placedAny) {
-      var pos = autoLayout(state.data);
-      missing.forEach(function (p) { p.x = pos[p.id][0]; p.y = pos[p.id][1]; result[p.id] = pos[p.id]; });
-      return result;
-    }
-    var rel = relativesIndex(state.data);
-    var center = viewCenter();
-    for (var pass = 0; pass < 3; pass++) {
-      missing.forEach(function (p) {
-        if (p.x !== null) return;
-        var r = rel[p.id];
-        var anchor = null;
-        var placedOf = function (ids) {
-          return ids.map(function (id) { return state.byId[id]; }).filter(function (q) { return q && q.x !== null; });
-        };
-        var ps = placedOf(r.parents);
-        var cs = placedOf(r.children);
-        var partners = placedOf(r.partners);
-        var sibs = placedOf(r.siblings);
-        if (ps.length) {
-          anchor = [ps.reduce(function (s, q) { return s + q.x; }, 0) / ps.length, ps[0].y + ROW_H];
-        } else if (partners.length) {
-          anchor = [partners[0].x + NODE_W + GAP_X, partners[0].y];
-        } else if (sibs.length) {
-          // Obok rodzeństwa, po stronie bez partnera (partner/ka zwykle stoi tuż obok).
-          var sib = sibs[sibs.length - 1];
-          var mateRight = placedOf(rel[sib.id].partners).some(function (q) { return q.x > sib.x && Math.abs(q.y - sib.y) < NODE_H; });
-          anchor = [mateRight ? sib.x - NODE_W - GAP_X : sib.x + NODE_W + GAP_X, sib.y];
-        } else if (cs.length) {
-          anchor = [cs[0].x, cs[0].y - ROW_H];
-        } else if (pass === 2) {
-          anchor = [center[0] - NODE_W / 2, center[1] - NODE_H / 2];
-        }
-        if (!anchor) return;
-        var spot = freeSpot(anchor[0], anchor[1], p.id);
-        p.x = spot[0];
-        p.y = spot[1];
-        result[p.id] = spot;
-      });
-    }
-    return result;
-  }
-
   // --- Rysowanie -------------------------------------------------------------
 
   function applyView() {
@@ -756,7 +714,7 @@
   function fit() {
     // Kanwa schowana (oś czasu): dopasujemy widok, gdy wróci.
     if (canvas.hidden) { state.needFit = true; return; }
-    var people = state.data.people;
+    var people = state.shown.people;
     var rect = area();
     if (!people.length) {
       state.view = { x: rect.w / 2, y: rect.h / 3, scale: 1 };
@@ -835,6 +793,11 @@
     node.classList.toggle("tree-node--deceased", !!person.deceased);
     node.setAttribute("aria-label", person.name + (person.deceased ? ", nie żyje" : "") + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
+    node.classList.toggle("is-focus", state.scope === "osoba" && state.focus === person.id);
+    // Ukryci krewni (poza widokiem wokół osoby): znaczek przełącza widok na tę osobę.
+    var hidden = state.hidden[person.id];
+    if (hidden && hidden.up) node.appendChild(moreBadge(person, "up", "↑ " + hidden.up, "Pokaż rodzinę: " + person.name + " (rodzice poza widokiem)"));
+    if (hidden && hidden.down) node.appendChild(moreBadge(person, "down", "↓ " + hidden.down, "Pokaż potomków: " + person.name + " (" + hidden.down + " poza widokiem)"));
     if (state.data.canEdit && state.selected === person.id) {
       kindsFor(person.id).forEach(function (kind) {
         var handle = el("button", "tree-handle tree-handle--" + kind, "+");
@@ -846,6 +809,15 @@
       });
     }
     positionNode(person);
+  }
+
+  function moreBadge(person, side, text, title) {
+    var badge = el("button", "tree-node__more tree-node__more--" + side, text);
+    badge.type = "button";
+    badge.setAttribute("data-focus-to", person.id);
+    badge.setAttribute("aria-label", title);
+    badge.title = title;
+    return badge;
   }
 
   // Kogo można dodać: rodzica tylko do dwojga.
@@ -882,7 +854,7 @@
     var left = a.x <= b.x ? a : b, right = left === a ? b : a;
     var ax = left.x + NODE_W / 2, bx = right.x + NODE_W / 2;
     var ay = left.y + NODE_H / 2, by = right.y + NODE_H / 2;
-    var blocked = Math.abs(a.y - b.y) < 1 && state.data.people.some(function (p) {
+    var blocked = Math.abs(a.y - b.y) < 1 && state.shown.people.some(function (p) {
       return p !== a && p !== b && Math.abs(p.y - a.y) < NODE_H && p.x > left.x + 1 && p.x < right.x - 1;
     });
     var cls = "tree-line tree-line--partner" + (info.ended ? " tree-line--ended" : "");
@@ -912,9 +884,9 @@
     lines.textContent = "";
     var byId = state.byId;
     var partnerOf = {};
-    var couples = couplesIndex(state.data);
-    var rel = relativesIndex(state.data);
-    state.data.partners.forEach(function (pair) {
+    var couples = couplesIndex(state.shown);
+    var rel = relativesIndex(state.shown);
+    state.shown.partners.forEach(function (pair) {
       var a = byId[pair[0]], b = byId[pair[1]];
       if (!a || !b) return;
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
@@ -924,7 +896,7 @@
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
     // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
     var parentsOf = {};
-    state.data.parents.forEach(function (link) {
+    state.shown.parents.forEach(function (link) {
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
     });
     var families = {};
@@ -1017,7 +989,7 @@
   // rodziców jeszcze nie ma. Rodzeństwo ze wspólnym rodzicem łączy już szyna rodziny.
   function drawSiblings(rel) {
     var seen = {};
-    state.data.people.forEach(function (p) {
+    state.shown.people.forEach(function (p) {
       if (seen[p.id] || !rel[p.id].siblings.length) return;
       var group = [], queue = [p.id];
       seen[p.id] = true;
@@ -1080,8 +1052,9 @@
   // Pełny podpis i krótki (gdy drzewo jest mocno pomniejszone, np. na telefonie).
   function bandLabel(g, low) {
     var sel = state.selected && state.byId[state.selected];
-    if (sel && state.gen[sel.id] !== undefined) {
-      var d = g - state.gen[sel.id];
+    if (!sel || state.layoutGen[sel.id] === undefined) sel = state.scope === "osoba" ? state.byId[state.focus] : null;
+    if (sel && state.layoutGen[sel.id] !== undefined) {
+      var d = g - state.layoutGen[sel.id];
       if (d === 0) return ["Pokolenie: " + sel.name, sel.name.split(" ")[0]];
       if (RELATIVE[d]) return [RELATIVE[d], RELATIVE_SHORT[d]];
       var far = d < 0 ? (-d) + " pokoleń wstecz" : d + " pokoleń dalej";
@@ -1095,8 +1068,8 @@
   function drawBands() {
     if (!bandsLayer) return;
     var rows = {};
-    state.data.people.forEach(function (p) {
-      var g = state.gen[p.id];
+    state.shown.people.forEach(function (p) {
+      var g = state.layoutGen[p.id];
       if (g === undefined || p.x === null) return;
       var r = rows[g] = rows[g] || { gen: g, ids: [], top: Infinity, bottom: -Infinity, centers: [] };
       r.ids.push(p.id);
@@ -1352,7 +1325,7 @@
 
   function render() {
     var seen = {};
-    state.data.people.forEach(function (p) {
+    state.shown.people.forEach(function (p) {
       seen[p.id] = true;
       renderNode(p);
     });
@@ -1364,6 +1337,7 @@
     });
     drawLines();
     renderTimeline();
+    renderFocusBar();
     root.classList.toggle("is-empty", !state.data.people.length);
   }
 
@@ -1374,28 +1348,173 @@
     data.people.forEach(function (p) { state.byId[p.id] = p; });
     state.gen = generations(data);
     if (state.selected && !state.byId[state.selected]) state.selected = null;
-    var placed = placeMissing();
+    var wanted = null;
+    if (first) {
+      var params = new URLSearchParams(location.search);
+      if (params.get("zakres") === "wszyscy") state.scope = "wszyscy";
+      wanted = parseInt(params.get("osoba"), 10);
+      var around = parseInt(params.get("wokol"), 10);
+      state.focus = state.byId[around] ? around : state.byId[wanted] ? wanted : null;
+      if (state.byId[wanted]) state.selected = wanted;
+    }
+    // Zmieniona albo nowa osoba poza widokiem wokół osoby: widok przechodzi na nią.
+    layout(state.selected && state.scope === "osoba" ? state.selected : null);
     render();
     renderSheet();
     if (first) {
-      var wanted = parseInt(new URLSearchParams(location.search).get("osoba"), 10);
-      if (state.byId[wanted]) {
-        state.selected = wanted;
-        render();
-        focusOn(wanted);
-      } else {
-        fit();
-      }
+      if (state.byId[wanted]) focusOn(wanted); else fit();
     }
     renderOutside();
     renderNames();
-    if (data.canEdit && Object.keys(placed).length) savePositions(placed);
     return data;
   }
 
-  function savePositions(positions) {
-    return request(urls.positions, { positions: positions }).catch(function (error) {
-      showMessage(error.message, true);
+  // --- ETAP 35: układ zawsze automatyczny, widok wokół osoby ----------------------
+
+  // Osoba na start: najstarsza z rodziny z największą liczbą potomków.
+  function defaultFocus(rel) {
+    var best = null, bestCount = -1;
+    state.data.people.forEach(function (p) {
+      if (rel[p.id].parents.length) return;
+      var count = 0, seen = {}, queue = [p.id];
+      while (queue.length) {
+        rel[queue.shift()].children.forEach(function (c) {
+          if (!seen[c]) { seen[c] = true; count++; queue.push(c); }
+        });
+      }
+      var older = best && (p.born || 9999) < (best.born || 9999);
+      if (count > bestCount || (count === bestCount && older)) { best = p; bestCount = count; }
+    });
+    return best ? best.id : state.data.people[0].id;
+  }
+
+  // Kogo widać wokół osoby: jej przodków (``up`` pokoleń), rodzeństwo, partnerów, potomków
+  // (``down`` pokoleń) i ich partnerów. Rodziców partnerów nie rysujemy (znaczek „↑” na kafelku
+  // przełącza widok na nich), więc linie tworzą zwykłe drzewo i nie mogą się przeciąć.
+  function aroundSet(focus, rel) {
+    var set = {};
+    function add(id) { set[id] = true; }
+    add(focus);
+    var level = [focus];
+    for (var u = 0; u < state.up; u++) {
+      var up = [];
+      level.forEach(function (id) {
+        rel[id].parents.forEach(function (p) { if (!set[p]) { add(p); up.push(p); } });
+      });
+      level = up;
+    }
+    if (state.up > 0) rel[focus].parents.forEach(function (p) { rel[p].children.forEach(add); });
+    rel[focus].siblings.forEach(add);
+    rel[focus].partners.forEach(add);
+    level = [focus];
+    for (var d = 0; d < state.down; d++) {
+      var down = [];
+      level.forEach(function (id) {
+        rel[id].children.forEach(function (c) { if (!set[c]) { add(c); down.push(c); } });
+      });
+      down.forEach(function (c) { rel[c].partners.forEach(add); });
+      level = down;
+    }
+    return set;
+  }
+
+  function layout(keepVisible) {
+    var data = state.data;
+    var rel = relativesIndex(data);
+    var shown = data;
+    state.hidden = {};
+    if (state.scope === "osoba" && data.people.length) {
+      if (!state.byId[state.focus]) state.focus = defaultFocus(rel);
+      var set = aroundSet(state.focus, rel);
+      if (keepVisible && state.byId[keepVisible] && !set[keepVisible]) {
+        state.focus = keepVisible;
+        set = aroundSet(state.focus, rel);
+      }
+      var both = function (pair) { return set[pair[0]] && set[pair[1]]; };
+      shown = {
+        people: data.people.filter(function (p) { return set[p.id]; }),
+        parents: data.parents.filter(both),
+        partners: data.partners.filter(both),
+        siblings: (data.siblings || []).filter(both),
+        couples: (data.couples || []).filter(function (c) { return set[c.a] && set[c.b]; }),
+        canEdit: data.canEdit,
+      };
+      shown.people.forEach(function (p) {
+        var up = rel[p.id].parents.filter(function (q) { return !set[q]; }).length;
+        var down = rel[p.id].children.filter(function (q) { return !set[q]; }).length;
+        if (up || down) state.hidden[p.id] = { up: up, down: down };
+      });
+    }
+    state.shown = shown;
+    state.layoutGen = generations(shown);
+    var pos = shown.people.length ? autoLayout(shown) : {};
+    data.people.forEach(function (p) {
+      var at = pos[p.id];
+      p.x = at ? at[0] : null;
+      p.y = at ? at[1] : null;
+    });
+    rememberView();
+  }
+
+  function rememberView() {
+    var params = new URLSearchParams(location.search);
+    if (state.scope === "wszyscy") { params.set("zakres", "wszyscy"); params.delete("wokol"); }
+    else { params.delete("zakres"); if (state.focus) params.set("wokol", state.focus); }
+    params.delete("osoba");
+    var query = params.toString();
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : ""));
+  }
+
+  function setFocus(id) {
+    if (!state.byId[id]) return;
+    state.scope = "osoba";
+    state.focus = id;
+    state.selected = id;
+    state.form = null;
+    if (state.edit && state.edit.id !== id) closeEdit();
+    layout();
+    render();
+    renderSheet();
+    if (state.mode === "os") revealRow(id); else { glide(); fit(); }
+  }
+
+  function setScope(scope) {
+    state.scope = scope === "wszyscy" ? "wszyscy" : "osoba";
+    if (state.scope === "osoba" && state.selected) state.focus = state.selected;
+    layout();
+    render();
+    renderSheet();
+    if (state.mode !== "os") { glide(); fit(); }
+  }
+
+  var focusBar = root.querySelector(".tree-focus");
+  function renderFocusBar() {
+    root.querySelectorAll("[data-tree-scope]").forEach(function (b) {
+      var on = b.getAttribute("data-tree-scope") === state.scope;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (!focusBar) return;
+    var person = state.byId[state.focus];
+    focusBar.hidden = state.scope !== "osoba" || !person;
+    if (focusBar.hidden) return;
+    focusBar.querySelector("[data-focus-name]").textContent = person.name;
+    focusBar.querySelector("[data-focus-count]").textContent = state.shown.people.length + " z " + state.data.people.length + " os.";
+    focusBar.querySelector('[data-depth="up"]').textContent = String(state.up);
+    focusBar.querySelector('[data-depth="down"]').textContent = String(state.down);
+  }
+
+  if (focusBar) {
+    focusBar.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-depth-step]");
+      if (!button) return;
+      var which = button.getAttribute("data-depth-step");
+      var step = which.charAt(0) === "+" ? 1 : -1;
+      var key = which.slice(1);
+      state[key] = Math.max(0, Math.min(9, state[key] + step));
+      layout();
+      render();
+      if (state.mode !== "os") fit();
     });
   }
 
@@ -1481,6 +1600,264 @@
     return form;
   }
 
+  // --- ETAP 34: dane osoby w panelu, edycja jako nakładka, karta w okienku ---------
+
+  var FACT_ROWS = [
+    ["Urodzenie", "birth", "birthPlace"],
+    ["Śmierć", "death", "deathPlace"],
+  ];
+
+  function personFacts(person) {
+    var box = el("div", "tree-facts");
+    var list = el("dl", "tree-facts__list");
+    FACT_ROWS.forEach(function (row) {
+      var text = [person[row[1]], person[row[2]]].filter(Boolean).join(", ");
+      if (row[1] === "death" && !text && person.deceased) text = "nie żyje";
+      if (!text) return;
+      var item = el("div");
+      item.appendChild(el("dt", "", row[0]));
+      item.appendChild(el("dd", "", (row[1] === "death" ? "† " : "") + text));
+      list.appendChild(item);
+    });
+    if (list.childNodes.length) box.appendChild(list);
+    if (person.bio) {
+      var bio = el("p", "tree-facts__bio", person.bio);
+      box.appendChild(bio);
+      if (person.bio.length > 180) {
+        bio.classList.add("is-clamped");
+        var more = el("button", "link-button tree-facts__more", "Więcej");
+        more.type = "button";
+        more.addEventListener("click", function () {
+          var open = bio.classList.toggle("is-clamped");
+          more.textContent = open ? "Więcej" : "Mniej";
+        });
+        box.appendChild(more);
+      }
+    }
+    if (!box.childNodes.length) {
+      box.appendChild(el("p", "hint tree-facts__empty", state.data.canEdit ? "Brak dat i opisu. Uzupełnisz je w „Edytuj dane”." : "Brak dat i opisu."));
+    }
+    return box;
+  }
+
+  var EDIT_FIELDS = [
+    ["name", "Imię i nazwisko", "", 100],
+    ["maiden", "Nazwisko rodowe", "np. Nowak", 100],
+    ["birth", "Data urodzenia", "np. 12.06.1921, 1921, ok. 1920, lata 20.", 60],
+    ["birthPlace", "Miejsce urodzenia", "", 200],
+    ["deceased"],
+    ["death", "Data śmierci", "jak data urodzenia", 60],
+    ["deathPlace", "Miejsce śmierci", "", 200],
+    ["bio", "Opis", "Kim była, gdzie mieszkała, rodzinne historie.", 0],
+  ];
+
+  function personUrl(id) { return urls.person.replace(/\/0\/$/, "/" + id + "/"); }
+
+  function openEdit(id) {
+    var person = state.byId[id];
+    if (!person || !state.data.canEdit) return;
+    state.edit = { id: id, portraits: null, portrait: null, errors: {} };
+    renderEdit();
+    request(personUrl(id)).then(function (data) {
+      if (!state.edit || state.edit.id !== id) return;
+      state.edit.portraits = data.portraits;
+      state.edit.portrait = data.portrait;
+      renderPortraits();
+    }).catch(function () {
+      if (state.edit && state.edit.id === id) { state.edit.portraits = []; renderPortraits(); }
+    });
+    var first = editPanel.querySelector("input");
+    if (first) first.focus();
+  }
+
+  function closeEdit() {
+    state.edit = null;
+    editPanel.hidden = true;
+    editPanel.textContent = "";
+    root.classList.remove("has-edit");
+  }
+
+  function renderEdit() {
+    var person = state.edit && state.byId[state.edit.id];
+    editPanel.textContent = "";
+    if (!person) { closeEdit(); return; }
+    editPanel.hidden = false;
+    root.classList.add("has-edit");
+    var head = el("div", "tree-edit__head");
+    var back = el("button", "link-button tree-edit__back", "← " + person.name);
+    back.type = "button";
+    back.setAttribute("aria-label", "Wróć bez zapisywania");
+    back.addEventListener("click", closeEdit);
+    head.appendChild(back);
+    head.appendChild(el("h2", "", "Dane osoby"));
+    editPanel.appendChild(head);
+
+    var form = el("form", "tree-edit__form");
+    form.noValidate = true;
+    var inputs = {};
+    EDIT_FIELDS.forEach(function (field) {
+      var key = field[0];
+      var row = el("div", "field");
+      if (key === "deceased") {
+        var check = el("label", "check");
+        var box = el("input");
+        box.type = "checkbox";
+        box.name = key;
+        box.checked = !!person.deceased;
+        check.appendChild(box);
+        check.appendChild(document.createTextNode(" Nie żyje †"));
+        row.appendChild(check);
+        row.appendChild(el("p", "hint", "Zaznacza się samo, gdy wpiszesz datę lub miejsce śmierci."));
+        inputs[key] = box;
+        form.appendChild(row);
+        return;
+      }
+      var id = "osoba-" + key;
+      var label = el("label", "", field[1]);
+      label.htmlFor = id;
+      var input = el(key === "bio" ? "textarea" : "input");
+      if (key === "bio") input.rows = 5; else input.type = "text";
+      input.id = id;
+      input.name = key;
+      input.value = person[key] || "";
+      if (field[2]) input.placeholder = field[2];
+      if (field[3]) input.maxLength = field[3];
+      if (key === "name") input.required = true;
+      row.appendChild(label);
+      row.appendChild(input);
+      inputs[key] = input;
+      form.appendChild(row);
+    });
+    var portraitBox = el("fieldset", "field tree-edit__portraits");
+    portraitBox.appendChild(el("legend", "", "Portret"));
+    portraitBox.appendChild(el("p", "hint", "Wczytuję zdjęcia…"));
+    form.appendChild(portraitBox);
+
+    var row = el("div", "tree-form__buttons tree-edit__buttons");
+    var save = el("button", "button", "Zapisz");
+    save.type = "submit";
+    var cancel = el("button", "button button--quiet", "Anuluj");
+    cancel.type = "button";
+    cancel.addEventListener("click", closeEdit);
+    row.appendChild(save);
+    row.appendChild(cancel);
+    form.appendChild(row);
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (state.busy) return;
+      var body = {};
+      EDIT_FIELDS.forEach(function (field) {
+        var input = inputs[field[0]];
+        body[field[0]] = field[0] === "deceased" ? input.checked : input.value;
+      });
+      var chosen = form.querySelector("input[name=portrait]:checked");
+      body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
+      var id = state.edit.id;
+      request(personUrl(id), body).then(function (data) {
+        closeEdit();
+        apply(data);
+        showMessage(data.notice || "Zapisano: " + (state.byId[id] ? state.byId[id].name : "") + ".");
+      }).catch(function (error) {
+        var errors = (error.data && error.data.errors) || {};
+        form.querySelectorAll(".field__error").forEach(function (node) { node.remove(); });
+        form.querySelectorAll(".field--error").forEach(function (node) { node.classList.remove("field--error"); });
+        var firstBad = null;
+        Object.keys(errors).forEach(function (key) {
+          var target = key === "portrait" ? portraitBox : inputs[key] && inputs[key].closest(".field");
+          if (!target) return;
+          target.classList.add("field--error");
+          target.appendChild(el("p", "field__error", errors[key]));
+          if (!firstBad && inputs[key]) firstBad = inputs[key];
+        });
+        if (firstBad) firstBad.focus();
+        else showMessage(error.message, true);
+      });
+    });
+    editPanel.appendChild(form);
+    renderPortraits();
+  }
+
+  function renderPortraits() {
+    var box = editPanel.querySelector(".tree-edit__portraits");
+    if (!box || !state.edit) return;
+    var person = state.byId[state.edit.id];
+    while (box.childNodes.length > 1) box.removeChild(box.lastChild);
+    var portraits = state.edit.portraits;
+    if (!portraits) { box.appendChild(el("p", "hint", "Wczytuję zdjęcia…")); return; }
+    if (!portraits.length) {
+      box.appendChild(el("p", "hint", "Portret wybierzesz, gdy ktoś oznaczy tę osobę na zdjęciu (pole „Kto” w opisie zdjęcia)."));
+      return;
+    }
+    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie, spośród zdjęć z tą osobą."));
+    var list = el("ul", "portrait-choice__list");
+    var options = [{ id: "", url: null }].concat(portraits);
+    options.forEach(function (photo) {
+      var item = el("li");
+      var label = el("label");
+      var radio = el("input");
+      radio.type = "radio";
+      radio.name = "portrait";
+      radio.value = photo.id;
+      radio.checked = String(state.edit.portrait || "") === String(photo.id);
+      label.appendChild(radio);
+      if (photo.url) {
+        var img = el("img", "rot-" + (photo.turn || 0));
+        img.src = photo.url;
+        img.alt = "Zdjęcie " + photo.id;
+        img.loading = "lazy";
+        label.appendChild(img);
+      } else {
+        label.appendChild(el("span", "tree-avatar tree-avatar--empty", person.name.charAt(0)));
+        label.appendChild(el("span", "visually-hidden", "bez portretu"));
+      }
+      item.appendChild(label);
+      list.appendChild(item);
+    });
+    box.appendChild(list);
+  }
+
+  // Karta osoby w okienku nad drzewem: pełna strona osoby w trybie ``?okno=1`` (bez menu i edycji).
+  function openCard(id) {
+    var person = state.byId[id];
+    if (!person) return;
+    cardFrame.src = person.url + "?okno=1";
+    cardBox.hidden = false;
+    root.classList.add("has-card");
+    cardBox.querySelector(".tree-card__close").focus();
+  }
+
+  function closeCard() {
+    cardBox.hidden = true;
+    root.classList.remove("has-card");
+    cardFrame.src = "about:blank";
+    canvas.focus();
+  }
+
+  cardBox.querySelector(".tree-card__close").addEventListener("click", closeCard);
+  cardBox.addEventListener("click", function (event) { if (event.target === cardBox) closeCard(); });
+  cardFrame.addEventListener("load", function () {
+    var doc;
+    try { doc = cardFrame.contentDocument; } catch (error) { return; }
+    if (!doc || cardBox.hidden) return;
+    // Esc w okienku też je zamyka (chyba że jest w nim otwarty podgląd zdjęcia).
+    doc.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !event.defaultPrevented && !doc.querySelector(".viewer:not([hidden])")) closeCard();
+    });
+    // Przejście w okienku do krewnego zaznacza go też w drzewie.
+    var match = /\/osoba\/(\d+)\//.exec(cardFrame.contentWindow.location.pathname);
+    var id = match && parseInt(match[1], 10);
+    if (id && state.byId[id] && state.selected !== id) {
+      if (state.edit) closeEdit();
+      if (state.scope === "osoba" && state.byId[id].x === null) { state.focus = id; layout(); }
+      state.selected = id;
+      state.form = null;
+      render();
+      renderSheet();
+      if (state.mode === "os") revealRow(id); else reveal(id);
+    }
+  });
+
   function renderSheet() {
     sheet.textContent = "";
     var person = state.selected && state.byId[state.selected];
@@ -1493,6 +1870,7 @@
     close.type = "button";
     close.setAttribute("aria-label", "Zamknij");
     close.addEventListener("click", function () {
+      closeEdit();
       state.selected = null;
       state.form = null;
       render();
@@ -1524,9 +1902,25 @@
         alive.appendChild(document.createTextNode(" Nie żyje †"));
         sheet.appendChild(alive);
       }
-      var card = el("a", "button button--quiet tree-sheet__card", "Karta osoby i zdjęcia");
-      card.href = person.url;
-      sheet.appendChild(card);
+      sheet.appendChild(personFacts(person));
+      var buttons = el("div", "tree-sheet__buttons");
+      if (state.data.canEdit) {
+        var editButton = el("button", "button", "Edytuj dane");
+        editButton.type = "button";
+        editButton.addEventListener("click", function () { openEdit(person.id); });
+        buttons.appendChild(editButton);
+      }
+      if (state.scope !== "osoba" || state.focus !== person.id) {
+        var around = el("button", "button button--quiet", "Drzewo wokół tej osoby");
+        around.type = "button";
+        around.addEventListener("click", function () { setFocus(person.id); });
+        buttons.appendChild(around);
+      }
+      var card = el("button", "button button--quiet", "Karta osoby i zdjęcia");
+      card.type = "button";
+      card.addEventListener("click", function () { openCard(person.id); });
+      buttons.appendChild(card);
+      sheet.appendChild(buttons);
 
       var rows = relationRows(person);
       if (rows.length) {
@@ -1697,6 +2091,9 @@
       send(urls.add, body).then(function (data) {
         state.form = null;
         if (!to && data.added) state.selected = data.added;
+        // Nowy krewny poza widokiem wokół osoby (np. rodzic zięcia): pokaż drzewo wokół „to”.
+        var added = data.added && state.byId[data.added];
+        if (to && added && added.x === null) { setFocus(to.id); showMessage("Dodano: " + name + "."); return; }
         render();
         renderSheet();
         if (state.selected) reveal(state.selected);
@@ -1754,6 +2151,11 @@
   }
 
   function select(id, center) {
+    if (state.edit && state.edit.id !== id) closeEdit();
+    if (state.scope === "osoba" && state.byId[id] && state.byId[id].x === null) {
+      setFocus(id);
+      return;
+    }
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
@@ -1855,7 +2257,6 @@
     var ids = Object.keys(pointers);
     if (ids.length === 2) {
       // Dwa palce: powiększanie; przerywa przeciąganie.
-      if (gesture && gesture.type === "node") positionNode(gesture.person);
       var a = pointers[ids[0]], b = pointers[ids[1]];
       gesture = { type: "pinch", dist: Math.hypot(a[0] - b[0], a[1] - b[1]) };
       lines.textContent = "";
@@ -1867,11 +2268,15 @@
     var node = event.target.closest(".tree-node");
     if (handle && node) {
       gesture = { type: "link", from: parseInt(node.getAttribute("data-id"), 10), kind: handle.getAttribute("data-kind"), start: [event.clientX, event.clientY], moved: false };
-    } else if (node) {
-      var person = state.byId[parseInt(node.getAttribute("data-id"), 10)];
-      gesture = { type: "node", person: person, start: [event.clientX, event.clientY], origin: [person.x, person.y], moved: false };
     } else {
-      gesture = { type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false };
+      // Kafelków nie przesuwamy (układ jest automatyczny): przeciągnięcie kafelka przesuwa widok,
+      // a stuknięcie wybiera osobę albo (znaczek ↑/↓) pokazuje drzewo wokół niej.
+      var more = event.target.closest("[data-focus-to]");
+      gesture = {
+        type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false,
+        node: node ? parseInt(node.getAttribute("data-id"), 10) : null,
+        focusTo: more ? parseInt(more.getAttribute("data-focus-to"), 10) : null,
+      };
     }
     canvas.setPointerCapture(event.pointerId);
   });
@@ -1897,12 +2302,6 @@
       state.view.x = gesture.origin[0] + dx;
       state.view.y = gesture.origin[1] + dy;
       applyView();
-    } else if (gesture.type === "node" && state.data.canEdit) {
-      gesture.person.x = gesture.origin[0] + dx / state.view.scale;
-      gesture.person.y = gesture.origin[1] + dy / state.view.scale;
-      positionNode(gesture.person);
-      nodeEls[gesture.person.id].classList.add("is-dragging");
-      drawLines();
     } else if (gesture.type === "link") {
       drawLines();
       var from = state.byId[gesture.from];
@@ -1925,29 +2324,18 @@
       return;
     }
     gesture = null;
-    if (event.type === "pointercancel") {
-      if (g.type === "node") {
-        g.person.x = g.origin[0];
-        g.person.y = g.origin[1];
-        render();
-      }
-      return;
-    }
+    if (event.type === "pointercancel") return;
     if (g.type === "pan") {
-      if (!g.moved) {
+      if (g.moved) return;
+      if (g.focusTo) {
+        setFocus(g.focusTo);
+      } else if (g.node) {
+        select(g.node, false);
+      } else {
         state.selected = null;
         if (state.form && state.form.to) state.form = null;
         render();
         renderSheet();
-      }
-    } else if (g.type === "node") {
-      nodeEls[g.person.id].classList.remove("is-dragging");
-      if (!g.moved || !state.data.canEdit) {
-        select(g.person.id, false);
-      } else {
-        var positions = {};
-        positions[g.person.id] = [g.person.x, g.person.y];
-        savePositions(positions);
       }
     } else if (g.type === "link") {
       Object.keys(nodeEls).forEach(function (id) { nodeEls[id].classList.remove("is-target"); });
@@ -1986,13 +2374,15 @@
   // Klawiatura: Enter na kafelku otwiera panel osoby.
   canvas.addEventListener("keydown", function (event) {
     var node = event.target.closest && event.target.closest(".tree-node");
-    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle")) {
+    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle, [data-focus-to]")) {
       event.preventDefault();
       select(parseInt(node.getAttribute("data-id"), 10), false);
     }
   });
   canvas.addEventListener("click", function (event) {
     // Klawiatura na uchwycie „+” (bez przeciągania): formularz nowej osoby.
+    var more = event.target.closest("[data-focus-to]");
+    if (more && event.detail === 0) { setFocus(parseInt(more.getAttribute("data-focus-to"), 10)); return; }
     var handle = event.target.closest(".tree-handle");
     if (handle && event.detail === 0) {
       var node = handle.closest(".tree-node");
@@ -2005,6 +2395,8 @@
   root.addEventListener("click", function (event) {
     var modeButton = event.target.closest("[data-tree-mode]");
     if (modeButton) { setMode(modeButton.getAttribute("data-tree-mode"), true); return; }
+    var scopeButton = event.target.closest("[data-tree-scope]");
+    if (scopeButton) { setScope(scopeButton.getAttribute("data-tree-scope")); return; }
     var action = event.target.closest("[data-tree-action]");
     if (!action) return;
     var name = action.getAttribute("data-tree-action");
@@ -2023,19 +2415,15 @@
       var center = viewCenter();
       state.form.at = freeSpot(center[0] - NODE_W / 2, center[1] - NODE_H / 2);
     }
-    if (name === "layout") {
-      if (!window.confirm("Ułożyć całe drzewo od nowa? Kafelki staną w rzędach według pokoleń, a Twoje ręczne ustawienie zniknie.")) return;
-      var pos = autoLayout(state.data);
-      state.data.people.forEach(function (p) { p.x = pos[p.id][0]; p.y = pos[p.id][1]; });
-      render();
-      fit();
-      savePositions(pos).then(function () { showMessage("Ułożono drzewo."); });
-    }
   });
 
   // Esc chowa wysuniętą kartę osoby.
   root.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape" || sheet.hidden || event.defaultPrevented) return;
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    // Najpierw zamyka się to, co leży najwyżej: karta osoby, potem edycja, na końcu panel.
+    if (!cardBox.hidden) { closeCard(); return; }
+    if (state.edit) { closeEdit(); return; }
+    if (sheet.hidden) return;
     state.selected = null;
     state.form = null;
     render();

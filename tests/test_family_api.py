@@ -201,8 +201,11 @@ def test_tree_page_is_full_width_with_tools_in_ribbon(editor, couple):
     assert "app-main--full" in page
     ribbon = page.split('class="tree-ribbon"')[1].split('class="tree-stage"')[0]
     assert "Drzewo rodzinne" in ribbon
-    for action in ("add", "layout", "zoom-out", "fit", "zoom-in"):
+    for action in ("add", "zoom-out", "fit", "zoom-in"):
         assert f'data-tree-action="{action}"' in ribbon
+    # ETAP 35: układ zawsze automatyczny, za to wybór „Wokół osoby” / „Całe drzewo”.
+    assert 'data-tree-action="layout"' not in ribbon
+    assert 'data-tree-scope="osoba"' in ribbon and 'data-tree-scope="wszyscy"' in ribbon
 
 
 def test_tree_ribbon_for_viewer_has_no_edit_tools(client, make_user, couple):

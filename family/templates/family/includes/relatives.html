@@ -4,7 +4,7 @@
   <ul class="person-list person-list--compact">
     {% for other in relatives %}
     <li>
-      <a class="person-row" href="{% url 'family:person' other.pk %}"><span><strong>{{ other.name }}</strong>{% if other.life %} <span class="hint">{{ other.life }}</span>{% endif %}{% if other.couple_text %}<br><span class="hint couple-text">{% if relatives|length > 1 %}{{ forloop.counter }}. {% endif %}{{ other.couple_text }}</span>{% elif relatives|length > 1 and kind == "partner" %}<br><span class="hint couple-text">{{ forloop.counter }}. związek</span>{% endif %}</span></a>
+      <a class="person-row" href="{% url 'family:person' other.pk %}{% if embedded %}?okno=1{% endif %}"><span><strong>{{ other.name }}</strong>{% if other.life %} <span class="hint">{{ other.life }}</span>{% endif %}{% if other.couple_text %}<br><span class="hint couple-text">{% if relatives|length > 1 %}{{ forloop.counter }}. {% endif %}{{ other.couple_text }}</span>{% elif relatives|length > 1 and kind == "partner" %}<br><span class="hint couple-text">{{ forloop.counter }}. związek</span>{% endif %}</span></a>
       {% if can_edit and kind != "rodzenstwo" or can_edit and other.linked %}<form method="post" action="{% url 'family:relation_remove' person.pk other.pk kind %}">{% csrf_token %}<button type="submit" class="icon-button" data-confirm="Usunąć połączenie z: {{ other.name }}?" aria-label="Usuń połączenie z: {{ other.name }}" title="Usuń połączenie">×</button></form>{% endif %}
       {% if can_edit and kind == "partner" %}
       <details class="couple-edit">

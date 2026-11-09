@@ -1,9 +1,9 @@
-{% extends "app_base.html" %}
+{% extends base_template %}
 {% load static %}
 {% block title %}{{ person.name }} · Drzewo rodzinne · {{ site_title }}<script src="{% static 'js/confirm.js' %}" defer></script>
 {% endblock %}
 {% block main %}
-<p><a href="{% url 'family:tree' %}{% if person.in_tree %}?osoba={{ person.pk }}{% endif %}">← Drzewo rodzinne</a></p>
+{% if not embedded %}<p><a href="{% url 'family:tree' %}{% if person.in_tree %}?osoba={{ person.pk }}{% endif %}">← Drzewo rodzinne</a></p>{% endif %}
 <div class="person-head">
   {% include "family/includes/avatar.html" with photo=portrait large=True %}
   <div>
@@ -12,9 +12,10 @@
     {% if not person.in_tree %}<p class="notice">Ta osoba jest oznaczona na zdjęciach, ale nie ma jej jeszcze w drzewie.{% if can_edit %} Dodaj ją, łącząc z rodziną poniżej, albo uzupełniając dane.{% endif %}</p>{% endif %}
   </div>
   <div class="person-head__actions">
-    {% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
+    {% if embedded %}<a class="button button--quiet" href="{% url 'family:person' person.pk %}" target="_blank" rel="noopener">Pełna strona osoby ↗</a>
+    {% else %}{% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
     {% if user.is_superuser %}<a class="button button--quiet" href="{% url 'panel:tree_history' %}?osoba={{ person.pk }}">Historia zmian</a>{% endif %}
-    {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}
+    {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}{% endif %}
   </div>
 </div>
 
@@ -58,7 +59,7 @@
 </ul>
 <script src="{% static 'js/gallery.js' %}" defer></script>
 <script src="{% static 'js/people-picker.js' %}" defer></script>
-{% if photo_total > photos|length %}<p><a href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}">Wszystkie zdjęcia: {{ person.name }} ({{ photo_total }})</a></p>{% endif %}
+{% if photo_total > photos|length %}<p><a href="{% url 'albums:search' %}?osoba={{ person.name|urlencode }}"{% if embedded %} target="_blank" rel="noopener"{% endif %}>Wszystkie zdjęcia: {{ person.name }} ({{ photo_total }})</a></p>{% endif %}
 {% else %}
 <p class="hint">Nie ma jeszcze zdjęć z tą osobą{% if person.photos.exists %} w albumach, które widzisz{% endif %}. Zdjęcia dochodzą same, gdy ktoś oznaczy tę osobę w opisie zdjęcia (pole „Kto”).</p>
 {% endif %}
