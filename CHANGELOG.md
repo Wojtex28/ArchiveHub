@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.38.0 (2026-11-09) · ETAP 38: uporządkowany układ drzewa
+
+Zamiast „jak najmniej przecięć za wszelką cenę” drzewo trzyma się kilku stałych zasad:
+
+- **Rodzeństwo stoi razem, jednym blokiem**, od najstarszego. Dwie rodziny nie mają już kresek jedna nad drugą.
+- **Małżeństwo łączące dwie rodziny stoi na styku ich bloków.** Taka osoba stoi na brzegu swojego rodzeństwa, nawet gdy nie jest najmłodsza, bo wtedy linie się nie krzyżują.
+- **Odstępy mówią, kto do kogo należy:** rodzeństwo i pary stoją ciasno, między różnymi rodzinami jest większa przerwa.
+- **Spokojniejszy wygląd:** linie par w tym samym brązowym kolorze co reszta (tylko grubsze), mniejsze i szare opisy „ślub 1950”.
+
 ## 0.37.0 (2026-11-09) · ETAP 37: linie drzewa w jednym kolorze
 
 - **Bez kolorów rodzin.** Linie od rodziców do dzieci są wszystkie w jednym, stonowanym kolorze. Gdy linie dwóch rodzin biegną obok siebie, rozróżniają je osobne wysokości szyn i kropki w miejscach, gdzie dziecko odchodzi od szyny.
