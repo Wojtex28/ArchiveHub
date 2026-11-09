@@ -15,6 +15,17 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.35.0 (2026-11-09) · ETAP 35: drzewo wokół osoby, bez krzyżujących się linii
+
+Pomysł z aplikacji Strom.
+
+- **Widok „Wokół osoby” (domyślny).** Drzewo pokazuje wybraną osobę, jej przodków, rodzeństwo, partnerów i potomków z ich partnerami. Rodziców teściów i zięciów nie rysuje, więc linie się nie krzyżują.
+- **Znaczki ↑ i ↓ na kafelku** mówią, ilu krewnych jest poza widokiem (rodzice, dzieci). Kliknięcie znaczka pokazuje drzewo wokół tej osoby. W panelu osoby jest też przycisk „Drzewo wokół tej osoby”.
+- **Pasek na dole drzewa:** czyje drzewo widać, ile osób z całości, liczba pokoleń przodków i potomków (− / +).
+- **„Całe drzewo”** pokazuje wszystkich naraz, jak dotąd. Tam przy małżeństwach dwóch rodzin linie mogą się przecinać.
+- **Drzewo zawsze układa się samo.** Kafelków nie da się już przesuwać, a przycisk „Ułóż automatycznie” zniknął. Przeciągnięcie kafelka przesuwa widok. Przeciągnięcie „+” na drugą osobę dalej łączy rodzinę.
+- Adres strony zapamiętuje widok (`?wokol=` osoba albo `?zakres=wszyscy`).
+
 ## 0.34.0 (2026-11-09) · ETAP 34: dane osoby w panelu bocznym, karta osoby nad drzewem
 
 - **Panel boczny pokazuje wszystkie dane osoby:** datę i miejsce urodzenia, datę i miejsce śmierci oraz opis (dłuższy opis zwinięty, z „Więcej”).

@@ -55,6 +55,9 @@
   var state = {
     data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false,
     gen: {}, bands: [], mode: "drzewo", tl: { px: null }, edit: null,
+    // ETAP 35: drzewo zawsze ułożone automatycznie. ``scope`` „osoba” = widok wokół jednej osoby
+    // (jak w Strom: przodkowie w górę, potomkowie w dół, bez krzyżujących się linii), „wszyscy” = całość.
+    scope: "osoba", focus: null, up: 2, down: 3, shown: null, layoutGen: {}, hidden: {},
   };
   var nodeEls = {};
 
@@ -645,55 +648,6 @@
     return [x, y + NODE_H * 2];
   }
 
-  // Nowe osoby (bez miejsca na kanwie) stają przy krewnych: rodzic nad, dziecko pod, partner obok.
-  function placeMissing() {
-    var missing = state.data.people.filter(function (p) { return p.x === null || p.y === null; });
-    if (!missing.length) return {};
-    var placedAny = state.data.people.some(function (p) { return p.x !== null; });
-    var result = {};
-    if (!placedAny) {
-      var pos = autoLayout(state.data);
-      missing.forEach(function (p) { p.x = pos[p.id][0]; p.y = pos[p.id][1]; result[p.id] = pos[p.id]; });
-      return result;
-    }
-    var rel = relativesIndex(state.data);
-    var center = viewCenter();
-    for (var pass = 0; pass < 3; pass++) {
-      missing.forEach(function (p) {
-        if (p.x !== null) return;
-        var r = rel[p.id];
-        var anchor = null;
-        var placedOf = function (ids) {
-          return ids.map(function (id) { return state.byId[id]; }).filter(function (q) { return q && q.x !== null; });
-        };
-        var ps = placedOf(r.parents);
-        var cs = placedOf(r.children);
-        var partners = placedOf(r.partners);
-        var sibs = placedOf(r.siblings);
-        if (ps.length) {
-          anchor = [ps.reduce(function (s, q) { return s + q.x; }, 0) / ps.length, ps[0].y + ROW_H];
-        } else if (partners.length) {
-          anchor = [partners[0].x + NODE_W + GAP_X, partners[0].y];
-        } else if (sibs.length) {
-          // Obok rodzeństwa, po stronie bez partnera (partner/ka zwykle stoi tuż obok).
-          var sib = sibs[sibs.length - 1];
-          var mateRight = placedOf(rel[sib.id].partners).some(function (q) { return q.x > sib.x && Math.abs(q.y - sib.y) < NODE_H; });
-          anchor = [mateRight ? sib.x - NODE_W - GAP_X : sib.x + NODE_W + GAP_X, sib.y];
-        } else if (cs.length) {
-          anchor = [cs[0].x, cs[0].y - ROW_H];
-        } else if (pass === 2) {
-          anchor = [center[0] - NODE_W / 2, center[1] - NODE_H / 2];
-        }
-        if (!anchor) return;
-        var spot = freeSpot(anchor[0], anchor[1], p.id);
-        p.x = spot[0];
-        p.y = spot[1];
-        result[p.id] = spot;
-      });
-    }
-    return result;
-  }
-
   // --- Rysowanie -------------------------------------------------------------
 
   function applyView() {
@@ -760,7 +714,7 @@
   function fit() {
     // Kanwa schowana (oś czasu): dopasujemy widok, gdy wróci.
     if (canvas.hidden) { state.needFit = true; return; }
-    var people = state.data.people;
+    var people = state.shown.people;
     var rect = area();
     if (!people.length) {
       state.view = { x: rect.w / 2, y: rect.h / 3, scale: 1 };
@@ -839,6 +793,11 @@
     node.classList.toggle("tree-node--deceased", !!person.deceased);
     node.setAttribute("aria-label", person.name + (person.deceased ? ", nie żyje" : "") + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
+    node.classList.toggle("is-focus", state.scope === "osoba" && state.focus === person.id);
+    // Ukryci krewni (poza widokiem wokół osoby): znaczek przełącza widok na tę osobę.
+    var hidden = state.hidden[person.id];
+    if (hidden && hidden.up) node.appendChild(moreBadge(person, "up", "↑ " + hidden.up, "Pokaż rodzinę: " + person.name + " (rodzice poza widokiem)"));
+    if (hidden && hidden.down) node.appendChild(moreBadge(person, "down", "↓ " + hidden.down, "Pokaż potomków: " + person.name + " (" + hidden.down + " poza widokiem)"));
     if (state.data.canEdit && state.selected === person.id) {
       kindsFor(person.id).forEach(function (kind) {
         var handle = el("button", "tree-handle tree-handle--" + kind, "+");
@@ -850,6 +809,15 @@
       });
     }
     positionNode(person);
+  }
+
+  function moreBadge(person, side, text, title) {
+    var badge = el("button", "tree-node__more tree-node__more--" + side, text);
+    badge.type = "button";
+    badge.setAttribute("data-focus-to", person.id);
+    badge.setAttribute("aria-label", title);
+    badge.title = title;
+    return badge;
   }
 
   // Kogo można dodać: rodzica tylko do dwojga.
@@ -886,7 +854,7 @@
     var left = a.x <= b.x ? a : b, right = left === a ? b : a;
     var ax = left.x + NODE_W / 2, bx = right.x + NODE_W / 2;
     var ay = left.y + NODE_H / 2, by = right.y + NODE_H / 2;
-    var blocked = Math.abs(a.y - b.y) < 1 && state.data.people.some(function (p) {
+    var blocked = Math.abs(a.y - b.y) < 1 && state.shown.people.some(function (p) {
       return p !== a && p !== b && Math.abs(p.y - a.y) < NODE_H && p.x > left.x + 1 && p.x < right.x - 1;
     });
     var cls = "tree-line tree-line--partner" + (info.ended ? " tree-line--ended" : "");
@@ -916,9 +884,9 @@
     lines.textContent = "";
     var byId = state.byId;
     var partnerOf = {};
-    var couples = couplesIndex(state.data);
-    var rel = relativesIndex(state.data);
-    state.data.partners.forEach(function (pair) {
+    var couples = couplesIndex(state.shown);
+    var rel = relativesIndex(state.shown);
+    state.shown.partners.forEach(function (pair) {
       var a = byId[pair[0]], b = byId[pair[1]];
       if (!a || !b) return;
       partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
@@ -928,7 +896,7 @@
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
     // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
     var parentsOf = {};
-    state.data.parents.forEach(function (link) {
+    state.shown.parents.forEach(function (link) {
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
     });
     var families = {};
@@ -1021,7 +989,7 @@
   // rodziców jeszcze nie ma. Rodzeństwo ze wspólnym rodzicem łączy już szyna rodziny.
   function drawSiblings(rel) {
     var seen = {};
-    state.data.people.forEach(function (p) {
+    state.shown.people.forEach(function (p) {
       if (seen[p.id] || !rel[p.id].siblings.length) return;
       var group = [], queue = [p.id];
       seen[p.id] = true;
@@ -1084,8 +1052,9 @@
   // Pełny podpis i krótki (gdy drzewo jest mocno pomniejszone, np. na telefonie).
   function bandLabel(g, low) {
     var sel = state.selected && state.byId[state.selected];
-    if (sel && state.gen[sel.id] !== undefined) {
-      var d = g - state.gen[sel.id];
+    if (!sel || state.layoutGen[sel.id] === undefined) sel = state.scope === "osoba" ? state.byId[state.focus] : null;
+    if (sel && state.layoutGen[sel.id] !== undefined) {
+      var d = g - state.layoutGen[sel.id];
       if (d === 0) return ["Pokolenie: " + sel.name, sel.name.split(" ")[0]];
       if (RELATIVE[d]) return [RELATIVE[d], RELATIVE_SHORT[d]];
       var far = d < 0 ? (-d) + " pokoleń wstecz" : d + " pokoleń dalej";
@@ -1099,8 +1068,8 @@
   function drawBands() {
     if (!bandsLayer) return;
     var rows = {};
-    state.data.people.forEach(function (p) {
-      var g = state.gen[p.id];
+    state.shown.people.forEach(function (p) {
+      var g = state.layoutGen[p.id];
       if (g === undefined || p.x === null) return;
       var r = rows[g] = rows[g] || { gen: g, ids: [], top: Infinity, bottom: -Infinity, centers: [] };
       r.ids.push(p.id);
@@ -1356,7 +1325,7 @@
 
   function render() {
     var seen = {};
-    state.data.people.forEach(function (p) {
+    state.shown.people.forEach(function (p) {
       seen[p.id] = true;
       renderNode(p);
     });
@@ -1368,6 +1337,7 @@
     });
     drawLines();
     renderTimeline();
+    renderFocusBar();
     root.classList.toggle("is-empty", !state.data.people.length);
   }
 
@@ -1378,29 +1348,173 @@
     data.people.forEach(function (p) { state.byId[p.id] = p; });
     state.gen = generations(data);
     if (state.selected && !state.byId[state.selected]) state.selected = null;
-    var placed = placeMissing();
+    var wanted = null;
+    if (first) {
+      var params = new URLSearchParams(location.search);
+      if (params.get("zakres") === "wszyscy") state.scope = "wszyscy";
+      wanted = parseInt(params.get("osoba"), 10);
+      var around = parseInt(params.get("wokol"), 10);
+      state.focus = state.byId[around] ? around : state.byId[wanted] ? wanted : null;
+      if (state.byId[wanted]) state.selected = wanted;
+    }
+    // Zmieniona albo nowa osoba poza widokiem wokół osoby: widok przechodzi na nią.
+    layout(state.selected && state.scope === "osoba" ? state.selected : null);
     render();
     renderSheet();
     if (first) {
-      var wanted = parseInt(new URLSearchParams(location.search).get("osoba"), 10);
-      if (state.byId[wanted]) {
-        state.selected = wanted;
-        render();
-        renderSheet();
-        focusOn(wanted);
-      } else {
-        fit();
-      }
+      if (state.byId[wanted]) focusOn(wanted); else fit();
     }
     renderOutside();
     renderNames();
-    if (data.canEdit && Object.keys(placed).length) savePositions(placed);
     return data;
   }
 
-  function savePositions(positions) {
-    return request(urls.positions, { positions: positions }).catch(function (error) {
-      showMessage(error.message, true);
+  // --- ETAP 35: układ zawsze automatyczny, widok wokół osoby ----------------------
+
+  // Osoba na start: najstarsza z rodziny z największą liczbą potomków.
+  function defaultFocus(rel) {
+    var best = null, bestCount = -1;
+    state.data.people.forEach(function (p) {
+      if (rel[p.id].parents.length) return;
+      var count = 0, seen = {}, queue = [p.id];
+      while (queue.length) {
+        rel[queue.shift()].children.forEach(function (c) {
+          if (!seen[c]) { seen[c] = true; count++; queue.push(c); }
+        });
+      }
+      var older = best && (p.born || 9999) < (best.born || 9999);
+      if (count > bestCount || (count === bestCount && older)) { best = p; bestCount = count; }
+    });
+    return best ? best.id : state.data.people[0].id;
+  }
+
+  // Kogo widać wokół osoby: jej przodków (``up`` pokoleń), rodzeństwo, partnerów, potomków
+  // (``down`` pokoleń) i ich partnerów. Rodziców partnerów nie rysujemy (znaczek „↑” na kafelku
+  // przełącza widok na nich), więc linie tworzą zwykłe drzewo i nie mogą się przeciąć.
+  function aroundSet(focus, rel) {
+    var set = {};
+    function add(id) { set[id] = true; }
+    add(focus);
+    var level = [focus];
+    for (var u = 0; u < state.up; u++) {
+      var up = [];
+      level.forEach(function (id) {
+        rel[id].parents.forEach(function (p) { if (!set[p]) { add(p); up.push(p); } });
+      });
+      level = up;
+    }
+    if (state.up > 0) rel[focus].parents.forEach(function (p) { rel[p].children.forEach(add); });
+    rel[focus].siblings.forEach(add);
+    rel[focus].partners.forEach(add);
+    level = [focus];
+    for (var d = 0; d < state.down; d++) {
+      var down = [];
+      level.forEach(function (id) {
+        rel[id].children.forEach(function (c) { if (!set[c]) { add(c); down.push(c); } });
+      });
+      down.forEach(function (c) { rel[c].partners.forEach(add); });
+      level = down;
+    }
+    return set;
+  }
+
+  function layout(keepVisible) {
+    var data = state.data;
+    var rel = relativesIndex(data);
+    var shown = data;
+    state.hidden = {};
+    if (state.scope === "osoba" && data.people.length) {
+      if (!state.byId[state.focus]) state.focus = defaultFocus(rel);
+      var set = aroundSet(state.focus, rel);
+      if (keepVisible && state.byId[keepVisible] && !set[keepVisible]) {
+        state.focus = keepVisible;
+        set = aroundSet(state.focus, rel);
+      }
+      var both = function (pair) { return set[pair[0]] && set[pair[1]]; };
+      shown = {
+        people: data.people.filter(function (p) { return set[p.id]; }),
+        parents: data.parents.filter(both),
+        partners: data.partners.filter(both),
+        siblings: (data.siblings || []).filter(both),
+        couples: (data.couples || []).filter(function (c) { return set[c.a] && set[c.b]; }),
+        canEdit: data.canEdit,
+      };
+      shown.people.forEach(function (p) {
+        var up = rel[p.id].parents.filter(function (q) { return !set[q]; }).length;
+        var down = rel[p.id].children.filter(function (q) { return !set[q]; }).length;
+        if (up || down) state.hidden[p.id] = { up: up, down: down };
+      });
+    }
+    state.shown = shown;
+    state.layoutGen = generations(shown);
+    var pos = shown.people.length ? autoLayout(shown) : {};
+    data.people.forEach(function (p) {
+      var at = pos[p.id];
+      p.x = at ? at[0] : null;
+      p.y = at ? at[1] : null;
+    });
+    rememberView();
+  }
+
+  function rememberView() {
+    var params = new URLSearchParams(location.search);
+    if (state.scope === "wszyscy") { params.set("zakres", "wszyscy"); params.delete("wokol"); }
+    else { params.delete("zakres"); if (state.focus) params.set("wokol", state.focus); }
+    params.delete("osoba");
+    var query = params.toString();
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : ""));
+  }
+
+  function setFocus(id) {
+    if (!state.byId[id]) return;
+    state.scope = "osoba";
+    state.focus = id;
+    state.selected = id;
+    state.form = null;
+    if (state.edit && state.edit.id !== id) closeEdit();
+    layout();
+    render();
+    renderSheet();
+    if (state.mode === "os") revealRow(id); else { glide(); fit(); }
+  }
+
+  function setScope(scope) {
+    state.scope = scope === "wszyscy" ? "wszyscy" : "osoba";
+    if (state.scope === "osoba" && state.selected) state.focus = state.selected;
+    layout();
+    render();
+    renderSheet();
+    if (state.mode !== "os") { glide(); fit(); }
+  }
+
+  var focusBar = root.querySelector(".tree-focus");
+  function renderFocusBar() {
+    root.querySelectorAll("[data-tree-scope]").forEach(function (b) {
+      var on = b.getAttribute("data-tree-scope") === state.scope;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (!focusBar) return;
+    var person = state.byId[state.focus];
+    focusBar.hidden = state.scope !== "osoba" || !person;
+    if (focusBar.hidden) return;
+    focusBar.querySelector("[data-focus-name]").textContent = person.name;
+    focusBar.querySelector("[data-focus-count]").textContent = state.shown.people.length + " z " + state.data.people.length + " os.";
+    focusBar.querySelector('[data-depth="up"]').textContent = String(state.up);
+    focusBar.querySelector('[data-depth="down"]').textContent = String(state.down);
+  }
+
+  if (focusBar) {
+    focusBar.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-depth-step]");
+      if (!button) return;
+      var which = button.getAttribute("data-depth-step");
+      var step = which.charAt(0) === "+" ? 1 : -1;
+      var key = which.slice(1);
+      state[key] = Math.max(0, Math.min(9, state[key] + step));
+      layout();
+      render();
+      if (state.mode !== "os") fit();
     });
   }
 
@@ -1735,6 +1849,7 @@
     var id = match && parseInt(match[1], 10);
     if (id && state.byId[id] && state.selected !== id) {
       if (state.edit) closeEdit();
+      if (state.scope === "osoba" && state.byId[id].x === null) { state.focus = id; layout(); }
       state.selected = id;
       state.form = null;
       render();
@@ -1794,6 +1909,12 @@
         editButton.type = "button";
         editButton.addEventListener("click", function () { openEdit(person.id); });
         buttons.appendChild(editButton);
+      }
+      if (state.scope !== "osoba" || state.focus !== person.id) {
+        var around = el("button", "button button--quiet", "Drzewo wokół tej osoby");
+        around.type = "button";
+        around.addEventListener("click", function () { setFocus(person.id); });
+        buttons.appendChild(around);
       }
       var card = el("button", "button button--quiet", "Karta osoby i zdjęcia");
       card.type = "button";
@@ -1970,6 +2091,9 @@
       send(urls.add, body).then(function (data) {
         state.form = null;
         if (!to && data.added) state.selected = data.added;
+        // Nowy krewny poza widokiem wokół osoby (np. rodzic zięcia): pokaż drzewo wokół „to”.
+        var added = data.added && state.byId[data.added];
+        if (to && added && added.x === null) { setFocus(to.id); showMessage("Dodano: " + name + "."); return; }
         render();
         renderSheet();
         if (state.selected) reveal(state.selected);
@@ -2028,6 +2152,10 @@
 
   function select(id, center) {
     if (state.edit && state.edit.id !== id) closeEdit();
+    if (state.scope === "osoba" && state.byId[id] && state.byId[id].x === null) {
+      setFocus(id);
+      return;
+    }
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
@@ -2129,7 +2257,6 @@
     var ids = Object.keys(pointers);
     if (ids.length === 2) {
       // Dwa palce: powiększanie; przerywa przeciąganie.
-      if (gesture && gesture.type === "node") positionNode(gesture.person);
       var a = pointers[ids[0]], b = pointers[ids[1]];
       gesture = { type: "pinch", dist: Math.hypot(a[0] - b[0], a[1] - b[1]) };
       lines.textContent = "";
@@ -2141,11 +2268,15 @@
     var node = event.target.closest(".tree-node");
     if (handle && node) {
       gesture = { type: "link", from: parseInt(node.getAttribute("data-id"), 10), kind: handle.getAttribute("data-kind"), start: [event.clientX, event.clientY], moved: false };
-    } else if (node) {
-      var person = state.byId[parseInt(node.getAttribute("data-id"), 10)];
-      gesture = { type: "node", person: person, start: [event.clientX, event.clientY], origin: [person.x, person.y], moved: false };
     } else {
-      gesture = { type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false };
+      // Kafelków nie przesuwamy (układ jest automatyczny): przeciągnięcie kafelka przesuwa widok,
+      // a stuknięcie wybiera osobę albo (znaczek ↑/↓) pokazuje drzewo wokół niej.
+      var more = event.target.closest("[data-focus-to]");
+      gesture = {
+        type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false,
+        node: node ? parseInt(node.getAttribute("data-id"), 10) : null,
+        focusTo: more ? parseInt(more.getAttribute("data-focus-to"), 10) : null,
+      };
     }
     canvas.setPointerCapture(event.pointerId);
   });
@@ -2171,12 +2302,6 @@
       state.view.x = gesture.origin[0] + dx;
       state.view.y = gesture.origin[1] + dy;
       applyView();
-    } else if (gesture.type === "node" && state.data.canEdit) {
-      gesture.person.x = gesture.origin[0] + dx / state.view.scale;
-      gesture.person.y = gesture.origin[1] + dy / state.view.scale;
-      positionNode(gesture.person);
-      nodeEls[gesture.person.id].classList.add("is-dragging");
-      drawLines();
     } else if (gesture.type === "link") {
       drawLines();
       var from = state.byId[gesture.from];
@@ -2199,29 +2324,18 @@
       return;
     }
     gesture = null;
-    if (event.type === "pointercancel") {
-      if (g.type === "node") {
-        g.person.x = g.origin[0];
-        g.person.y = g.origin[1];
-        render();
-      }
-      return;
-    }
+    if (event.type === "pointercancel") return;
     if (g.type === "pan") {
-      if (!g.moved) {
+      if (g.moved) return;
+      if (g.focusTo) {
+        setFocus(g.focusTo);
+      } else if (g.node) {
+        select(g.node, false);
+      } else {
         state.selected = null;
         if (state.form && state.form.to) state.form = null;
         render();
         renderSheet();
-      }
-    } else if (g.type === "node") {
-      nodeEls[g.person.id].classList.remove("is-dragging");
-      if (!g.moved || !state.data.canEdit) {
-        select(g.person.id, false);
-      } else {
-        var positions = {};
-        positions[g.person.id] = [g.person.x, g.person.y];
-        savePositions(positions);
       }
     } else if (g.type === "link") {
       Object.keys(nodeEls).forEach(function (id) { nodeEls[id].classList.remove("is-target"); });
@@ -2260,13 +2374,15 @@
   // Klawiatura: Enter na kafelku otwiera panel osoby.
   canvas.addEventListener("keydown", function (event) {
     var node = event.target.closest && event.target.closest(".tree-node");
-    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle")) {
+    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle, [data-focus-to]")) {
       event.preventDefault();
       select(parseInt(node.getAttribute("data-id"), 10), false);
     }
   });
   canvas.addEventListener("click", function (event) {
     // Klawiatura na uchwycie „+” (bez przeciągania): formularz nowej osoby.
+    var more = event.target.closest("[data-focus-to]");
+    if (more && event.detail === 0) { setFocus(parseInt(more.getAttribute("data-focus-to"), 10)); return; }
     var handle = event.target.closest(".tree-handle");
     if (handle && event.detail === 0) {
       var node = handle.closest(".tree-node");
@@ -2279,6 +2395,8 @@
   root.addEventListener("click", function (event) {
     var modeButton = event.target.closest("[data-tree-mode]");
     if (modeButton) { setMode(modeButton.getAttribute("data-tree-mode"), true); return; }
+    var scopeButton = event.target.closest("[data-tree-scope]");
+    if (scopeButton) { setScope(scopeButton.getAttribute("data-tree-scope")); return; }
     var action = event.target.closest("[data-tree-action]");
     if (!action) return;
     var name = action.getAttribute("data-tree-action");
@@ -2296,14 +2414,6 @@
       // Środek tej części kanwy, której nie zasłoni karta z formularzem.
       var center = viewCenter();
       state.form.at = freeSpot(center[0] - NODE_W / 2, center[1] - NODE_H / 2);
-    }
-    if (name === "layout") {
-      if (!window.confirm("Ułożyć całe drzewo od nowa? Kafelki staną w rzędach według pokoleń, a Twoje ręczne ustawienie zniknie.")) return;
-      var pos = autoLayout(state.data);
-      state.data.people.forEach(function (p) { p.x = pos[p.id][0]; p.y = pos[p.id][1]; });
-      render();
-      fit();
-      savePositions(pos).then(function () { showMessage("Ułożono drzewo."); });
     }
   });
 
