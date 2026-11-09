@@ -10,8 +10,13 @@
   var NODE_W = 200;
   var NODE_H = 72;
   var GAP_X = 48;
+  var GAP_FAMILY = 112; // przerwa między różnymi rodzinami w rzędzie (ETAP 38)
   var ROW_H = 180;
-  var BIRTH_WEIGHT = 3; // kara za rodzeństwo nie po kolei urodzenia (zob. autoLayout)
+  // Kary w układaniu kolejności (ETAP 38, zob. autoLayout): przecięcie linii > dwie rodziny z kreskami
+  // jedna nad drugą (rodzeństwo nie stoi blokiem) > rodzeństwo nie po kolei urodzenia.
+  var CROSS_WEIGHT = 4;
+  var OVERLAP_WEIGHT = 1;
+  var BIRTH_WEIGHT = 1;
   var ZOOM_MIN = 0.2;
   var ZOOM_MAX = 2.5;
   var MOVE_MIN = 5; // px: mniejszy ruch to kliknięcie, nie przeciąganie
@@ -422,15 +427,17 @@
       for (var i = 0; i < list.length; i++) {
         for (var j = i + 1; j < list.length; j++) {
           if (!overlapping(list[i], list[j])) continue;
-          // Lepsza z dwóch kolejności szyn, plus drobna kara za samo zachodzenie (czytelniej obok siebie).
-          n += Math.min(costAbove(list[i], list[j]), costAbove(list[j], list[i])) + 0.01;
+          // Lepsza z dwóch kolejności szyn, plus kara za samo zachodzenie: rodziny mają stać obok
+          // siebie, każda swoim blokiem, a nie mieć kreski jedna nad drugą.
+          n += CROSS_WEIGHT * Math.min(costAbove(list[i], list[j]), costAbove(list[j], list[i])) + OVERLAP_WEIGHT;
         }
       }
       return n;
     }
 
     // Rodzeństwo od najstarszego z lewej (ETAP 30): każda para rodzeństwa w złej kolejności to kara
-    // BIRTH_WEIGHT, więc data urodzenia wygrywa z pojedynczym przecięciem linii, ale nie z kilkoma.
+    // BIRTH_WEIGHT. Od ETAPU 38 jest najlżejsza: osoba, której małżeństwo łączy dwie rodziny, stoi na
+    // brzegu swojego rodzeństwa, nawet gdy nie jest najmłodsza, bo wtedy linie się nie krzyżują.
     // Rodzeństwo bez daty urodzenia nie ma kary i może stać gdziekolwiek.
     function bornOf(id) { return byId[id].born === null || byId[id].born === undefined ? null : byId[id].born; }
     function familyKeyIn(id, up) {
@@ -659,9 +666,33 @@
     var step = NODE_W + GAP_X;
     var childrenOf = {};
     data.people.forEach(function (p) { childrenOf[p.id] = rel[p.id].children; });
+    // Odstępy mówią, kto do kogo należy (ETAP 38): rodzeństwo i rodzina stoją ciasno (GAP_X),
+    // a między różnymi rodzinami jest większa przerwa (GAP_FAMILY).
+    function familyKeys(unit) {
+      var keys = {};
+      unit.forEach(function (id) {
+        (familiesOf[id] || []).forEach(function (family) { keys[family.join("+")] = true; });
+        rel[id].siblings.forEach(function (q) { keys["s" + Math.min(id, q) + "-" + Math.max(id, q)] = true; });
+      });
+      return keys;
+    }
+    function together(a, b) {
+      var ka = familyKeys(a), kb = familyKeys(b);
+      return Object.keys(ka).some(function (k) { return kb[k]; });
+    }
+    var gapsAfter = orders.map(function (order) {
+      return order.map(function (unit, j) {
+        if (j === order.length - 1) return 0;
+        return together(unit, order[j + 1]) ? GAP_X : GAP_FAMILY;
+      });
+    });
+    function unitWidth(order, j) { return (order[j].length - 1) * step + NODE_W + gapsAfter[orders.indexOf(order)][j]; }
     orders.forEach(function (order, depth) {
       var x = 0;
-      order.forEach(function (unit) { unit.forEach(function (id) { pos[id] = [x, depth * ROW_H]; x += step; }); });
+      order.forEach(function (unit, j) {
+        unit.forEach(function (id, k) { pos[id] = [x + k * step, depth * ROW_H]; });
+        x += unitWidth(order, j);
+      });
     });
     function centerOf(ids) {
       var known = ids.filter(function (id) { return pos[id]; });
@@ -696,7 +727,7 @@
         // Przesunięcie o szerokość wcześniejszych jednostek: wtedy warunek „bez nachodzenia” to
         // po prostu niemalejący ciąg, a takie zadanie rozwiązuje PAV.
         var block = { w: weight, wt: weight * (target - offset), from: j, to: j };
-        offset += unit.length * step;
+        offset += unitWidth(order, j);
         while (blocks.length && blocks[blocks.length - 1].wt / blocks[blocks.length - 1].w > block.wt / block.w) {
           var prev = blocks.pop();
           block = { w: prev.w + block.w, wt: prev.wt + block.wt, from: prev.from, to: block.to };
@@ -709,7 +740,7 @@
         var y = block.wt / block.w;
         for (; j <= block.to; j++) {
           order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step; });
-          offset += order[j].length * step;
+          offset += unitWidth(order, j);
         }
       });
     }
@@ -1026,20 +1057,16 @@
       var count = 0;
       groups.forEach(function (group) {
         var geometry = group.map(function (f) { return { f: f, sx: f.x, kids: f.kidXs, l: f.l, r: f.r }; });
-        laneOrder(geometry).forEach(function (g, lane) { g.f.lane = lane; g.f.group = group.length; });
+        laneOrder(geometry).forEach(function (g, lane) { g.f.lane = lane; });
         count = Math.max(count, group.length);
       });
       lanes[gap] = { length: count };
     });
-    var colorIndex = {};
     list.forEach(function (f) {
       var count = lanes[f.gap].length;
-      // Gdy szyny w odstępie zachodzą na siebie, każda rodzina ma swój kolor (stonowany, z tej samej palety).
+      // Wszystkie linie rodzin w jednym kolorze (ETAP 37). Zachodzące rodziny rozróżniają osobne
+      // tory (wysokości szyn) i kropki w miejscach odejścia dzieci.
       var cls = "tree-line";
-      if (f.group > 1) {
-        colorIndex[f.gap] = (colorIndex[f.gap] || 0) + 1;
-        cls += " tree-line--f" + ((colorIndex[f.gap] - 1) % 5);
-      }
       var room = f.top - f.y;
       var bus;
       if (room > 40) {

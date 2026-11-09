@@ -751,14 +751,15 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .tree-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .tree-line { fill: none; stroke: #9c8b78; stroke-width: 2; }
-.tree-line--partner { stroke: var(--accent); stroke-width: 2.5; }
+/* ETAP 38: jeden spokojny kolor linii; para nieco grubszą i ciemniejszą kreską. */
+.tree-line--partner { stroke: #7d6a56; stroke-width: 2.5; }
 /* ETAP 31: para po rozwodzie / rozstaniu: przerywana, przygaszona; opisy związków nad linią. */
-.tree-line--ended { stroke: #a8836f; stroke-dasharray: 6 5; }
+.tree-line--ended { stroke: #9c8b78; stroke-dasharray: 6 5; }
 .tree-couple-label {
-  font: 600 12px/1 var(--sans, system-ui, sans-serif); fill: var(--accent); text-anchor: middle;
+  font: 500 10.5px/1 var(--sans, system-ui, sans-serif); fill: var(--ink-quiet, #7a6a5a); text-anchor: middle;
   paint-order: stroke; stroke: var(--paper, #f5f0e8); stroke-width: 4px; stroke-linejoin: round;
 }
-.tree-couple-label--ended { fill: #8a6a58; }
+.tree-couple-label--ended { fill: var(--ink-quiet, #7a6a5a); }
 /* ETAP 33: rodzeństwo bez wspólnych rodziców w drzewie: przerywana klamra nad kafelkami. */
 .tree-line--sibling { stroke: #9c8b78; stroke-width: 1.5; stroke-dasharray: 4 4; }
 .tree-sibling-label { fill: var(--ink-quiet, #7a6a5a); font-weight: 400; font-size: 11px; }
@@ -961,13 +962,8 @@ a.chip { color: inherit; text-decoration: none; }
 .namesake-choice legend { font-weight: 600; padding: 0 0.25rem; }
 .namesake-choice label { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; }
 .namesake-choice .hint { margin: 0; }
-/* Rodziny, których linie dzieci zachodzą na siebie: każda swoim stonowanym kolorem. */
+/* Kropki w miejscach odejścia dzieci od szyny rodziny (jeden kolor dla wszystkich rodzin, ETAP 37). */
 .tree-joint { fill: #9c8b78; stroke: none; }
-.tree-line--f0 { stroke: #8a6d4f; } .tree-joint--f0 { fill: #8a6d4f; }
-.tree-line--f1 { stroke: #3f7a74; } .tree-joint--f1 { fill: #3f7a74; }
-.tree-line--f2 { stroke: #7a5a8c; } .tree-joint--f2 { fill: #7a5a8c; }
-.tree-line--f3 { stroke: #5f7a3a; } .tree-joint--f3 { fill: #5f7a3a; }
-.tree-line--f4 { stroke: #4d6a92; } .tree-joint--f4 { fill: #4d6a92; }
 
 /* Osoby na zdjęciu i ulubione (ETAP 29) */
 .people { padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid rgb(255 255 255 / 0.14); }
