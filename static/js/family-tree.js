@@ -1026,20 +1026,16 @@
       var count = 0;
       groups.forEach(function (group) {
         var geometry = group.map(function (f) { return { f: f, sx: f.x, kids: f.kidXs, l: f.l, r: f.r }; });
-        laneOrder(geometry).forEach(function (g, lane) { g.f.lane = lane; g.f.group = group.length; });
+        laneOrder(geometry).forEach(function (g, lane) { g.f.lane = lane; });
         count = Math.max(count, group.length);
       });
       lanes[gap] = { length: count };
     });
-    var colorIndex = {};
     list.forEach(function (f) {
       var count = lanes[f.gap].length;
-      // Gdy szyny w odstępie zachodzą na siebie, każda rodzina ma swój kolor (stonowany, z tej samej palety).
+      // Wszystkie linie rodzin w jednym kolorze (ETAP 37). Zachodzące rodziny rozróżniają osobne
+      // tory (wysokości szyn) i kropki w miejscach odejścia dzieci.
       var cls = "tree-line";
-      if (f.group > 1) {
-        colorIndex[f.gap] = (colorIndex[f.gap] || 0) + 1;
-        cls += " tree-line--f" + ((colorIndex[f.gap] - 1) % 5);
-      }
       var room = f.top - f.y;
       var bus;
       if (room > 40) {

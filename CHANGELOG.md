@@ -15,6 +15,10 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.37.0 (2026-11-09) · ETAP 37: linie drzewa w jednym kolorze
+
+- **Bez kolorów rodzin.** Linie od rodziców do dzieci są wszystkie w jednym, stonowanym kolorze. Gdy linie dwóch rodzin biegną obok siebie, rozróżniają je osobne wysokości szyn i kropki w miejscach, gdzie dziecko odchodzi od szyny.
+
 ## 0.36.0 (2026-11-09) · ETAP 36: jedno drzewo, równiejszy układ
 
 - **Bez widoku „Wokół osoby”.** Drzewo zawsze pokazuje wszystkich. Znikają przełącznik, znaczki ↑ ↓ i pasek na dole. Stare linki z `?wokol=` i `?zakres=` po prostu otwierają całe drzewo.
