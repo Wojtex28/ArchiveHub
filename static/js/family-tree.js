@@ -10,6 +10,7 @@
   var NODE_W = 200;
   var NODE_H = 72;
   var GAP_X = 48;
+  var SNAP_X = 48; // px: linia dziecka do 48 px od środka kafelka zamiast krótkiego uskoku (ETAP 39)
   var GAP_FAMILY = 112; // przerwa między różnymi rodzinami w rzędzie (ETAP 38)
   var ROW_H = 180;
   // Kary w układaniu kolejności (ETAP 38, zob. autoLayout): przecięcie linii > dwie rodziny z kreskami
@@ -1035,6 +1036,11 @@
     var list = Object.keys(families).map(function (key) {
       var f = families[key];
       var xs = f.kids.map(function (k) { return k.x + NODE_W / 2; });
+      // Bez „schodków” (ETAP 39): gdy linia od rodziców schodzi prawie nad środkiem dziecka, linia
+      // dziecka wchodzi w kafelek dokładnie pod nią (kafelek jest szeroki, nie musi trafiać w środek).
+      var nearest = -1;
+      xs.forEach(function (x, i) { if (nearest < 0 || Math.abs(x - f.x) < Math.abs(xs[nearest] - f.x)) nearest = i; });
+      if (nearest >= 0 && Math.abs(xs[nearest] - f.x) < SNAP_X) xs[nearest] = f.x;
       f.kidXs = xs;
       f.l = Math.min.apply(null, xs.concat([f.x]));
       f.r = Math.max.apply(null, xs.concat([f.x]));
@@ -1078,13 +1084,16 @@
       }
       path("M" + f.x + "," + f.y + " V" + bus, cls);
       if (f.right > f.left) path("M" + f.left + "," + bus + " H" + f.right, cls);
-      f.kids.forEach(function (k) {
-        var kx = k.x + NODE_W / 2;
+      // Jedno dziecko dokładnie pod rodzicami: jedna prosta kreska, bez kropek.
+      var straight = f.kids.length === 1 && f.kidXs[0] === f.x;
+      f.kids.forEach(function (k, i) {
+        var kx = f.kidXs[i];
         path("M" + kx + "," + bus + " V" + k.y, cls);
         // Kropka w miejscu odejścia dziecka od szyny: widać, że linia nie przechodzi „przez” rodzinę.
+        if (straight) return;
         dot(kx, bus, cls);
       });
-      dot(f.x, bus, cls);
+      if (!straight) dot(f.x, bus, cls);
     });
     drawSiblings(rel);
     drawBands();
