@@ -6,7 +6,7 @@
 <section class="family-tree" data-family-tree
   data-url-data="{% url 'family:data' %}" data-url-positions="{% url 'family:api_positions' %}"
   data-url-add="{% url 'family:api_add' %}" data-url-relation="{% url 'family:api_relation' %}"
-  data-url-remove="{% url 'family:api_remove' %}" data-url-alive="{% url 'family:api_alive' %}" data-url-couple="{% url 'family:api_couple' %}" data-csrf="{{ csrf_token }}">
+  data-url-remove="{% url 'family:api_remove' %}" data-url-alive="{% url 'family:api_alive' %}" data-url-couple="{% url 'family:api_couple' %}" data-url-person="{% url 'family:api_person' 0 %}" data-csrf="{{ csrf_token }}">
   {# Wstążka: tytuł i wszystkie narzędzia kanwy. Nowe narzędzia też trafiają tutaj. #}
   <div class="tree-ribbon">
     <h1 class="tree-ribbon__title">Drzewo rodzinne</h1>
@@ -36,9 +36,17 @@
     </div>
     <div class="tree-timeline" hidden aria-label="Oś czasu: lata życia osób z drzewa"></div>
     <aside class="tree-sheet" hidden aria-label="Wybrana osoba"></aside>
+    {# ETAP 34: edycja danych jako nakładka na panel boczny i karta osoby w okienku nad drzewem. #}
+    <aside class="tree-edit" hidden aria-label="Edycja danych osoby"></aside>
+    <div class="tree-card" hidden role="dialog" aria-modal="true" aria-label="Karta osoby">
+      <div class="tree-card__box">
+        <button type="button" class="tree-card__close" aria-label="Zamknij kartę osoby">×</button>
+        <iframe class="tree-card__frame" title="Karta osoby"></iframe>
+      </div>
+    </div>
   </div>
   <div class="tree-page">
-  <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć jej kartę albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). Kafelki przesuwasz przeciąganiem, a „+” przeciągnięty na inną osobę łączy was w rodzinę.{% else %}Kliknij osobę, żeby zobaczyć jej kartę i zdjęcia.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
+  <p class="hint tree-help">{% if user.can_edit_tree %}Kliknij osobę, żeby zobaczyć i zmienić jej dane albo dodać rodzica, partnera lub dziecko (przyciski „+” na kafelku). Kafelki przesuwasz przeciąganiem, a „+” przeciągnięty na inną osobę łączy was w rodzinę.{% else %}Kliknij osobę, żeby zobaczyć jej kartę i zdjęcia.{% endif %} Widok przesuwasz, przeciągając tło, a powiększasz kółkiem myszy albo dwoma palcami.</p>
   <div class="tree-outside" hidden>
     <h2>Osoby ze zdjęć spoza drzewa</h2>
     <p class="hint">Przeciągnij na drzewo albo kliknij, żeby dodać.</p>

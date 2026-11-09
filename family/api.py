@@ -11,13 +11,14 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
 from django.urls import reverse
-from django.views.decorators.http import require_POST, require_safe
+from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from albums.models import NamedModel, Person, Photo
 
 from . import tree
+from .forms import PersonForm
 from .models import ParentChild, Partnership, Sibling
-from .views import tree_access
+from .views import save_person, tree_access, visible_photos
 
 # Kanwa ma granice, żeby kafelek nie uciekł w nieskończoność po błędzie.
 COORD_LIMIT = 100_000
@@ -43,6 +44,12 @@ def tree_data(user):
                 "deceased": p.deceased,
                 "born": p.birth_year,
                 "died": p.death_year,
+                # ETAP 34: dane do podglądu w panelu bocznym.
+                "birth": p.birth_date,
+                "birthPlace": p.birth_place,
+                "death": p.death_date,
+                "deathPlace": p.death_place,
+                "bio": p.bio,
                 "x": p.tree_x,
                 "y": p.tree_y,
                 "url": reverse("family:person", args=[p.pk]),
@@ -259,3 +266,52 @@ def couple(request):
     except ValidationError as exc:
         return _error(exc.messages[0])
     return _ok(request)
+
+
+PERSON_FIELDS = {
+    "name": "name",
+    "maiden": "maiden_name",
+    "birth": "birth_date",
+    "birthPlace": "birth_place",
+    "death": "death_date",
+    "deathPlace": "death_place",
+    "bio": "bio",
+}
+
+
+@tree_access()
+@require_http_methods(["GET", "HEAD", "POST"])
+def person(request, pk):
+    """Dane osoby do edycji w panelu bocznym (ETAP 34).
+
+    GET: portrety do wyboru (zdjęcia z tą osobą, które widzi konto). POST: zapis jak „Edytuj dane”,
+    ``{"name", "maiden", "birth", "birthPlace", "deceased", "death", "deathPlace", "bio", "portrait"}``.
+    """
+    person = Person.objects.filter(pk=pk).first()
+    if person is None:
+        return _error("Nie ma takiej osoby.", 404)
+    portraits = visible_photos(request.user, person)
+    if request.method != "POST":
+        return JsonResponse(
+            {
+                "portrait": person.portrait_id if portraits.filter(pk=person.portrait_id).exists() else None,
+                "portraits": [{"id": photo.pk, **_portrait(photo)} for photo in portraits[:60]],
+            }
+        )
+    if not request.user.can_edit_tree:
+        return _error("Nie masz prawa edycji drzewa.", 403)
+    body = _body(request)
+    data = {field: str(body.get(key) or "") for key, field in PERSON_FIELDS.items()}
+    if body.get("deceased") is True:
+        data["deceased"] = "on"
+    portrait = body.get("portrait")
+    data["portrait"] = str(portrait) if portrait else ""
+    form = PersonForm(data, instance=person, portraits=portraits)
+    before, old_name = tree.snapshot(person), person.name
+    if not form.is_valid():
+        errors = {key: form.errors[field][0] for key, field in PERSON_FIELDS.items() if field in form.errors}
+        if "portrait" in form.errors:
+            errors["portrait"] = form.errors["portrait"][0]
+        return JsonResponse({"error": "Popraw zaznaczone pola.", "errors": errors}, status=400)
+    person, notice = save_person(request.user, form, before, old_name)
+    return _ok(request, notice=notice)

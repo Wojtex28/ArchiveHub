@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{# Karta osoby w okienku nad drzewem (ETAP 34): bez menu, linki poza kartę otwierają się w nowej karcie. #}
+{% block body_class %}page-app page-embed{% endblock %}
+{% block content %}
+<main class="app-main app-main--embed">
+  {% block main %}{% endblock %}
+</main>
+{% endblock %}

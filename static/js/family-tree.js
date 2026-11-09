@@ -27,6 +27,7 @@
     remove: root.getAttribute("data-url-remove"),
     alive: root.getAttribute("data-url-alive"),
     couple: root.getAttribute("data-url-couple"),
+    person: root.getAttribute("data-url-person"),
   };
   var csrf = root.getAttribute("data-csrf");
   var canvas = root.querySelector(".tree-canvas");
@@ -34,6 +35,9 @@
   var lines = root.querySelector(".tree-lines");
   var nodesLayer = root.querySelector(".tree-nodes");
   var sheet = root.querySelector(".tree-sheet");
+  var editPanel = root.querySelector(".tree-edit");
+  var cardBox = root.querySelector(".tree-card");
+  var cardFrame = root.querySelector(".tree-card__frame");
   var outsideList = root.querySelector("[data-outside]");
   var messageBox = root.querySelector(".tree-message");
   var namesList = root.querySelector("#drzewo-osoby");
@@ -50,7 +54,7 @@
 
   var state = {
     data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false,
-    gen: {}, bands: [], mode: "drzewo", tl: { px: null },
+    gen: {}, bands: [], mode: "drzewo", tl: { px: null }, edit: null,
   };
   var nodeEls = {};
 
@@ -1382,6 +1386,7 @@
       if (state.byId[wanted]) {
         state.selected = wanted;
         render();
+        renderSheet();
         focusOn(wanted);
       } else {
         fit();
@@ -1481,6 +1486,263 @@
     return form;
   }
 
+  // --- ETAP 34: dane osoby w panelu, edycja jako nakładka, karta w okienku ---------
+
+  var FACT_ROWS = [
+    ["Urodzenie", "birth", "birthPlace"],
+    ["Śmierć", "death", "deathPlace"],
+  ];
+
+  function personFacts(person) {
+    var box = el("div", "tree-facts");
+    var list = el("dl", "tree-facts__list");
+    FACT_ROWS.forEach(function (row) {
+      var text = [person[row[1]], person[row[2]]].filter(Boolean).join(", ");
+      if (row[1] === "death" && !text && person.deceased) text = "nie żyje";
+      if (!text) return;
+      var item = el("div");
+      item.appendChild(el("dt", "", row[0]));
+      item.appendChild(el("dd", "", (row[1] === "death" ? "† " : "") + text));
+      list.appendChild(item);
+    });
+    if (list.childNodes.length) box.appendChild(list);
+    if (person.bio) {
+      var bio = el("p", "tree-facts__bio", person.bio);
+      box.appendChild(bio);
+      if (person.bio.length > 180) {
+        bio.classList.add("is-clamped");
+        var more = el("button", "link-button tree-facts__more", "Więcej");
+        more.type = "button";
+        more.addEventListener("click", function () {
+          var open = bio.classList.toggle("is-clamped");
+          more.textContent = open ? "Więcej" : "Mniej";
+        });
+        box.appendChild(more);
+      }
+    }
+    if (!box.childNodes.length) {
+      box.appendChild(el("p", "hint tree-facts__empty", state.data.canEdit ? "Brak dat i opisu. Uzupełnisz je w „Edytuj dane”." : "Brak dat i opisu."));
+    }
+    return box;
+  }
+
+  var EDIT_FIELDS = [
+    ["name", "Imię i nazwisko", "", 100],
+    ["maiden", "Nazwisko rodowe", "np. Nowak", 100],
+    ["birth", "Data urodzenia", "np. 12.06.1921, 1921, ok. 1920, lata 20.", 60],
+    ["birthPlace", "Miejsce urodzenia", "", 200],
+    ["deceased"],
+    ["death", "Data śmierci", "jak data urodzenia", 60],
+    ["deathPlace", "Miejsce śmierci", "", 200],
+    ["bio", "Opis", "Kim była, gdzie mieszkała, rodzinne historie.", 0],
+  ];
+
+  function personUrl(id) { return urls.person.replace(/\/0\/$/, "/" + id + "/"); }
+
+  function openEdit(id) {
+    var person = state.byId[id];
+    if (!person || !state.data.canEdit) return;
+    state.edit = { id: id, portraits: null, portrait: null, errors: {} };
+    renderEdit();
+    request(personUrl(id)).then(function (data) {
+      if (!state.edit || state.edit.id !== id) return;
+      state.edit.portraits = data.portraits;
+      state.edit.portrait = data.portrait;
+      renderPortraits();
+    }).catch(function () {
+      if (state.edit && state.edit.id === id) { state.edit.portraits = []; renderPortraits(); }
+    });
+    var first = editPanel.querySelector("input");
+    if (first) first.focus();
+  }
+
+  function closeEdit() {
+    state.edit = null;
+    editPanel.hidden = true;
+    editPanel.textContent = "";
+    root.classList.remove("has-edit");
+  }
+
+  function renderEdit() {
+    var person = state.edit && state.byId[state.edit.id];
+    editPanel.textContent = "";
+    if (!person) { closeEdit(); return; }
+    editPanel.hidden = false;
+    root.classList.add("has-edit");
+    var head = el("div", "tree-edit__head");
+    var back = el("button", "link-button tree-edit__back", "← " + person.name);
+    back.type = "button";
+    back.setAttribute("aria-label", "Wróć bez zapisywania");
+    back.addEventListener("click", closeEdit);
+    head.appendChild(back);
+    head.appendChild(el("h2", "", "Dane osoby"));
+    editPanel.appendChild(head);
+
+    var form = el("form", "tree-edit__form");
+    form.noValidate = true;
+    var inputs = {};
+    EDIT_FIELDS.forEach(function (field) {
+      var key = field[0];
+      var row = el("div", "field");
+      if (key === "deceased") {
+        var check = el("label", "check");
+        var box = el("input");
+        box.type = "checkbox";
+        box.name = key;
+        box.checked = !!person.deceased;
+        check.appendChild(box);
+        check.appendChild(document.createTextNode(" Nie żyje †"));
+        row.appendChild(check);
+        row.appendChild(el("p", "hint", "Zaznacza się samo, gdy wpiszesz datę lub miejsce śmierci."));
+        inputs[key] = box;
+        form.appendChild(row);
+        return;
+      }
+      var id = "osoba-" + key;
+      var label = el("label", "", field[1]);
+      label.htmlFor = id;
+      var input = el(key === "bio" ? "textarea" : "input");
+      if (key === "bio") input.rows = 5; else input.type = "text";
+      input.id = id;
+      input.name = key;
+      input.value = person[key] || "";
+      if (field[2]) input.placeholder = field[2];
+      if (field[3]) input.maxLength = field[3];
+      if (key === "name") input.required = true;
+      row.appendChild(label);
+      row.appendChild(input);
+      inputs[key] = input;
+      form.appendChild(row);
+    });
+    var portraitBox = el("fieldset", "field tree-edit__portraits");
+    portraitBox.appendChild(el("legend", "", "Portret"));
+    portraitBox.appendChild(el("p", "hint", "Wczytuję zdjęcia…"));
+    form.appendChild(portraitBox);
+
+    var row = el("div", "tree-form__buttons tree-edit__buttons");
+    var save = el("button", "button", "Zapisz");
+    save.type = "submit";
+    var cancel = el("button", "button button--quiet", "Anuluj");
+    cancel.type = "button";
+    cancel.addEventListener("click", closeEdit);
+    row.appendChild(save);
+    row.appendChild(cancel);
+    form.appendChild(row);
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (state.busy) return;
+      var body = {};
+      EDIT_FIELDS.forEach(function (field) {
+        var input = inputs[field[0]];
+        body[field[0]] = field[0] === "deceased" ? input.checked : input.value;
+      });
+      var chosen = form.querySelector("input[name=portrait]:checked");
+      body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
+      var id = state.edit.id;
+      request(personUrl(id), body).then(function (data) {
+        closeEdit();
+        apply(data);
+        showMessage(data.notice || "Zapisano: " + (state.byId[id] ? state.byId[id].name : "") + ".");
+      }).catch(function (error) {
+        var errors = (error.data && error.data.errors) || {};
+        form.querySelectorAll(".field__error").forEach(function (node) { node.remove(); });
+        form.querySelectorAll(".field--error").forEach(function (node) { node.classList.remove("field--error"); });
+        var firstBad = null;
+        Object.keys(errors).forEach(function (key) {
+          var target = key === "portrait" ? portraitBox : inputs[key] && inputs[key].closest(".field");
+          if (!target) return;
+          target.classList.add("field--error");
+          target.appendChild(el("p", "field__error", errors[key]));
+          if (!firstBad && inputs[key]) firstBad = inputs[key];
+        });
+        if (firstBad) firstBad.focus();
+        else showMessage(error.message, true);
+      });
+    });
+    editPanel.appendChild(form);
+    renderPortraits();
+  }
+
+  function renderPortraits() {
+    var box = editPanel.querySelector(".tree-edit__portraits");
+    if (!box || !state.edit) return;
+    var person = state.byId[state.edit.id];
+    while (box.childNodes.length > 1) box.removeChild(box.lastChild);
+    var portraits = state.edit.portraits;
+    if (!portraits) { box.appendChild(el("p", "hint", "Wczytuję zdjęcia…")); return; }
+    if (!portraits.length) {
+      box.appendChild(el("p", "hint", "Portret wybierzesz, gdy ktoś oznaczy tę osobę na zdjęciu (pole „Kto” w opisie zdjęcia)."));
+      return;
+    }
+    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie, spośród zdjęć z tą osobą."));
+    var list = el("ul", "portrait-choice__list");
+    var options = [{ id: "", url: null }].concat(portraits);
+    options.forEach(function (photo) {
+      var item = el("li");
+      var label = el("label");
+      var radio = el("input");
+      radio.type = "radio";
+      radio.name = "portrait";
+      radio.value = photo.id;
+      radio.checked = String(state.edit.portrait || "") === String(photo.id);
+      label.appendChild(radio);
+      if (photo.url) {
+        var img = el("img", "rot-" + (photo.turn || 0));
+        img.src = photo.url;
+        img.alt = "Zdjęcie " + photo.id;
+        img.loading = "lazy";
+        label.appendChild(img);
+      } else {
+        label.appendChild(el("span", "tree-avatar tree-avatar--empty", person.name.charAt(0)));
+        label.appendChild(el("span", "visually-hidden", "bez portretu"));
+      }
+      item.appendChild(label);
+      list.appendChild(item);
+    });
+    box.appendChild(list);
+  }
+
+  // Karta osoby w okienku nad drzewem: pełna strona osoby w trybie ``?okno=1`` (bez menu i edycji).
+  function openCard(id) {
+    var person = state.byId[id];
+    if (!person) return;
+    cardFrame.src = person.url + "?okno=1";
+    cardBox.hidden = false;
+    root.classList.add("has-card");
+    cardBox.querySelector(".tree-card__close").focus();
+  }
+
+  function closeCard() {
+    cardBox.hidden = true;
+    root.classList.remove("has-card");
+    cardFrame.src = "about:blank";
+    canvas.focus();
+  }
+
+  cardBox.querySelector(".tree-card__close").addEventListener("click", closeCard);
+  cardBox.addEventListener("click", function (event) { if (event.target === cardBox) closeCard(); });
+  cardFrame.addEventListener("load", function () {
+    var doc;
+    try { doc = cardFrame.contentDocument; } catch (error) { return; }
+    if (!doc || cardBox.hidden) return;
+    // Esc w okienku też je zamyka (chyba że jest w nim otwarty podgląd zdjęcia).
+    doc.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !event.defaultPrevented && !doc.querySelector(".viewer:not([hidden])")) closeCard();
+    });
+    // Przejście w okienku do krewnego zaznacza go też w drzewie.
+    var match = /\/osoba\/(\d+)\//.exec(cardFrame.contentWindow.location.pathname);
+    var id = match && parseInt(match[1], 10);
+    if (id && state.byId[id] && state.selected !== id) {
+      if (state.edit) closeEdit();
+      state.selected = id;
+      state.form = null;
+      render();
+      renderSheet();
+      if (state.mode === "os") revealRow(id); else reveal(id);
+    }
+  });
+
   function renderSheet() {
     sheet.textContent = "";
     var person = state.selected && state.byId[state.selected];
@@ -1493,6 +1755,7 @@
     close.type = "button";
     close.setAttribute("aria-label", "Zamknij");
     close.addEventListener("click", function () {
+      closeEdit();
       state.selected = null;
       state.form = null;
       render();
@@ -1524,9 +1787,19 @@
         alive.appendChild(document.createTextNode(" Nie żyje †"));
         sheet.appendChild(alive);
       }
-      var card = el("a", "button button--quiet tree-sheet__card", "Karta osoby i zdjęcia");
-      card.href = person.url;
-      sheet.appendChild(card);
+      sheet.appendChild(personFacts(person));
+      var buttons = el("div", "tree-sheet__buttons");
+      if (state.data.canEdit) {
+        var editButton = el("button", "button", "Edytuj dane");
+        editButton.type = "button";
+        editButton.addEventListener("click", function () { openEdit(person.id); });
+        buttons.appendChild(editButton);
+      }
+      var card = el("button", "button button--quiet", "Karta osoby i zdjęcia");
+      card.type = "button";
+      card.addEventListener("click", function () { openCard(person.id); });
+      buttons.appendChild(card);
+      sheet.appendChild(buttons);
 
       var rows = relationRows(person);
       if (rows.length) {
@@ -1754,6 +2027,7 @@
   }
 
   function select(id, center) {
+    if (state.edit && state.edit.id !== id) closeEdit();
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
@@ -2035,7 +2309,11 @@
 
   // Esc chowa wysuniętą kartę osoby.
   root.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape" || sheet.hidden || event.defaultPrevented) return;
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    // Najpierw zamyka się to, co leży najwyżej: karta osoby, potem edycja, na końcu panel.
+    if (!cardBox.hidden) { closeCard(); return; }
+    if (state.edit) { closeEdit(); return; }
+    if (sheet.hidden) return;
     state.selected = null;
     state.form = null;
     render();

@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.34.0 (2026-11-09) · ETAP 34: dane osoby w panelu bocznym, karta osoby nad drzewem
+
+- **Panel boczny pokazuje wszystkie dane osoby:** datę i miejsce urodzenia, datę i miejsce śmierci oraz opis (dłuższy opis zwinięty, z „Więcej”).
+- **„Edytuj dane” bez wychodzenia z drzewa.** Formularz wysuwa się jako nakładka na panel boczny (na telefonie od dołu). Po zapisaniu drzewo i oś czasu od razu się odświeżają, a błędy pokazują się przy polach. Działa też na osi czasu, np. dla osób bez daty urodzenia. Zmiana trafia do historii, jak dotąd.
+- **Karta osoby i zdjęcia otwiera się w okienku nad drzewem**, bez przechodzenia na inną stronę. Kliknięcie krewnego w okienku przechodzi do jego karty i zaznacza go w drzewie. Esc albo × zamyka okienko.
+- W okienku jest przycisk **„Pełna strona osoby ↗”**, który otwiera zwykłą stronę osoby w nowej karcie (np. żeby komuś wysłać link).
+- Link „Pokaż w drzewie” ze strony osoby od razu otwiera jej panel boczny.
+
 ## 0.33.0 (2026-11-08) · ETAP 33: rodzeństwo
 
 - **Dodawanie rodzeństwa bez rodziców.** Na karcie osoby i w drzewie jest nowy rodzaj połączenia „brat / siostra” (przycisk „+ Rodzeństwo” i uchwyt „+” po lewej stronie kafelka, który można też przeciągnąć na kogoś z drzewa).

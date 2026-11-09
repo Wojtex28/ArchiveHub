@@ -11,6 +11,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from albums.models import Person, Photo
 from albums.search import refresh_search_text
+from core.middleware import CONTENT_SECURITY_POLICY
 
 from . import tree
 from .forms import NewPersonForm, PersonForm, RelationForm
@@ -102,7 +103,7 @@ def person_add(request):
     return redirect("family:person", person.pk)
 
 
-def _visible_photos(user, person):
+def visible_photos(user, person):
     return (
         Photo.objects.visible_to(user)
         .filter(people=person)
@@ -116,16 +117,33 @@ def _visible_photos(user, person):
 @tree_access()
 @require_safe
 def person_detail(request, pk):
-    return _person_page(request, get_object_or_404(Person.objects.select_related("portrait"), pk=pk))
+    person = get_object_or_404(Person.objects.select_related("portrait"), pk=pk)
+    if request.GET.get("okno") == "1":
+        return _embedded_card(request, person)
+    return _person_page(request, person)
 
 
-def _person_page(request, person, relation_form=None, namesakes=None):
-    photos = _visible_photos(request.user, person)
+def _embedded_card(request, person):
+    """Karta osoby w okienku nad drzewem (ETAP 34): bez menu i edycji, tylko do podglądu.
+
+    To jedyna strona, którą wolno osadzić, i tylko na stronach tej samej domeny (drzewo)."""
+    response = _person_page(request, person, embedded=True)
+    response["X-Frame-Options"] = "SAMEORIGIN"
+    response["Content-Security-Policy"] = CONTENT_SECURITY_POLICY.replace(
+        "frame-ancestors 'none'", "frame-ancestors 'self'"
+    )
+    return response
+
+
+def _person_page(request, person, relation_form=None, namesakes=None, embedded=False):
+    photos = visible_photos(request.user, person)
     portrait = person.portrait if person.portrait and photos.filter(pk=person.portrait_id).exists() else None
     return render(
         request,
         "family/person.html",
         {
+            "embedded": embedded,
+            "base_template": "family/embed_base.html" if embedded else "app_base.html",
             "person": person,
             "portrait": portrait,
             "parents": tree.parents(person),
@@ -137,7 +155,7 @@ def _person_page(request, person, relation_form=None, namesakes=None):
             "relation_form": relation_form or RelationForm(label_suffix=""),
             "namesakes": namesakes,
             "suggestions": _suggestions(),
-            "can_edit": request.user.can_edit_tree,
+            "can_edit": request.user.can_edit_tree and not embedded,
         },
     )
 
@@ -148,24 +166,31 @@ def person_edit(request, pk):
     person = get_object_or_404(Person, pk=pk)
     before = tree.snapshot(person)
     old_name = person.name
-    portraits = _visible_photos(request.user, person)
+    portraits = visible_photos(request.user, person)
     form = PersonForm(request.POST or None, instance=person, portraits=portraits)
     if request.method == "POST" and form.is_valid():
-        person = form.save()
-        if person.name != old_name:
-            # Nazwa osoby jest w tekście do wyszukiwania jej zdjęć.
-            refresh_search_text(list(person.photos.values_list("pk", flat=True)))
-            if tree.same_name(person.name).exclude(pk=person.pk).exists():
-                messages.info(
-                    request,
-                    f"W archiwum jest też inna osoba „{person.name}”. Lata życia pomogą je odróżnić.",
-                )
-        tree.edit_person(request.user, person, before)
+        person, notice = save_person(request.user, form, before, old_name)
+        if notice:
+            messages.info(request, notice)
         messages.success(request, "Zapisano.")
         return redirect("family:person", person.pk)
     return render(
         request, "family/person_form.html", {"person": person, "form": form, "portraits": portraits}
     )
+
+
+def save_person(user, form, before, old_name):
+    """Zapis danych osoby (strona „Edytuj dane” i panel boczny drzewa). Zwraca osobę i przypomnienie."""
+    with transaction.atomic():
+        person = form.save()
+        tree.edit_person(user, person, before)
+    notice = ""
+    if person.name != old_name:
+        # Nazwa osoby jest w tekście do wyszukiwania jej zdjęć.
+        refresh_search_text(list(person.photos.values_list("pk", flat=True)))
+        if tree.same_name(person.name).exclude(pk=person.pk).exists():
+            notice = f"W archiwum jest też inna osoba „{person.name}”. Lata życia pomogą je odróżnić."
+    return person, notice
 
 
 @tree_access(edit=True)
