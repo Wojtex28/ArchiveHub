@@ -55,9 +55,8 @@
   var state = {
     data: null, byId: {}, view: { x: 0, y: 0, scale: 1 }, selected: null, form: null, busy: false,
     gen: {}, bands: [], mode: "drzewo", tl: { px: null }, edit: null,
-    // ETAP 35: drzewo zawsze ułożone automatycznie. ``scope`` „osoba” = widok wokół jednej osoby
-    // (jak w Strom: przodkowie w górę, potomkowie w dół, bez krzyżujących się linii), „wszyscy” = całość.
-    scope: "osoba", focus: null, up: 2, down: 3, shown: null, layoutGen: {}, hidden: {},
+    // ETAP 35: drzewo zawsze ułożone automatycznie (bez przesuwania kafelków).
+    shown: null, layoutGen: {},
   };
   var nodeEls = {};
 
@@ -193,9 +192,18 @@
 
   function generations(data) {
     var gen = {};
-    data.people.forEach(function (p) { gen[p.id] = 0; });
+    var kids = {};
+    data.people.forEach(function (p) { gen[p.id] = 0; kids[p.id] = []; });
+    data.parents.forEach(function (link) { if (kids[link[0]] && gen[link[1]] !== undefined) kids[link[0]].push(link[1]); });
     for (var round = 0; round < 60; round++) {
       var changed = false;
+      // ETAP 36: rodzice bez własnych rodziców w drzewie (np. teściowie) stoją tuż nad swoimi
+      // dziećmi, a nie w górnym rzędzie z protoplastami. Inaczej ich linie biegły przez całe drzewo.
+      data.people.forEach(function (p) {
+        if (!kids[p.id].length) return;
+        var target = Math.min.apply(null, kids[p.id].map(function (c) { return gen[c]; })) - 1;
+        if (gen[p.id] < target) { gen[p.id] = target; changed = true; }
+      });
       data.parents.forEach(function (link) {
         if (gen[link[1]] !== undefined && gen[link[0]] !== undefined && gen[link[1]] < gen[link[0]] + 1) {
           gen[link[1]] = gen[link[0]] + 1;
@@ -476,97 +484,148 @@
       return keyed.map(function (e) { return e.id; });
     }
 
-    var orders = rows.map(function (row) { return row.slice(); });
-    function down(d) {
-      var up = indexOf(orders[d - 1]);
-      function personKey(id) {
-        var keys = (familiesOf[id] || []).filter(function (f) { return up[f[0]] !== undefined; }).map(function (f) { return source(f, up); });
-        return average(keys);
-      }
-      orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
-        return average(unit.map(personKey).filter(function (k) { return k !== null; }));
-      });
-    }
-    function upward(d) {
-      var low = indexOf(orders[d + 1]);
-      var kids = {};
-      orders[d + 1].forEach(function (unit) {
-        unit.forEach(function (id) {
-          (familiesOf[id] || []).forEach(function (family) {
-            family.forEach(function (parent) { (kids[parent] = kids[parent] || []).push(low[id]); });
-          });
-        });
-      });
-      function personKey(id) { return average(kids[id] || []); }
-      orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
-        return average(unit.map(personKey).filter(function (k) { return k !== null; }));
-      });
-    }
-
-    var best = orders.map(function (o) { return o.slice(); });
-    var bestScore = total(orders);
-    for (var iter = 0; iter < 8 && bestScore > 0; iter++) {
-      for (d = 1; d < orders.length; d++) down(d);
-      var score = total(orders);
-      if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
-      for (d = orders.length - 2; d >= 0; d--) upward(d);
-      for (d = 1; d < orders.length; d++) down(d);
-      score = total(orders);
-      if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
-    }
-    orders = best;
-
-    // Rodzeństwo jednej rodziny może stać przemieszane z innymi osobami, więc zamiana sąsiadów nie
-    // wystarczy: tu rodzeństwo zamienia się miejscami między sobą, od najstarszego z lewej.
-    function birthOrderPass() {
-      var improved = false;
-      for (var d = 1; d < orders.length; d++) {
-        var row = orders[d];
+    // Kolejność szukamy z kilku punktów startowych (ETAP 36): metoda średnich i poprawki lokalne
+    // potrafią utknąć, np. gdy cała rodzina teściów powinna przejść na drugą stronę. Wygrywa układ
+    // z najmniejszą liczbą przecięć; przy dużym drzewie starczy mniej prób, żeby nie trwało za długo.
+    var orders, bestScore;
+    function optimize(start) {
+      orders = start;
+      function down(d) {
         var up = indexOf(orders[d - 1]);
-        var keys = {};
-        row.forEach(function (unit, i) {
-          unit.forEach(function (id) {
-            if (bornOf(id) === null) return;
-            familyKeyIn(id, up).forEach(function (key) { (keys[key] = keys[key] || []).push({ i: i, born: bornOf(id) }); });
-          });
-        });
-        Object.keys(keys).forEach(function (key) {
-          var entries = keys[key];
-          var slots = entries.map(function (e) { return e.i; });
-          if (entries.length < 2 || slots.some(function (i, k) { return slots.indexOf(i) !== k; })) return;
-          slots.sort(function (a, b) { return a - b; });
-          var sorted = entries.slice().sort(function (a, b) { return a.born - b.born || a.i - b.i; });
-          var before = row.slice();
-          var units = sorted.map(function (e) { return before[e.i]; });
-          slots.forEach(function (slot, k) { row[slot] = units[k]; });
-          var now = total(orders);
-          if (now < bestScore) { bestScore = now; improved = true; }
-          else { for (var k = 0; k < row.length; k++) row[k] = before[k]; }
+        function personKey(id) {
+          var keys = (familiesOf[id] || []).filter(function (f) { return up[f[0]] !== undefined; }).map(function (f) { return source(f, up); });
+          return average(keys);
+        }
+        orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
+          return average(unit.map(personKey).filter(function (k) { return k !== null; }));
         });
       }
-      return improved;
-    }
+      function upward(d) {
+        var low = indexOf(orders[d + 1]);
+        var kids = {};
+        orders[d + 1].forEach(function (unit) {
+          unit.forEach(function (id) {
+            (familiesOf[id] || []).forEach(function (family) {
+              family.forEach(function (parent) { (kids[parent] = kids[parent] || []).push(low[id]); });
+            });
+          });
+        });
+        function personKey(id) { return average(kids[id] || []); }
+        orders[d] = sortBy(orders[d].map(function (unit) { return orderMembers(unit, personKey); }), function (unit) {
+          return average(unit.map(personKey).filter(function (k) { return k !== null; }));
+        });
+      }
 
-    // Poprawki lokalne: zamiana sąsiednich jednostek i odwrócenie par, dopóki ubywa przecięć.
-    for (var round = 0; round < 20 && bestScore > 0; round++) {
-      var improved = birthOrderPass();
-      for (d = 0; d < orders.length; d++) {
-        var row = orders[d];
-        for (var i = 0; i < row.length; i++) {
-          var tries = [];
-          if (i + 1 < row.length) tries.push(function () { var t = row[i]; row[i] = row[i + 1]; row[i + 1] = t; });
-          if (row[i].length === 2) tries.push(function () { row[i] = row[i].slice().reverse(); });
-          for (var t = 0; t < tries.length; t++) {
+      var best = orders.map(function (o) { return o.slice(); });
+      var bestScore = total(orders);
+      for (var iter = 0; iter < 8 && bestScore > 0; iter++) {
+        for (d = 1; d < orders.length; d++) down(d);
+        var score = total(orders);
+        if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
+        for (d = orders.length - 2; d >= 0; d--) upward(d);
+        for (d = 1; d < orders.length; d++) down(d);
+        score = total(orders);
+        if (score < bestScore) { bestScore = score; best = orders.map(function (o) { return o.slice(); }); }
+      }
+      orders = best;
+
+      // Rodzeństwo jednej rodziny może stać przemieszane z innymi osobami, więc zamiana sąsiadów nie
+      // wystarczy: tu rodzeństwo zamienia się miejscami między sobą, od najstarszego z lewej.
+      function birthOrderPass() {
+        var improved = false;
+        for (var d = 1; d < orders.length; d++) {
+          var row = orders[d];
+          var up = indexOf(orders[d - 1]);
+          var keys = {};
+          row.forEach(function (unit, i) {
+            unit.forEach(function (id) {
+              if (bornOf(id) === null) return;
+              familyKeyIn(id, up).forEach(function (key) { (keys[key] = keys[key] || []).push({ i: i, born: bornOf(id) }); });
+            });
+          });
+          Object.keys(keys).forEach(function (key) {
+            var entries = keys[key];
+            var slots = entries.map(function (e) { return e.i; });
+            if (entries.length < 2 || slots.some(function (i, k) { return slots.indexOf(i) !== k; })) return;
+            slots.sort(function (a, b) { return a - b; });
+            var sorted = entries.slice().sort(function (a, b) { return a.born - b.born || a.i - b.i; });
             var before = row.slice();
-            tries[t]();
+            var units = sorted.map(function (e) { return before[e.i]; });
+            slots.forEach(function (slot, k) { row[slot] = units[k]; });
             var now = total(orders);
             if (now < bestScore) { bestScore = now; improved = true; }
             else { for (var k = 0; k < row.length; k++) row[k] = before[k]; }
+          });
+        }
+        return improved;
+      }
+
+      // Przeniesienie jednostki w dowolne miejsce rzędu (ETAP 36). Sama zamiana sąsiadów utyka, gdy
+      // kafelek musi przejść obok kilku innych, np. dziecko rodziny stojącej bardziej po prawej.
+      function siftRow(row) {
+        var improved = false;
+        for (var i = 0; i < row.length; i++) {
+          var unit = row[i], bestAt = i;
+          var rest = row.slice(0, i).concat(row.slice(i + 1));
+          for (var at = 0; at <= rest.length; at++) {
+            if (at === i) continue;
+            var tried = rest.slice(0, at).concat([unit], rest.slice(at));
+            for (var k = 0; k < row.length; k++) row[k] = tried[k];
+            var now = total(orders);
+            if (now < bestScore - 1e-9) { bestScore = now; bestAt = at; improved = true; }
+          }
+          var final = rest.slice(0, bestAt).concat([unit], rest.slice(bestAt));
+          for (k = 0; k < row.length; k++) row[k] = final[k];
+        }
+        return improved;
+      }
+
+      // Poprawki lokalne: przenoszenie jednostek i odwrócenie par, dopóki ubywa przecięć.
+      for (var round = 0; round < 20 && bestScore > 0; round++) {
+        var improved = birthOrderPass();
+        for (d = 0; d < orders.length; d++) {
+          var row = orders[d];
+          if (siftRow(row)) improved = true;
+          for (var i = 0; i < row.length; i++) {
+            var tries = [];
+            if (row[i].length === 2) tries.push(function () { row[i] = row[i].slice().reverse(); });
+            for (var t = 0; t < tries.length; t++) {
+              var before = row.slice();
+              tries[t]();
+              var now = total(orders);
+              if (now < bestScore) { bestScore = now; improved = true; }
+              else { for (var k = 0; k < row.length; k++) row[k] = before[k]; }
+            }
           }
         }
+        if (!improved) break;
       }
-      if (!improved) break;
+      return { orders: orders, score: bestScore };
     }
+    var seed = 7;
+    function shuffled(row) {
+      var out = row.slice();
+      for (var i = out.length - 1; i > 0; i--) {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        var j = seed % (i + 1), t = out[i];
+        out[i] = out[j];
+        out[j] = t;
+      }
+      return out;
+    }
+    var starts = [
+      rows.map(function (row) { return row.slice(); }),
+      rows.map(function (row) { return row.slice().reverse(); }),
+    ];
+    var extra = data.people.length > 80 ? 0 : data.people.length > 40 ? 2 : 4;
+    for (var s = 0; s < extra; s++) starts.push(rows.map(shuffled));
+    var winner = null;
+    starts.forEach(function (start) {
+      if (winner && winner.score <= 0) return;
+      var result = optimize(start);
+      if (!winner || result.score < winner.score - 1e-9) winner = { orders: result.orders, score: result.score };
+    });
+    orders = winner.orders;
 
     // Partner bez rodziców w drzewie staje po tej stronie, gdzie nie ma rodzeństwa jego partnera,
     // żeby linia rodzeństwa nie biegła pod jego kafelkiem.
@@ -591,46 +650,79 @@
       });
     });
 
-    // Współrzędne: rodzeństwo z partnerami w bloku wyśrodkowanym pod rodzicami, bez nachodzenia.
+    // Współrzędne (ETAP 36): kolejność w rzędach już jest, teraz miejsca. Każda jednostka (osoba
+    // z partnerami) chce stać nad środkiem swoich dzieci i pod środkiem swoich rodziców. W każdym rzędzie
+    // szukamy miejsc najbliższych tym życzeniom bez nachodzenia kafelków (regresja izotoniczna, PAV),
+    // na zmianę od góry i od dołu, aż drzewo się ustatkuje. Dzięki temu rodzice stoją nad dziećmi,
+    // a drzewo nie rozjeżdża się na boki tak jak przy układaniu tylko od góry.
     var pos = {};
     var step = NODE_W + GAP_X;
+    var childrenOf = {};
+    data.people.forEach(function (p) { childrenOf[p.id] = rel[p.id].children; });
     orders.forEach(function (order, depth) {
-      var flat = [];
-      order.forEach(function (unit) { unit.forEach(function (id) { flat.push(id); }); });
-      var wants = flat.map(function (id) {
-        var xs = (familiesOf[id] || []).map(function (family) {
-          var known = family.filter(function (pid) { return pos[pid]; });
-          return known.length ? average(known.map(function (pid) { return pos[pid][0]; })) : null;
-        }).filter(function (x) { return x !== null; });
-        return average(xs);
+      var x = 0;
+      order.forEach(function (unit) { unit.forEach(function (id) { pos[id] = [x, depth * ROW_H]; x += step; }); });
+    });
+    function centerOf(ids) {
+      var known = ids.filter(function (id) { return pos[id]; });
+      return known.length ? average(known.map(function (id) { return pos[id][0]; })) : null;
+    }
+    function wantOf(id, useParents, useChildren) {
+      var wants = [];
+      if (useParents) {
+        (familiesOf[id] || []).forEach(function (family) {
+          var c = centerOf(family);
+          if (c !== null) wants.push(c);
+        });
+      }
+      if (useChildren) {
+        var c = centerOf(childrenOf[id]);
+        if (c !== null) wants.push(c);
+      }
+      return wants.length ? average(wants) : null;
+    }
+    function placeRow(order, useParents, useChildren) {
+      if (!order.length) return;
+      var blocks = [], offset = 0;
+      order.forEach(function (unit, j) {
+        var sum = 0, weight = 0;
+        unit.forEach(function (id, k) {
+          var want = wantOf(id, useParents, useChildren);
+          if (want !== null) { sum += want - k * step; weight += 1; }
+        });
+        var current = pos[unit[0]][0];
+        var target = weight ? sum / weight : current;
+        if (!weight) weight = 0.01;
+        // Przesunięcie o szerokość wcześniejszych jednostek: wtedy warunek „bez nachodzenia” to
+        // po prostu niemalejący ciąg, a takie zadanie rozwiązuje PAV.
+        var block = { w: weight, wt: weight * (target - offset), from: j, to: j };
+        offset += unit.length * step;
+        while (blocks.length && blocks[blocks.length - 1].wt / blocks[blocks.length - 1].w > block.wt / block.w) {
+          var prev = blocks.pop();
+          block = { w: prev.w + block.w, wt: prev.wt + block.wt, from: prev.from, to: block.to };
+        }
+        blocks.push(block);
       });
-      // Bloki: kolejne osoby z tym samym celem (rodzeństwo) albo partnerzy kogoś z bloku.
-      var blocks = [];
-      flat.forEach(function (id, i) {
-        var last = blocks[blocks.length - 1];
-        var want = wants[i];
-        var partnerOfLast = last && last.ids.some(function (q) { return rel[q].partners.indexOf(id) >= 0; });
-        if (last && (partnerOfLast || (want !== null && last.want !== null && Math.abs(want - last.want) < 1))) {
-          last.ids.push(id);
-          if (last.want === null) last.want = want;
-        } else {
-          blocks.push({ want: want, ids: [id] });
+      offset = 0;
+      var j = 0;
+      blocks.forEach(function (block) {
+        var y = block.wt / block.w;
+        for (; j <= block.to; j++) {
+          order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step; });
+          offset += order[j].length * step;
         }
       });
-      var x = -Infinity;
-      blocks.forEach(function (block) {
-        var start = block.want === null ? x + step : block.want - ((block.ids.length - 1) * step) / 2;
-        block.ids.forEach(function (id, i) {
-          x = Math.max(start + i * step, x + step);
-          if (!isFinite(x)) x = 0;
-          pos[id] = [x, depth * ROW_H];
-        });
-      });
-      if (depth === 0 && flat.length) {
-        var shift = (pos[flat[0]][0] + pos[flat[flat.length - 1]][0]) / 2;
-        flat.forEach(function (id) { pos[id][0] -= shift; });
-      }
-    });
+    }
+    for (var sweep = 0; sweep < 12; sweep++) {
+      for (d = 1; d < orders.length; d++) placeRow(orders[d], true, sweep > 0);
+      for (d = orders.length - 2; d >= 0; d--) placeRow(orders[d], sweep > 0, true);
+    }
+    var all = Object.keys(pos);
+    if (all.length) {
+      var left = Math.min.apply(null, all.map(function (id) { return pos[id][0]; }));
+      var right = Math.max.apply(null, all.map(function (id) { return pos[id][0]; }));
+      all.forEach(function (id) { pos[id][0] = Math.round(pos[id][0] - (left + right) / 2); });
+    }
     return pos;
   }
 
@@ -793,11 +885,6 @@
     node.classList.toggle("tree-node--deceased", !!person.deceased);
     node.setAttribute("aria-label", person.name + (person.deceased ? ", nie żyje" : "") + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
-    node.classList.toggle("is-focus", state.scope === "osoba" && state.focus === person.id);
-    // Ukryci krewni (poza widokiem wokół osoby): znaczek przełącza widok na tę osobę.
-    var hidden = state.hidden[person.id];
-    if (hidden && hidden.up) node.appendChild(moreBadge(person, "up", "↑ " + hidden.up, "Pokaż rodzinę: " + person.name + " (rodzice poza widokiem)"));
-    if (hidden && hidden.down) node.appendChild(moreBadge(person, "down", "↓ " + hidden.down, "Pokaż potomków: " + person.name + " (" + hidden.down + " poza widokiem)"));
     if (state.data.canEdit && state.selected === person.id) {
       kindsFor(person.id).forEach(function (kind) {
         var handle = el("button", "tree-handle tree-handle--" + kind, "+");
@@ -809,15 +896,6 @@
       });
     }
     positionNode(person);
-  }
-
-  function moreBadge(person, side, text, title) {
-    var badge = el("button", "tree-node__more tree-node__more--" + side, text);
-    badge.type = "button";
-    badge.setAttribute("data-focus-to", person.id);
-    badge.setAttribute("aria-label", title);
-    badge.title = title;
-    return badge;
   }
 
   // Kogo można dodać: rodzica tylko do dwojga.
@@ -1052,7 +1130,6 @@
   // Pełny podpis i krótki (gdy drzewo jest mocno pomniejszone, np. na telefonie).
   function bandLabel(g, low) {
     var sel = state.selected && state.byId[state.selected];
-    if (!sel || state.layoutGen[sel.id] === undefined) sel = state.scope === "osoba" ? state.byId[state.focus] : null;
     if (sel && state.layoutGen[sel.id] !== undefined) {
       var d = g - state.layoutGen[sel.id];
       if (d === 0) return ["Pokolenie: " + sel.name, sel.name.split(" ")[0]];
@@ -1337,7 +1414,6 @@
     });
     drawLines();
     renderTimeline();
-    renderFocusBar();
     root.classList.toggle("is-empty", !state.data.people.length);
   }
 
@@ -1350,15 +1426,10 @@
     if (state.selected && !state.byId[state.selected]) state.selected = null;
     var wanted = null;
     if (first) {
-      var params = new URLSearchParams(location.search);
-      if (params.get("zakres") === "wszyscy") state.scope = "wszyscy";
-      wanted = parseInt(params.get("osoba"), 10);
-      var around = parseInt(params.get("wokol"), 10);
-      state.focus = state.byId[around] ? around : state.byId[wanted] ? wanted : null;
+      wanted = parseInt(new URLSearchParams(location.search).get("osoba"), 10);
       if (state.byId[wanted]) state.selected = wanted;
     }
-    // Zmieniona albo nowa osoba poza widokiem wokół osoby: widok przechodzi na nią.
-    layout(state.selected && state.scope === "osoba" ? state.selected : null);
+    layout();
     render();
     renderSheet();
     if (first) {
@@ -1369,154 +1440,20 @@
     return data;
   }
 
-  // --- ETAP 35: układ zawsze automatyczny, widok wokół osoby ----------------------
+  // --- ETAP 35: układ zawsze automatyczny -----------------------------------------
 
-  // Osoba na start: najstarsza z rodziny z największą liczbą potomków.
-  function defaultFocus(rel) {
-    var best = null, bestCount = -1;
-    state.data.people.forEach(function (p) {
-      if (rel[p.id].parents.length) return;
-      var count = 0, seen = {}, queue = [p.id];
-      while (queue.length) {
-        rel[queue.shift()].children.forEach(function (c) {
-          if (!seen[c]) { seen[c] = true; count++; queue.push(c); }
-        });
-      }
-      var older = best && (p.born || 9999) < (best.born || 9999);
-      if (count > bestCount || (count === bestCount && older)) { best = p; bestCount = count; }
-    });
-    return best ? best.id : state.data.people[0].id;
-  }
-
-  // Kogo widać wokół osoby: jej przodków (``up`` pokoleń), rodzeństwo, partnerów, potomków
-  // (``down`` pokoleń) i ich partnerów. Rodziców partnerów nie rysujemy (znaczek „↑” na kafelku
-  // przełącza widok na nich), więc linie tworzą zwykłe drzewo i nie mogą się przeciąć.
-  function aroundSet(focus, rel) {
-    var set = {};
-    function add(id) { set[id] = true; }
-    add(focus);
-    var level = [focus];
-    for (var u = 0; u < state.up; u++) {
-      var up = [];
-      level.forEach(function (id) {
-        rel[id].parents.forEach(function (p) { if (!set[p]) { add(p); up.push(p); } });
-      });
-      level = up;
-    }
-    if (state.up > 0) rel[focus].parents.forEach(function (p) { rel[p].children.forEach(add); });
-    rel[focus].siblings.forEach(add);
-    rel[focus].partners.forEach(add);
-    level = [focus];
-    for (var d = 0; d < state.down; d++) {
-      var down = [];
-      level.forEach(function (id) {
-        rel[id].children.forEach(function (c) { if (!set[c]) { add(c); down.push(c); } });
-      });
-      down.forEach(function (c) { rel[c].partners.forEach(add); });
-      level = down;
-    }
-    return set;
-  }
-
-  function layout(keepVisible) {
+  function layout() {
     var data = state.data;
-    var rel = relativesIndex(data);
-    var shown = data;
-    state.hidden = {};
-    if (state.scope === "osoba" && data.people.length) {
-      if (!state.byId[state.focus]) state.focus = defaultFocus(rel);
-      var set = aroundSet(state.focus, rel);
-      if (keepVisible && state.byId[keepVisible] && !set[keepVisible]) {
-        state.focus = keepVisible;
-        set = aroundSet(state.focus, rel);
-      }
-      var both = function (pair) { return set[pair[0]] && set[pair[1]]; };
-      shown = {
-        people: data.people.filter(function (p) { return set[p.id]; }),
-        parents: data.parents.filter(both),
-        partners: data.partners.filter(both),
-        siblings: (data.siblings || []).filter(both),
-        couples: (data.couples || []).filter(function (c) { return set[c.a] && set[c.b]; }),
-        canEdit: data.canEdit,
-      };
-      shown.people.forEach(function (p) {
-        var up = rel[p.id].parents.filter(function (q) { return !set[q]; }).length;
-        var down = rel[p.id].children.filter(function (q) { return !set[q]; }).length;
-        if (up || down) state.hidden[p.id] = { up: up, down: down };
-      });
-    }
-    state.shown = shown;
-    state.layoutGen = generations(shown);
-    var pos = shown.people.length ? autoLayout(shown) : {};
+    state.shown = data;
+    state.layoutGen = generations(data);
+    var pos = data.people.length ? autoLayout(data) : {};
     data.people.forEach(function (p) {
       var at = pos[p.id];
       p.x = at ? at[0] : null;
       p.y = at ? at[1] : null;
     });
-    rememberView();
   }
 
-  function rememberView() {
-    var params = new URLSearchParams(location.search);
-    if (state.scope === "wszyscy") { params.set("zakres", "wszyscy"); params.delete("wokol"); }
-    else { params.delete("zakres"); if (state.focus) params.set("wokol", state.focus); }
-    params.delete("osoba");
-    var query = params.toString();
-    history.replaceState(null, "", location.pathname + (query ? "?" + query : ""));
-  }
-
-  function setFocus(id) {
-    if (!state.byId[id]) return;
-    state.scope = "osoba";
-    state.focus = id;
-    state.selected = id;
-    state.form = null;
-    if (state.edit && state.edit.id !== id) closeEdit();
-    layout();
-    render();
-    renderSheet();
-    if (state.mode === "os") revealRow(id); else { glide(); fit(); }
-  }
-
-  function setScope(scope) {
-    state.scope = scope === "wszyscy" ? "wszyscy" : "osoba";
-    if (state.scope === "osoba" && state.selected) state.focus = state.selected;
-    layout();
-    render();
-    renderSheet();
-    if (state.mode !== "os") { glide(); fit(); }
-  }
-
-  var focusBar = root.querySelector(".tree-focus");
-  function renderFocusBar() {
-    root.querySelectorAll("[data-tree-scope]").forEach(function (b) {
-      var on = b.getAttribute("data-tree-scope") === state.scope;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-    if (!focusBar) return;
-    var person = state.byId[state.focus];
-    focusBar.hidden = state.scope !== "osoba" || !person;
-    if (focusBar.hidden) return;
-    focusBar.querySelector("[data-focus-name]").textContent = person.name;
-    focusBar.querySelector("[data-focus-count]").textContent = state.shown.people.length + " z " + state.data.people.length + " os.";
-    focusBar.querySelector('[data-depth="up"]').textContent = String(state.up);
-    focusBar.querySelector('[data-depth="down"]').textContent = String(state.down);
-  }
-
-  if (focusBar) {
-    focusBar.addEventListener("click", function (event) {
-      var button = event.target.closest("[data-depth-step]");
-      if (!button) return;
-      var which = button.getAttribute("data-depth-step");
-      var step = which.charAt(0) === "+" ? 1 : -1;
-      var key = which.slice(1);
-      state[key] = Math.max(0, Math.min(9, state[key] + step));
-      layout();
-      render();
-      if (state.mode !== "os") fit();
-    });
-  }
 
   function renderNames() {
     if (!namesList) return;
@@ -1849,7 +1786,6 @@
     var id = match && parseInt(match[1], 10);
     if (id && state.byId[id] && state.selected !== id) {
       if (state.edit) closeEdit();
-      if (state.scope === "osoba" && state.byId[id].x === null) { state.focus = id; layout(); }
       state.selected = id;
       state.form = null;
       render();
@@ -1909,12 +1845,6 @@
         editButton.type = "button";
         editButton.addEventListener("click", function () { openEdit(person.id); });
         buttons.appendChild(editButton);
-      }
-      if (state.scope !== "osoba" || state.focus !== person.id) {
-        var around = el("button", "button button--quiet", "Drzewo wokół tej osoby");
-        around.type = "button";
-        around.addEventListener("click", function () { setFocus(person.id); });
-        buttons.appendChild(around);
       }
       var card = el("button", "button button--quiet", "Karta osoby i zdjęcia");
       card.type = "button";
@@ -2091,9 +2021,6 @@
       send(urls.add, body).then(function (data) {
         state.form = null;
         if (!to && data.added) state.selected = data.added;
-        // Nowy krewny poza widokiem wokół osoby (np. rodzic zięcia): pokaż drzewo wokół „to”.
-        var added = data.added && state.byId[data.added];
-        if (to && added && added.x === null) { setFocus(to.id); showMessage("Dodano: " + name + "."); return; }
         render();
         renderSheet();
         if (state.selected) reveal(state.selected);
@@ -2152,10 +2079,6 @@
 
   function select(id, center) {
     if (state.edit && state.edit.id !== id) closeEdit();
-    if (state.scope === "osoba" && state.byId[id] && state.byId[id].x === null) {
-      setFocus(id);
-      return;
-    }
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
@@ -2270,12 +2193,10 @@
       gesture = { type: "link", from: parseInt(node.getAttribute("data-id"), 10), kind: handle.getAttribute("data-kind"), start: [event.clientX, event.clientY], moved: false };
     } else {
       // Kafelków nie przesuwamy (układ jest automatyczny): przeciągnięcie kafelka przesuwa widok,
-      // a stuknięcie wybiera osobę albo (znaczek ↑/↓) pokazuje drzewo wokół niej.
-      var more = event.target.closest("[data-focus-to]");
+      // a stuknięcie wybiera osobę.
       gesture = {
         type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false,
         node: node ? parseInt(node.getAttribute("data-id"), 10) : null,
-        focusTo: more ? parseInt(more.getAttribute("data-focus-to"), 10) : null,
       };
     }
     canvas.setPointerCapture(event.pointerId);
@@ -2327,9 +2248,7 @@
     if (event.type === "pointercancel") return;
     if (g.type === "pan") {
       if (g.moved) return;
-      if (g.focusTo) {
-        setFocus(g.focusTo);
-      } else if (g.node) {
+      if (g.node) {
         select(g.node, false);
       } else {
         state.selected = null;
@@ -2374,15 +2293,13 @@
   // Klawiatura: Enter na kafelku otwiera panel osoby.
   canvas.addEventListener("keydown", function (event) {
     var node = event.target.closest && event.target.closest(".tree-node");
-    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle, [data-focus-to]")) {
+    if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle")) {
       event.preventDefault();
       select(parseInt(node.getAttribute("data-id"), 10), false);
     }
   });
   canvas.addEventListener("click", function (event) {
     // Klawiatura na uchwycie „+” (bez przeciągania): formularz nowej osoby.
-    var more = event.target.closest("[data-focus-to]");
-    if (more && event.detail === 0) { setFocus(parseInt(more.getAttribute("data-focus-to"), 10)); return; }
     var handle = event.target.closest(".tree-handle");
     if (handle && event.detail === 0) {
       var node = handle.closest(".tree-node");
@@ -2395,8 +2312,6 @@
   root.addEventListener("click", function (event) {
     var modeButton = event.target.closest("[data-tree-mode]");
     if (modeButton) { setMode(modeButton.getAttribute("data-tree-mode"), true); return; }
-    var scopeButton = event.target.closest("[data-tree-scope]");
-    if (scopeButton) { setScope(scopeButton.getAttribute("data-tree-scope")); return; }
     var action = event.target.closest("[data-tree-action]");
     if (!action) return;
     var name = action.getAttribute("data-tree-action");

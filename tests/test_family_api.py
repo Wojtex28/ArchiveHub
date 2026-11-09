@@ -203,9 +203,8 @@ def test_tree_page_is_full_width_with_tools_in_ribbon(editor, couple):
     assert "Drzewo rodzinne" in ribbon
     for action in ("add", "zoom-out", "fit", "zoom-in"):
         assert f'data-tree-action="{action}"' in ribbon
-    # ETAP 35: układ zawsze automatyczny, za to wybór „Wokół osoby” / „Całe drzewo”.
+    # ETAP 35: układ zawsze automatyczny, bez przycisku „Ułóż automatycznie”.
     assert 'data-tree-action="layout"' not in ribbon
-    assert 'data-tree-scope="osoba"' in ribbon and 'data-tree-scope="wszyscy"' in ribbon
 
 
 def test_tree_ribbon_for_viewer_has_no_edit_tools(client, make_user, couple):

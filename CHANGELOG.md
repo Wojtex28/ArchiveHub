@@ -15,6 +15,13 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.36.0 (2026-11-09) · ETAP 36: jedno drzewo, równiejszy układ
+
+- **Bez widoku „Wokół osoby”.** Drzewo zawsze pokazuje wszystkich. Znikają przełącznik, znaczki ↑ ↓ i pasek na dole. Stare linki z `?wokol=` i `?zakres=` po prostu otwierają całe drzewo.
+- **Teściowie przy swoich dzieciach.** Rodzice bez własnych rodziców w drzewie stoją rząd nad swoimi dziećmi, a nie w górnym rzędzie z najstarszym pokoleniem. Nie ciągną już długich linii przez całe drzewo.
+- **Rodzice nad dziećmi.** Miejsca w rzędach są wyważane w obie strony: rodzice stoją nad środkiem dzieci, dzieci pod rodzicami. Linie są o 30–40% krótsze, a drzewo mniej rozjechane.
+- **Mniej przecięć linii.** Kafelek może przejść w dowolne miejsce rzędu (nie tylko zamienić się z sąsiadem), a kolejność jest liczona z kilku punktów startowych i wygrywa ta z najmniejszą liczbą przecięć. Data urodzenia rodzeństwa dalej ustala kolejność od najstarszego.
+
 ## 0.35.0 (2026-11-09) · ETAP 35: drzewo wokół osoby, bez krzyżujących się linii
 
 Pomysł z aplikacji Strom.
