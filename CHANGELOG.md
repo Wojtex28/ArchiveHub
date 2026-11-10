@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.40.0 (2026-11-09) · ETAP 40: tryb nocny
+
+- **Tryb nocny** dla całej strony: ciemne, ciepłe tło zamiast papieru, jasny tekst, przyciski i linki w kolorze starej czerwieni rozjaśnionej do ciemnego tła. Działa w archiwum, albumach, ulubionych, wyszukiwarce, drzewie i osi czasu, w Panelu oraz na stronie logowania (kropki tła też ściemniają się).
+- **Przełącznik w menu**: „🌙 Tryb nocny” / „☀️ Tryb dzienny”. Wybór zapamiętuje przeglądarka (ciasteczko `motyw` na rok), więc każdy domownik ustawia go u siebie. Przełącza się od razu, bez przeładowania; bez JavaScriptu działa jak zwykły formularz.
+- **Bez wyboru strona idzie za ustawieniem telefonu/komputera**: jeśli system ma ciemny motyw, archiwum też otworzy się ciemne.
+- Podgląd zdjęcia był i zostaje ciemny w obu trybach.
+- W środku: każdy kolor w `site.css` jest teraz zmienną w `:root`, a tryb nocny podmienia tylko te zmienne (test pilnuje, żeby żadnej nie zabrakło).
+
 ## 0.38.0 (2026-11-09) · ETAP 38: uporządkowany układ drzewa
 
 Zamiast „jak najmniej przecięć za wszelką cenę” drzewo trzyma się kilku stałych zasad:

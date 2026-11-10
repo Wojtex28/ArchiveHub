@@ -1,0 +1,10 @@
+{# Tryb nocny (ETAP 40). Bez JS formularz ustawia ciasteczko; z JS przełącza od razu (static/js/theme.js). #}
+<form method="post" action="{% url 'set_theme' %}" class="inline-form theme-toggle" data-theme-toggle>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  {% if theme == "dark" %}
+  <button type="submit" class="link-button" name="motyw" value="jasny" aria-pressed="true">☀️ Tryb dzienny</button>
+  {% else %}
+  <button type="submit" class="link-button" name="motyw" value="ciemny" aria-pressed="false">🌙 Tryb nocny</button>
+  {% endif %}
+</form>

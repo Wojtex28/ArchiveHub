@@ -38,6 +38,7 @@ w projekcie.
 | 27 | Nazwisko rodowe na kafelku, czytelne linie rodzin | **gotowe** |
 | 28 | „Ułóż automatycznie” z najmniejszą liczbą przecięć | **gotowe** |
 | 29 | Osoby na zdjęciu na wierzchu, ulubione | **gotowe** |
+| 40 | Tryb nocny | **gotowe** |
 
 ## Technologie
 

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import theme, views
 
 urlpatterns = [
     path("", views.landing, name="landing"),
@@ -8,5 +8,6 @@ urlpatterns = [
     path("tlo/<uuid:key>.jpg", views.login_photo, name="login_photo"),
     path("healthz", views.healthz, name="healthz"),
     path("healthz/pelny", views.healthz_full, name="healthz_full"),
+    path("motyw/", theme.set_theme, name="set_theme"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
 ]
