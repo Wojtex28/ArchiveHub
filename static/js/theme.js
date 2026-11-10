@@ -1,11 +1,10 @@
 // Tryb nocny (ETAP 40). Serwer wstawia data-theme na <html> z ciasteczka „motyw”, więc strona
-// nie mruga przy wczytaniu. Tutaj: poprawny napis na przycisku, gdy wyboru jeszcze nie było
+// nie mruga przy wczytaniu. Tutaj: poprawny stan przełącznika, gdy wyboru jeszcze nie było
 // (wtedy obowiązuje ustawienie systemu), i przełączanie bez przeładowania strony.
 (function () {
   "use strict";
   const root = document.documentElement;
   const system = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-  const LABELS = { dark: "☀️ Tryb dzienny", light: "🌙 Tryb nocny" };
 
   function current() {
     const chosen = root.getAttribute("data-theme");
@@ -16,9 +15,8 @@
   function paint() {
     const dark = current() === "dark";
     document.querySelectorAll("[data-theme-toggle] button").forEach(function (button) {
-      button.textContent = LABELS[dark ? "dark" : "light"];
       button.value = dark ? "jasny" : "ciemny";
-      button.setAttribute("aria-pressed", dark ? "true" : "false");
+      button.setAttribute("aria-checked", dark ? "true" : "false");
     });
   }
 

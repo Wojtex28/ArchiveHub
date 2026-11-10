@@ -39,6 +39,7 @@ w projekcie.
 | 28 | „Ułóż automatycznie” z najmniejszą liczbą przecięć | **gotowe** |
 | 29 | Osoby na zdjęciu na wierzchu, ulubione | **gotowe** |
 | 40 | Tryb nocny | **gotowe** |
+| 41 | Przełączniki jak w iOS (tryb nocny i pola tak/nie) | **gotowe** |
 
 ## Technologie
 

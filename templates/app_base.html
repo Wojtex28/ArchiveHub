@@ -11,12 +11,12 @@
     {% if user.is_superuser %}<a href="{% url 'panel:dashboard' %}">Panel</a>{% endif %}
     <a href="{% url 'add_code' %}">Mam kod</a>
     <a href="{% url 'password_change' %}">Hasło</a>
-    {% include "includes/theme_toggle.html" %}
     <form method="post" action="{% url 'logout' %}" class="inline-form">
       {% csrf_token %}
       <button type="submit" class="link-button">Wyloguj</button>
     </form>
   </nav>
+  {% include "includes/theme_toggle.html" %}
 </header>
 {% if messages %}
 <div class="messages">
