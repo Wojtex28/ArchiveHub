@@ -21,6 +21,7 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 - **Większe marginesy** od ramki do treści (2 rem na komputerze, 1,25 rem na telefonie).
 - Urodzenie i śmierć w osobnych kafelkach, sekcje „Rodzina” i „Zdjęcia” oddzielone linią, nagłówki grup (Rodzice, Partnerzy…) mniejsze i spokojniejsze.
 - Na telefonie mniejszy portret, a urodzenie i śmierć stoją obok siebie.
+- W panelu bocznym drzewa „Nie żyje” i „Rozwód lub rozstanie” są przełącznikami jak w iOS, a pole „Rok ślubu” wygląda jak inne pola.
 
 ## 0.41.0 (2026-11-10) · ETAP 41: przełączniki jak w iOS
 

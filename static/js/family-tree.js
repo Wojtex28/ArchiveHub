@@ -1544,7 +1544,7 @@
     since.id = "slub-" + other.id;
     var sinceLabel = el("label", "", "Rok ślubu");
     sinceLabel.htmlFor = since.id;
-    var ended = el("label", "check");
+    var ended = el("label", "check check--switch");
     var box = el("input");
     box.type = "checkbox";
     box.checked = info.ended;
@@ -1663,7 +1663,7 @@
       var key = field[0];
       var row = el("div", "field");
       if (key === "deceased") {
-        var check = el("label", "check");
+        var check = el("label", "check check--switch");
         var box = el("input");
         box.type = "checkbox";
         box.name = key;
@@ -1854,7 +1854,7 @@
       sheet.appendChild(head);
       if (state.data.canEdit) {
         // Przełącznik „Żyje / Nie żyje”: widać go od razu na kafelku (†).
-        var alive = el("label", "check tree-sheet__alive");
+        var alive = el("label", "check check--switch tree-sheet__alive");
         var box = el("input");
         box.type = "checkbox";
         box.checked = !!person.deceased;
