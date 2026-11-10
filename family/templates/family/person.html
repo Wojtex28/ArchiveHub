@@ -12,8 +12,7 @@
     {% if not person.in_tree %}<p class="notice">Ta osoba jest oznaczona na zdjęciach, ale nie ma jej jeszcze w drzewie.{% if can_edit %} Dodaj ją, łącząc z rodziną poniżej, albo uzupełniając dane.{% endif %}</p>{% endif %}
   </div>
   <div class="person-head__actions">
-    {% if embedded %}<a class="button button--quiet" href="{% url 'family:person' person.pk %}" target="_blank" rel="noopener">Pełna strona osoby ↗</a>
-    {% else %}{% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
+    {% if not embedded %}{% if person.in_tree %}<a class="button button--quiet" href="{% url 'family:tree' %}?osoba={{ person.pk }}">Pokaż w drzewie</a>{% endif %}
     {% if user.is_superuser %}<a class="button button--quiet" href="{% url 'panel:tree_history' %}?osoba={{ person.pk }}">Historia zmian</a>{% endif %}
     {% if can_edit %}<a class="button" href="{% url 'family:person_edit' person.pk %}">Edytuj dane</a>{% endif %}{% endif %}
   </div>

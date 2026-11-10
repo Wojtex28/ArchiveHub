@@ -89,6 +89,9 @@ def test_card_in_window_can_be_framed_only_by_own_site(editor, db):
     assert card["X-Frame-Options"] == "SAMEORIGIN"
     assert "frame-ancestors 'self'" in card["Content-Security-Policy"]
     html = card.content.decode()
-    # Bez menu i edycji, z linkiem do pełnej strony w nowej karcie.
+    # Bez menu i edycji. Link do pełnej strony jest w pasku okienka na stronie drzewa (ETAP 42),
+    # więc nic nie zasłania przewijanej karty.
     assert "app-header" not in html and "Edytuj dane" not in html
-    assert f'href="{url}" target="_blank"' in html
+    assert f'href="{url}" target="_blank"' not in html
+    tree_page = editor.get(reverse("family:tree")).content.decode()
+    assert 'class="tree-card__bar"' in tree_page and 'class="tree-card__full"' in tree_page

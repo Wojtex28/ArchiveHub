@@ -1786,6 +1786,7 @@
     var person = state.byId[id];
     if (!person) return;
     cardFrame.src = person.url + "?okno=1";
+    cardBox.querySelector(".tree-card__full").href = person.url;
     cardBox.hidden = false;
     root.classList.add("has-card");
     cardBox.querySelector(".tree-card__close").focus();
@@ -1804,6 +1805,7 @@
     var doc;
     try { doc = cardFrame.contentDocument; } catch (error) { return; }
     if (!doc || cardBox.hidden) return;
+    try { cardBox.querySelector(".tree-card__full").href = cardFrame.contentWindow.location.pathname; } catch (error) { /* inna domena */ }
     // Esc w okienku też je zamyka (chyba że jest w nim otwarty podgląd zdjęcia).
     doc.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && !event.defaultPrevented && !doc.querySelector(".viewer:not([hidden])")) closeCard();
