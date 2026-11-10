@@ -1615,6 +1615,10 @@
     ["bio", "Opis", "Kim była, gdzie mieszkała, rodzinne historie.", 0],
   ];
 
+  function showDeathFields(form, on) {
+    form.querySelectorAll(".field--death").forEach(function (row) { row.hidden = !on; });
+  }
+
   function personUrl(id) { return urls.person.replace(/\/0\/$/, "/" + id + "/"); }
 
   function openEdit(id) {
@@ -1671,11 +1675,14 @@
         check.appendChild(box);
         check.appendChild(document.createTextNode(" Nie żyje †"));
         row.appendChild(check);
-        row.appendChild(el("p", "hint", "Zaznacza się samo, gdy wpiszesz datę lub miejsce śmierci."));
+        row.appendChild(el("p", "hint", "Włącz, żeby wpisać datę i miejsce śmierci."));
         inputs[key] = box;
+        // ETAP 42: pola śmierci pojawiają się dopiero po włączeniu przełącznika.
+        box.addEventListener("change", function () { showDeathFields(form, box.checked); });
         form.appendChild(row);
         return;
       }
+      if (key === "death" || key === "deathPlace") row.classList.add("field--death");
       var id = "osoba-" + key;
       var label = el("label", "", field[1]);
       label.htmlFor = id;
@@ -1692,6 +1699,7 @@
       inputs[key] = input;
       form.appendChild(row);
     });
+    showDeathFields(form, inputs.deceased.checked);
     var portraitBox = el("fieldset", "field tree-edit__portraits");
     portraitBox.appendChild(el("legend", "", "Portret"));
     portraitBox.appendChild(el("p", "hint", "Wczytuję zdjęcia…"));
@@ -1715,6 +1723,8 @@
         var input = inputs[field[0]];
         body[field[0]] = field[0] === "deceased" ? input.checked : input.value;
       });
+      // Wyłączony przełącznik „Nie żyje” znaczy: bez daty i miejsca śmierci.
+      if (!body.deceased) { body.death = ""; body.deathPlace = ""; }
       var chosen = form.querySelector("input[name=portrait]:checked");
       body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
       var id = state.edit.id;
