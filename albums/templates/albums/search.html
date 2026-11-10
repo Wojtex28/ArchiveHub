@@ -20,7 +20,7 @@
         {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
       </div>
       {% endif %}{% endfor %}
-      <div class="field search-form__bez_opisu"><label class="check">{{ form.bez_opisu }} {{ form.bez_opisu.label }}</label></div>
+      <div class="field search-form__bez_opisu"><label class="check check--switch">{{ form.bez_opisu }} {{ form.bez_opisu.label }}</label></div>
     </div>
   </details>
   {% endwith %}

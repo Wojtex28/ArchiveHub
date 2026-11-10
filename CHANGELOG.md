@@ -15,6 +15,12 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.41.0 (2026-11-10) · ETAP 41: przełączniki jak w iOS
+
+- **Tryb nocny to teraz przełącznik** (zielony, gdy włączony) z ikoną 🌙, na prawej krawędzi paska, w linii z tytułem strony. Na telefonie też stoi obok tytułu.
+- **Pola „tak/nie” w formularzach wyglądają tak samo**: „Nie żyje” w danych osoby, „Rozwód lub rozstanie” przy parze, „Tylko zdjęcia bez opisu” w wyszukiwarce i pojedyncze opcje w Panelu (np. „widzi wszystkie albumy”).
+- Listy wyboru wielu rzeczy (grupy przy albumie, tabela uprawnień) zostają zwykłymi kratkami, bo przy wielu pozycjach przełączniki są mniej czytelne.
+
 ## 0.40.0 (2026-11-09) · ETAP 40: tryb nocny
 
 - **Tryb nocny** dla całej strony: ciemne, ciepłe tło zamiast papieru, jasny tekst, przyciski i linki w kolorze starej czerwieni rozjaśnionej do ciemnego tła. Działa w archiwum, albumach, ulubionych, wyszukiwarce, drzewie i osi czasu, w Panelu oraz na stronie logowania (kropki tła też ściemniają się).

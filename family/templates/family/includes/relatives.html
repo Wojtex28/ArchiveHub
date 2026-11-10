@@ -12,7 +12,7 @@
         <form method="post" action="{% url 'family:couple_edit' person.pk other.pk %}">
           {% csrf_token %}
           <div class="field"><label for="slub-{{ other.pk }}">Rok ślubu</label><input id="slub-{{ other.pk }}" name="since" value="{{ other.couple.since }}" placeholder="np. 1950" maxlength="60"></div>
-          <label class="check"><input type="checkbox" name="ended"{% if other.couple.ended %} checked{% endif %}> Rozwód lub rozstanie</label>
+          <label class="check check--switch"><input type="checkbox" name="ended"{% if other.couple.ended %} checked{% endif %}> Rozwód lub rozstanie</label>
           <button type="submit" class="button button--quiet">Zapisz</button>
         </form>
       </details>

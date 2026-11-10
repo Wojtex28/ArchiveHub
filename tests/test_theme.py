@@ -39,11 +39,12 @@ def test_toggle_in_menu_shows_opposite_mode(client, make_user):
     client.login(username="karolina", password="stare-zdjecia-1964")
     body = client.get(reverse("archive")).content.decode()
     assert 'name="motyw" value="ciemny"' in body
-    assert "Tryb nocny" in body
+    assert 'role="switch"' in body
+    assert 'aria-checked="false"' in body
     client.cookies["motyw"] = "ciemny"
     body = client.get(reverse("archive")).content.decode()
     assert 'name="motyw" value="jasny"' in body
-    assert "Tryb dzienny" in body
+    assert 'aria-checked="true"' in body
 
 
 @pytest.mark.django_db
@@ -74,3 +75,13 @@ def test_dark_palette_covers_every_light_variable():
     colors = names(root) - {"--serif", "--sans"}
     assert colors <= names(dark)
     assert names(dark) == names(system)
+
+
+@pytest.mark.django_db
+def test_yes_no_fields_are_switches_but_group_lists_stay_checkboxes(client, make_user):
+    make_user("karolina")
+    client.login(username="karolina", password="stare-zdjecia-1964")
+    body = client.get(reverse("albums:search")).content.decode()
+    assert 'class="check check--switch"' in body
+    form_fields = Path(settings.BASE_DIR, "templates", "includes", "form_fields.html").read_text()
+    assert '<label class="check">{{ choice.tag }}' in form_fields
