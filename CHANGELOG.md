@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.46.0 (2026-11-12) · ETAP 46: płeć, chronologia życia i zdarzenia
+
+- **Chronologia na karcie osoby.** Oś czasu układa się sama z drzewa: urodzenie, śluby, narodziny dzieci, śmierć rodziców, partnera i dzieci, śmierć. Przy zdarzeniach widać wiek osoby.
+- **Zdarzenia dopisywane ręcznie** przyciskiem „+ Dodaj zdarzenie”: miejsce zamieszkania, chrzest / ślub kościelny, nauka, praca, wojsko i wojna, przeprowadzka / emigracja, inne. Każde ma datę (także „od–do”), miejsce i notatkę; można je poprawić i usunąć.
+- Zdarzenia są w historii zmian drzewa (Panel → Drzewo) i da się je cofnąć jak resztę.
+- **Płeć osoby** (kobieta, mężczyzna, nie wiadomo) podpowiada się z imienia przy dodaniu osoby i jest do poprawienia w „Edytuj dane”. Osoby dodane wcześniej dostały ją tą samą regułą przy aktualizacji. Od płci zależą słowa w chronologii („urodziła się córka”, „śmierć ojca”).
+- Data ślubu jest bardziej widoczna: przy partnerze jest „+ Data ślubu” zamiast „Ślub, rozwód”.
+- Aktualizacja dodaje pole płci (migracja `albums.0017`) i tabelę zdarzeń (`family.0006`).
+
 ## 0.45.0 (2026-11-12) · ETAP 45: okno portretu i zdjęcia osoby według dat
 
 - **Portret wybiera się w oknie.** W „Edytuj dane” zamiast długiego paska zdjęć jest podgląd i przycisk „Wybierz portret”. W oknie widać wszystkie zdjęcia z tą osobą, a wybrane zdjęcie można przesunąć i powiększyć pod kółkiem, żeby twarz była na środku.

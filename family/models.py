@@ -86,6 +86,7 @@ class TreeChange(models.Model):
     RELATION_ADDED = "relation_added"
     RELATION_REMOVED = "relation_removed"
     COUPLE_EDITED = "couple_edited"
+    EVENT_CHANGED = "event_changed"
     KINDS = [
         (PERSON_ADDED, "dodanie osoby"),
         (PERSON_EDITED, "zmiana danych"),
@@ -93,6 +94,7 @@ class TreeChange(models.Model):
         (RELATION_ADDED, "dodanie relacji"),
         (RELATION_REMOVED, "usunięcie relacji"),
         (COUPLE_EDITED, "zmiana związku"),
+        (EVENT_CHANGED, "zdarzenie z życia"),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
@@ -114,3 +116,62 @@ class TreeChange(models.Model):
 
     def __str__(self):
         return self.summary
+
+
+class LifeEvent(models.Model):
+    """Zdarzenie z życia osoby wpisane ręcznie (ETAP 46): gdzie mieszkała, szkoła, praca, wojsko.
+
+    Urodzenie, śluby, dzieci i śmierć biorą się same z drzewa (``family.chronology``).
+    """
+
+    KINDS = [
+        ("mieszkanie", "Miejsce zamieszkania"),
+        ("chrzest", "Chrzest / ślub kościelny"),
+        ("nauka", "Nauka"),
+        ("praca", "Praca / zawód"),
+        ("wojsko", "Wojsko, wojna, niewola"),
+        ("przeprowadzka", "Przeprowadzka / emigracja"),
+        ("inne", "Inne"),
+    ]
+    ICONS = {
+        "mieszkanie": "🏠",
+        "chrzest": "⛪",
+        "nauka": "🎓",
+        "praca": "💼",
+        "wojsko": "🎖",
+        "przeprowadzka": "🧳",
+        "inne": "📌",
+    }
+
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="life_events")
+    kind = models.CharField("rodzaj", max_length=20, choices=KINDS)
+    title = models.CharField("tytuł", max_length=120, blank=True)
+    # Daty jak przy urodzeniu (albums.dates): tekst do wyświetlenia i rok do ułożenia na osi.
+    date = models.CharField("kiedy", max_length=60, blank=True)
+    year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    until = models.CharField("do kiedy", max_length=60, blank=True)
+    place = models.CharField("miejsce", max_length=200, blank=True)
+    note = models.TextField("notatka", max_length=1000, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["year", "pk"]
+        verbose_name = "zdarzenie z życia"
+        verbose_name_plural = "zdarzenia z życia"
+
+    def __str__(self):
+        return f"{self.person}: {self.heading}"
+
+    @property
+    def heading(self):
+        return self.title or self.get_kind_display()
+
+    @property
+    def icon(self):
+        return self.ICONS.get(self.kind, "📌")
+
+    @property
+    def when(self):
+        if self.date and self.until:
+            return f"{self.date} – {self.until}"
+        return self.date or (f"do {self.until}" if self.until else "")

@@ -44,6 +44,7 @@ w projekcie.
 | 43 | Poprawki przy zdjęciach i osi czasu | **gotowe** |
 | 44 | Punkty osób na zdjęciu | **gotowe** |
 | 45 | Okno portretu i zdjęcia osoby według dat | **gotowe** |
+| 46 | Płeć, chronologia życia i zdarzenia | **gotowe** |
 
 ## Technologie
 

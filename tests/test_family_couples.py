@@ -92,7 +92,7 @@ def test_person_page_shows_and_edits_couples(editor, jan):
     page = editor.get(reverse("family:person", args=[jan.pk])).content.decode()
     assert page.index("Anna Kowalska") < page.index("Maria Nowak")
     assert "1. ślub 1950" in page and "2. ślub 1960 · rozwód" in page
-    assert "Ślub, rozwód" in page
+    assert "Zmień datę ślubu, rozwód" in page
 
     editor.post(url, {"since": "kiedyś"})  # zła data: nic się nie zmienia
     assert Partnership.objects.get(person2=anna).since == "1950"

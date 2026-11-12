@@ -3,6 +3,7 @@ from django import forms
 from albums.dates import DateError, parse_date
 from albums.models import NamedModel, Person, Photo
 
+from .models import LifeEvent
 from .tree import RELATION_KINDS
 
 
@@ -27,6 +28,7 @@ class PersonForm(forms.ModelForm):
         fields = [
             "name",
             "maiden_name",
+            "gender",
             "birth_date",
             "birth_place",
             "deceased",
@@ -40,6 +42,7 @@ class PersonForm(forms.ModelForm):
         ]
         labels = {"name": "Imię i nazwisko", "deceased": "Nie żyje"}
         help_texts = {
+            "gender": "Podpowiadana z imienia. Od niej zależą słowa w chronologii (córka/syn, matka/ojciec).",
             "birth_date": "Np. 12.06.1921, czerwiec 1921, 1921, ok. 1920 albo lata 20.",
             "deceased": "Na kafelku w drzewie pojawi się †. Włącz, żeby wpisać datę i miejsce śmierci.",
             "death_date": "Jak data urodzenia. Puste, jeśli osoba żyje albo nie wiadomo.",
@@ -135,3 +138,44 @@ class NewPersonForm(forms.Form):
         if not name:
             raise forms.ValidationError("Wpisz imię i nazwisko.")
         return name
+
+
+class LifeEventForm(forms.ModelForm):
+    """Zdarzenie z życia wpisywane ręcznie (ETAP 46)."""
+
+    class Meta:
+        model = LifeEvent
+        fields = ["kind", "title", "date", "until", "place", "note"]
+        labels = {"kind": "Co to za zdarzenie", "title": "Tytuł (opcjonalnie)", "date": "Kiedy albo od kiedy"}
+        help_texts = {
+            "title": "Np. „Kupno domu w Kraczkowej”. Bez tytułu zostanie nazwa rodzaju.",
+            "date": "Np. 1950, czerwiec 1950, ok. 1950 albo lata 50.",
+            "until": "Tylko gdy coś trwało dłużej, np. mieszkanie albo praca.",
+        }
+        widgets = {"note": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Bez pustej pozycji na liście: najczęściej dopisuje się, gdzie ktoś mieszkał.
+        self.fields["kind"].choices = LifeEvent.KINDS
+        self.fields["kind"].initial = LifeEvent.KINDS[0][0]
+
+    def _clean_date(self, field):
+        try:
+            return parse_date(self.cleaned_data[field]).text
+        except DateError as exc:
+            raise forms.ValidationError(str(exc)) from None
+
+    def clean_date(self):
+        return self._clean_date("date")
+
+    def clean_until(self):
+        return self._clean_date("until")
+
+    def clean(self):
+        data = super().clean()
+        if data.get("kind") == "inne" and not data.get("title"):
+            self.add_error("title", "Przy „Inne” wpisz tytuł zdarzenia.")
+        elif not self.errors and not any(data.get(f) for f in ("title", "date", "until", "place", "note")):
+            raise forms.ValidationError("Wpisz przynajmniej datę, miejsce albo notatkę.")
+        return data

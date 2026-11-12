@@ -1622,6 +1622,7 @@
   var EDIT_FIELDS = [
     ["name", "Imię i nazwisko", "", 100],
     ["maiden", "Nazwisko rodowe", "np. Nowak", 100],
+    ["gender", "Płeć"],
     ["birth", "Data urodzenia", "np. 12.06.1921, 1921, ok. 1920, lata 20.", 60],
     ["birthPlace", "Miejsce urodzenia", "", 200],
     ["deceased"],
@@ -1695,6 +1696,25 @@
         inputs[key] = box;
         // ETAP 42: pola śmierci pojawiają się dopiero po włączeniu przełącznika.
         box.addEventListener("change", function () { showDeathFields(form, box.checked); });
+        form.appendChild(row);
+        return;
+      }
+      if (key === "gender") {
+        // ETAP 46: płeć podpowiadana z imienia, tu do poprawienia.
+        var genderLabel = el("label", "", field[1]);
+        genderLabel.htmlFor = "osoba-gender";
+        var select = el("select");
+        select.id = "osoba-gender";
+        select.name = key;
+        [["", "nie wiadomo"], ["K", "kobieta"], ["M", "mężczyzna"]].forEach(function (option) {
+          var node = el("option", "", option[1]);
+          node.value = option[0];
+          select.appendChild(node);
+        });
+        select.value = person.gender || "";
+        row.appendChild(genderLabel);
+        row.appendChild(select);
+        inputs[key] = select;
         form.appendChild(row);
         return;
       }
@@ -1943,7 +1963,7 @@
           if (info) {
             if (info.text) item.appendChild(el("span", "hint tree-sheet__couple", info.text));
             if (state.data.canEdit) {
-              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : "Ślub, rozwód");
+              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since ? "Zmień datę ślubu, rozwód" : "+ Data ślubu"));
               edit.type = "button";
               edit.addEventListener("click", function () {
                 state.coupleEdit = state.coupleEdit === other.id ? null : other.id;

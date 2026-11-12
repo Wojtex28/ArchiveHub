@@ -429,6 +429,9 @@ class Person(NamedModel):
     death_place = models.CharField("miejsce śmierci", max_length=200, blank=True)
     # Przełącznik „Nie żyje” (ETAP 30): widać go na kafelku drzewa (†), także gdy daty śmierci nie znamy.
     deceased = models.BooleanField("nie żyje", default=False)
+    # Płeć (ETAP 46): przy nowej osobie podpowiadana z imienia (albums.names), zawsze do poprawienia.
+    GENDERS = [("", "nie wiadomo"), ("K", "kobieta"), ("M", "mężczyzna")]
+    gender = models.CharField("płeć", max_length=1, blank=True, choices=GENDERS)
     bio = models.TextField("historia", blank=True)
     portrait = models.ForeignKey(
         "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="portret"
@@ -448,6 +451,13 @@ class Person(NamedModel):
     class Meta(NamedModel.Meta):
         verbose_name = "osoba"
         verbose_name_plural = "osoby"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.gender:
+            from .names import guess_gender
+
+            self.gender = guess_gender(self.name)
+        super().save(*args, **kwargs)
 
     @staticmethod
     def _short_date(text, year):

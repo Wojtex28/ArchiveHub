@@ -40,6 +40,7 @@ def tree_data(user):
                 "id": p.pk,
                 "name": p.name,
                 "maiden": p.maiden_name,
+                "gender": p.gender,
                 "years": p.life,
                 "deceased": p.deceased,
                 "born": p.birth_year,
@@ -280,6 +281,7 @@ PERSON_FIELDS = {
     "death": "death_date",
     "deathPlace": "death_place",
     "bio": "bio",
+    "gender": "gender",
 }
 
 
@@ -319,6 +321,9 @@ def person(request, pk):
     data = {field: str(body.get(key) or "") for key, field in PERSON_FIELDS.items()}
     if body.get("deceased") is True:
         data["deceased"] = "on"
+    if "gender" not in body:
+        # Strona otwarta przed aktualizacją nie zna płci: zostaje dotychczasowa.
+        data["gender"] = person.gender
     portrait = body.get("portrait")
     data["portrait"] = str(portrait) if portrait else ""
     for key, field in CROP_FIELDS.items():

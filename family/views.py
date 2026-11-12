@@ -7,14 +7,16 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from albums.models import Person, Photo
 from albums.search import refresh_search_text
 from core.middleware import CONTENT_SECURITY_POLICY
 
-from . import tree
-from .forms import NewPersonForm, PersonForm, RelationForm
+from . import chronology, tree
+from .forms import LifeEventForm, NewPersonForm, PersonForm, RelationForm
+from .models import LifeEvent
 
 PHOTOS_SHOWN = 60
 
@@ -158,7 +160,7 @@ def photos_by_date(photos):
     return ordered
 
 
-def _person_page(request, person, relation_form=None, namesakes=None, embedded=False):
+def _person_page(request, person, relation_form=None, namesakes=None, embedded=False, event_form=None):
     photos = visible_photos(request.user, person)
     portrait = person.portrait if person.portrait and photos.filter(pk=person.portrait_id).exists() else None
     return render(
@@ -174,6 +176,9 @@ def _person_page(request, person, relation_form=None, namesakes=None, embedded=F
             "children": tree.children(person),
             "siblings": tree.siblings(person),
             "photos": photos_by_date(photos),
+            "timeline": chronology.timeline(person),
+            "event_form": event_form or LifeEventForm(),
+            "event_open": event_form is not None,
             "photo_total": photos.count(),
             "relation_form": relation_form or RelationForm(label_suffix=""),
             "namesakes": namesakes,
@@ -285,3 +290,40 @@ def couple_edit(request, pk, other_pk):
         if changed:
             messages.success(request, f"Zapisano: {person.name} i {other.name}.")
     return redirect("family:person", person.pk)
+
+
+@tree_access(edit=True)
+@require_POST
+def event_add(request, pk):
+    """„+ Dodaj zdarzenie” na karcie osoby (ETAP 46)."""
+    person = get_object_or_404(Person, pk=pk)
+    form = LifeEventForm(request.POST)
+    if not form.is_valid():
+        return _person_page(request, person, event_form=form)
+    tree.save_event(request.user, person, form.cleaned_data)
+    messages.success(request, "Dodano zdarzenie.")
+    return redirect(reverse("family:person", args=[person.pk]) + "#chronologia")
+
+
+@tree_access(edit=True)
+@require_http_methods(["GET", "HEAD", "POST"])
+def event_edit(request, pk):
+    event = get_object_or_404(LifeEvent.objects.select_related("person"), pk=pk)
+    form = LifeEventForm(request.POST or None, instance=event)
+    if request.method == "POST" and form.is_valid():
+        # Formularz nie zapisuje sam: zapis idzie przez historię zmian drzewa.
+        event.refresh_from_db()
+        tree.save_event(request.user, event.person, form.cleaned_data, event=event)
+        messages.success(request, "Zapisano zdarzenie.")
+        return redirect(reverse("family:person", args=[event.person_id]) + "#chronologia")
+    return render(request, "family/event_form.html", {"person": event.person, "event": event, "form": form})
+
+
+@tree_access(edit=True)
+@require_POST
+def event_remove(request, pk):
+    event = get_object_or_404(LifeEvent.objects.select_related("person"), pk=pk)
+    person = event.person
+    tree.remove_event(request.user, event)
+    messages.success(request, "Usunięto zdarzenie. W razie pomyłki wraca przez Panel → Drzewo.")
+    return redirect(reverse("family:person", args=[person.pk]) + "#chronologia")

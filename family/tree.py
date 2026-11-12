@@ -7,7 +7,7 @@ from albums.dates import DateError, parse_date
 from albums.models import Person, Photo, name_key
 from albums.search import refresh_search_text
 
-from .models import ParentChild, Partnership, Sibling, TreeChange
+from .models import LifeEvent, ParentChild, Partnership, Sibling, TreeChange
 
 # Pola osoby, które zapisuje historia (i które ETAP 23 przywraca).
 PERSON_FIELDS = [
@@ -20,6 +20,7 @@ PERSON_FIELDS = [
     "deceased",
     "bio",
     "portrait_id",
+    "gender",
     "in_tree",
 ]
 FIELD_LABELS = {
@@ -32,6 +33,7 @@ FIELD_LABELS = {
     "deceased": "czy żyje",
     "bio": "historia",
     "portrait_id": "portret",
+    "gender": "płeć",
 }
 
 PARENT, CHILD, PARTNER, SIBLING = "rodzic", "dziecko", "partner", "rodzenstwo"
@@ -586,6 +588,65 @@ def merge_into(source, target):
     TreeChange.objects.filter(person=source).update(person=target)
 
 
+# --- Zdarzenia z życia (ETAP 46) ------------------------------------------------------------
+
+EVENT_LABELS = {
+    "kind": "rodzaj",
+    "title": "tytuł",
+    "date": "kiedy",
+    "until": "do kiedy",
+    "place": "miejsce",
+    "note": "notatka",
+}
+
+
+def event_data(event):
+    return {"id": event.pk, **{field: getattr(event, field) for field in EVENT_LABELS}}
+
+
+@transaction.atomic
+def save_event(user, person, values, event=None, reverts=None):
+    """Dodaje zdarzenie albo zapisuje zmiany w istniejącym. Zwraca wpis historii (None bez zmian)."""
+    before = event_data(event) if event else {}
+    event = event or LifeEvent(person=person)
+    for field in EVENT_LABELS:
+        setattr(event, field, values.get(field, "") or "")
+    event.year = sort_year(event.date) or sort_year(event.until)
+    after = {**before, **{field: getattr(event, field) for field in EVENT_LABELS}}
+    if before == after:
+        return None
+    event.save()
+    after["id"] = event.pk
+    verb = "zmieniono zdarzenie" if before else "dodano zdarzenie"
+    summary = f"{person.name}: {verb} ({event.heading})"
+    return _record(user, TreeChange.EVENT_CHANGED, person, summary, before, after, reverts)
+
+
+@transaction.atomic
+def remove_event(user, event, reverts=None):
+    before, person = event_data(event), event.person
+    summary = f"{person.name}: usunięto zdarzenie ({event.heading})"
+    event.delete()
+    return _record(user, TreeChange.EVENT_CHANGED, person, summary, before, {}, reverts)
+
+
+def _undo_event(user, change):
+    person = _person_of(change)
+    current = LifeEvent.objects.filter(pk=change.after.get("id"), person=person).first()
+    if not change.before:
+        if current is None:
+            raise ValidationError("Tego zdarzenia już nie ma.")
+        return remove_event(user, current, reverts=change)
+    if change.after and current is None:
+        raise ValidationError(
+            "Tego zdarzenia już nie ma, więc nie da się przywrócić jego poprzedniej treści."
+        )
+    result = save_event(user, person, change.before, event=current, reverts=change)
+    if result is None:
+        raise ValidationError("To zdarzenie już jest takie jak przed zmianą.")
+    return result
+
+
 # --- Cofanie zmian (Panel → Drzewo → „Przywróć”) -----------------------------------------------
 
 
@@ -698,6 +759,8 @@ def undo(user, change):
         result = edit_couple(user, person, other, values["since"], values["ended"], reverts=change)
         if result is None:
             raise ValidationError("Ta para już jest taka jak przed zmianą.")
+    elif kind == TreeChange.EVENT_CHANGED:
+        result = _undo_event(user, change)
     elif kind == TreeChange.PERSON_EDITED:
         result = _restore_fields(user, _person_of(change), change.before, change)
         if result is None:
@@ -722,6 +785,8 @@ def _show(field, value):
         return "nie żyje" if value else "żyje"
     if field == "portrait_id":
         return f"zdjęcie nr {value}" if value else ""
+    if field == "gender":
+        return dict(Person.GENDERS).get(value or "", "")
     return value or ""
 
 
@@ -738,6 +803,14 @@ def edit_rows(change):
             (label, _show_couple(f, change.before.get(f)), _show_couple(f, change.after.get(f)))
             for f, label in COUPLE_LABELS.items()
             if f in change.after
+        ]
+    if change.kind == TreeChange.EVENT_CHANGED:
+        kinds = dict(LifeEvent.KINDS)
+        show = lambda f, data: kinds.get(data.get(f), "") if f == "kind" else data.get(f) or ""  # noqa: E731
+        return [
+            (label, show(f, change.before), show(f, change.after))
+            for f, label in EVENT_LABELS.items()
+            if change.before.get(f) != change.after.get(f)
         ]
     if change.kind != TreeChange.PERSON_EDITED:
         return []
