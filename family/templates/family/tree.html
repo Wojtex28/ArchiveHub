@@ -39,7 +39,12 @@
     <aside class="tree-edit" hidden aria-label="Edycja danych osoby"></aside>
     <div class="tree-card" hidden role="dialog" aria-modal="true" aria-label="Karta osoby">
       <div class="tree-card__box">
-        <button type="button" class="tree-card__close" aria-label="Zamknij kartę osoby">×</button>
+        {# ETAP 42: pasek nad kartą, więc pasek przewijania karty nie wchodzi pod przycisk zamykania. #}
+        <div class="tree-card__bar">
+          <span class="tree-card__label">Karta osoby</span>
+          <a class="tree-card__full" href="#" target="_blank" rel="noopener">Pełna strona ↗</a>
+          <button type="button" class="tree-card__close" aria-label="Zamknij kartę osoby">×</button>
+        </div>
         <iframe class="tree-card__frame" title="Karta osoby"></iframe>
       </div>
     </div>

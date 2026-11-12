@@ -15,6 +15,29 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.42.0 (2026-11-10) · ETAP 42: ładniejsza karta osoby nad drzewem
+
+- **Pasek u góry karty** z napisem „Karta osoby”, przyciskiem „Pełna strona ↗” i ×. Karta przewija się pod paskiem, więc pasek przewijania nie wchodzi już na przycisk zamykania.
+- **Większe marginesy** od ramki do treści (2 rem na komputerze, 1,25 rem na telefonie).
+- Urodzenie i śmierć w osobnych kafelkach, sekcje „Rodzina” i „Zdjęcia” oddzielone linią, nagłówki grup (Rodzice, Partnerzy…) mniejsze i spokojniejsze.
+- Na telefonie mniejszy portret, a urodzenie i śmierć stoją obok siebie.
+- W panelu bocznym drzewa „Nie żyje” i „Rozwód lub rozstanie” są przełącznikami jak w iOS, a pole „Rok ślubu” wygląda jak inne pola.
+- **Pola śmierci schowane za przełącznikiem**: „Data śmierci” i „Miejsce śmierci” pojawiają się dopiero po włączeniu „Nie żyje” (w panelu drzewa i w formularzu). Wyłączenie przełącznika czyści te pola przy zapisie.
+
+## 0.41.0 (2026-11-10) · ETAP 41: przełączniki jak w iOS
+
+- **Tryb nocny to teraz przełącznik** (zielony, gdy włączony) z ikoną 🌙, na prawej krawędzi paska, w linii z tytułem strony. Na telefonie też stoi obok tytułu.
+- **Pola „tak/nie” w formularzach wyglądają tak samo**: „Nie żyje” w danych osoby, „Rozwód lub rozstanie” przy parze, „Tylko zdjęcia bez opisu” w wyszukiwarce i pojedyncze opcje w Panelu (np. „widzi wszystkie albumy”).
+- Listy wyboru wielu rzeczy (grupy przy albumie, tabela uprawnień) zostają zwykłymi kratkami, bo przy wielu pozycjach przełączniki są mniej czytelne.
+
+## 0.40.0 (2026-11-09) · ETAP 40: tryb nocny
+
+- **Tryb nocny** dla całej strony: ciemne, ciepłe tło zamiast papieru, jasny tekst, przyciski i linki w kolorze starej czerwieni rozjaśnionej do ciemnego tła. Działa w archiwum, albumach, ulubionych, wyszukiwarce, drzewie i osi czasu, w Panelu oraz na stronie logowania (kropki tła też ściemniają się).
+- **Przełącznik w menu**: „🌙 Tryb nocny” / „☀️ Tryb dzienny”. Wybór zapamiętuje przeglądarka (ciasteczko `motyw` na rok), więc każdy domownik ustawia go u siebie. Przełącza się od razu, bez przeładowania; bez JavaScriptu działa jak zwykły formularz.
+- **Bez wyboru strona idzie za ustawieniem telefonu/komputera**: jeśli system ma ciemny motyw, archiwum też otworzy się ciemne.
+- Podgląd zdjęcia był i zostaje ciemny w obu trybach.
+- W środku: każdy kolor w `site.css` jest teraz zmienną w `:root`, a tryb nocny podmienia tylko te zmienne (test pilnuje, żeby żadnej nie zabrakło).
+
 ## 0.39.0 (2026-11-09) · ETAP 39: połączenia bez uskoków
 
 - **Bez „schodków” w liniach.** Gdy linia od rodziców schodzi prawie nad środkiem dziecka, linia dziecka wchodzi w kafelek dokładnie pod nią (do 48 px od środka), zamiast robić krótki uskok w bok.

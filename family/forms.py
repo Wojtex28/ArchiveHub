@@ -34,7 +34,7 @@ class PersonForm(forms.ModelForm):
         labels = {"name": "Imię i nazwisko", "deceased": "Nie żyje"}
         help_texts = {
             "birth_date": "Np. 12.06.1921, czerwiec 1921, 1921, ok. 1920 albo lata 20.",
-            "deceased": "Na kafelku w drzewie pojawi się †. Zaznacza się samo, gdy wpiszesz datę śmierci.",
+            "deceased": "Na kafelku w drzewie pojawi się †. Włącz, żeby wpisać datę i miejsce śmierci.",
             "death_date": "Jak data urodzenia. Puste, jeśli osoba żyje albo nie wiadomo.",
             "bio": "Kim była, gdzie mieszkała, czym się zajmowała, rodzinne historie.",
         }

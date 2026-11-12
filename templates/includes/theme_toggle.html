@@ -1,0 +1,11 @@
+{% comment %}
+Tryb nocny (ETAP 40), przełącznik jak w iOS na prawej krawędzi paska (ETAP 41).
+Bez JS formularz ustawia ciasteczko; z JS przełącza od razu (static/js/theme.js).
+{% endcomment %}
+<form method="post" action="{% url 'set_theme' %}" class="theme-toggle" data-theme-toggle>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+  <button type="submit" class="switch" role="switch" name="motyw" value="{% if theme == "dark" %}jasny{% else %}ciemny{% endif %}"
+          aria-checked="{% if theme == "dark" %}true{% else %}false{% endif %}" aria-label="Tryb nocny" title="Tryb nocny"></button>
+</form>

@@ -1,4 +1,5 @@
 {% extends "app_base.html" %}
+{% load static %}
 {% block title %}Edycja: {{ person.name }} · {{ site_title }}{% endblock %}
 {% block main %}
 <p><a href="{% url 'family:person' person.pk %}">← {{ person.name }}</a></p>
@@ -7,8 +8,8 @@
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
   {% for field in form %}{% if field.name != "portrait" %}
-  <div class="field{% if field.errors %} field--error{% endif %}{% if field.name == "deceased" %} field--check{% endif %}">
-    {% if field.name == "deceased" %}<label class="check">{{ field }} {{ field.label }} <span aria-hidden="true">†</span></label>
+  <div class="field{% if field.errors %} field--error{% endif %}{% if field.name == "deceased" %} field--check{% endif %}{% if field.name == "death_date" or field.name == "death_place" %} field--death{% endif %}">
+    {% if field.name == "deceased" %}<label class="check check--switch">{{ field }} {{ field.label }} <span aria-hidden="true">†</span></label>
     {% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}{% endif %}
     {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
@@ -32,4 +33,5 @@
   </fieldset>
   <button type="submit" class="button">Zapisz</button>
 </form>
+<script src="{% static 'js/person-form.js' %}" defer></script>
 {% endblock %}
