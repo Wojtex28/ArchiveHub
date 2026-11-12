@@ -49,7 +49,9 @@ def panel_context(request, photo, comment_form=None, metadata_form=None, people_
         comment.deletable = comment.can_delete(request.user)
     people = list(photo.people.all())
     namesakes = namesake_keys()
+    marks = {mark.person_id: mark for mark in photo.marks.all()}
     for person in people:
+        person.mark = marks.get(person.pk)
         # Dwie osoby „Jan Bereza” na liście „Kto” odróżniają lata życia z drzewa.
         person.namesake_years = person.years if person.key in namesakes and person.in_tree else ""
     tags = list(photo.tags.all())

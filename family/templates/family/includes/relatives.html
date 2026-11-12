@@ -8,10 +8,11 @@
       {% if can_edit and kind != "rodzenstwo" or can_edit and other.linked %}<form method="post" action="{% url 'family:relation_remove' person.pk other.pk kind %}">{% csrf_token %}<button type="submit" class="icon-button" data-confirm="Usunąć połączenie z: {{ other.name }}?" aria-label="Usuń połączenie z: {{ other.name }}" title="Usuń połączenie">×</button></form>{% endif %}
       {% if can_edit and kind == "partner" %}
       <details class="couple-edit">
-        <summary>Ślub, rozwód</summary>
+        <summary>{% if other.couple.since or other.couple.place %}Zmień ślub, rozwód{% else %}+ Data ślubu{% endif %}</summary>
         <form method="post" action="{% url 'family:couple_edit' person.pk other.pk %}">
           {% csrf_token %}
           <div class="field"><label for="slub-{{ other.pk }}">Rok ślubu</label><input id="slub-{{ other.pk }}" name="since" value="{{ other.couple.since }}" placeholder="np. 1950" maxlength="60"></div>
+          <div class="field"><label for="slub-miejsce-{{ other.pk }}">Miejsce ślubu</label><input id="slub-miejsce-{{ other.pk }}" name="place" value="{{ other.couple.place }}" placeholder="np. parafia w Kraczkowej" maxlength="200"></div>
           <label class="check check--switch"><input type="checkbox" name="ended"{% if other.couple.ended %} checked{% endif %}> Rozwód lub rozstanie</label>
           <button type="submit" class="button button--quiet">Zapisz</button>
         </form>

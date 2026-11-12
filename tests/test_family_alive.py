@@ -107,7 +107,7 @@ def test_death_fields_wait_for_the_switch(editor, db):
     anna = tree.add_person(None, "Anna Bereza")
     url = reverse("family:person_edit", args=[anna.pk])
     page = editor.get(url).content.decode()
-    assert page.count("field--death") == 2
+    assert page.count("field--death") == 3
     assert "js/person-form.js" in page
 
     editor.post(url, form_data(deceased="on", death_date="1998", death_place="Kraków"))

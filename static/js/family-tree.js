@@ -118,7 +118,7 @@
     (data.partners || []).forEach(function (pair, i) { info[coupleKey(pair[0], pair[1])] = { order: i, year: null, since: "", ended: false }; });
     (data.couples || []).forEach(function (c) {
       var item = info[coupleKey(c.a, c.b)];
-      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; }
+      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; item.place = c.place || ""; }
     });
     return info;
   }
@@ -880,11 +880,15 @@
 
   function avatar(person, className) {
     if (person.portrait) {
-      var img = el("img", className + " rot-" + person.portrait.turn);
+      // ETAP 45: zdjęcie w ramce, żeby dało się je przesunąć i powiększyć pod kółkiem (kadr portretu).
+      var frame = el("span", className + " " + className + "--photo");
+      var img = el("img", "rot-" + person.portrait.turn);
       img.src = person.portrait.url;
       img.alt = "";
       img.draggable = false;
-      return img;
+      frame.appendChild(img);
+      if (window.Portrait) window.Portrait.apply(img, person.portrait.x, person.portrait.y, person.portrait.zoom);
+      return frame;
     }
     return el("span", className + " " + className + "--empty", person.name.charAt(0));
   }
@@ -1253,6 +1257,8 @@
     var rel = relativesIndex(state.data);
     var couples = couplesIndex(state.data);
     var rows = [], undated = [];
+    var eventsBy = {};
+    (state.data.events || []).forEach(function (ev) { (eventsBy[ev.person] = eventsBy[ev.person] || []).push(ev); });
     state.data.people.forEach(function (p) {
       var born = p.born, died = p.died;
       if (born == null && died == null) { undated.push(p); return; }
@@ -1264,6 +1270,9 @@
       rel[p.id].children.forEach(function (q) {
         var child = state.byId[q];
         if (child && child.born != null) marks.push({ year: child.born, kind: "child", text: "Urodzenie dziecka: " + child.name + " (" + child.born + ")" });
+      });
+      (eventsBy[p.id] || []).forEach(function (ev) {
+        marks.push({ year: ev.year, kind: "event", icon: ev.icon, text: ev.text });
       });
       var start = born != null ? born : null, end = died != null ? died : null, open = false;
       if (end === null && start !== null && !p.deceased && NOW - start <= TL_MAX_AGE) { end = NOW; open = true; }
@@ -1295,7 +1304,9 @@
       hi = Math.ceil((hi + 5) / 10) * 10;
       var nameW = tlNameWidth();
       var fitPx = (timeline.clientWidth - nameW - 24) / (hi - lo);
-      var px = state.tl.px || Math.min(24, Math.max(2.5, fitPx));
+      // ETAP 43: na wąskim ekranie oś nie ściska się do szerokości okna, tylko przewija się w bok.
+      var minPx = timeline.clientWidth < 760 ? 7 : 4;
+      var px = state.tl.px || Math.min(24, Math.max(minPx, fitPx));
       state.tl.lastPx = px;
       var step = px * 10 >= 44 ? 10 : px * 20 >= 44 ? 20 : 50;
       var trackW = Math.ceil((hi - lo) * px) + 16;
@@ -1335,7 +1346,7 @@
         bar.title = p.name + (r.start === null ? ": rok urodzenia nieznany" : "") + (r.end === null ? ": rok śmierci nieznany" : "") + (r.open ? ": żyje" : "");
         track.appendChild(bar);
         r.marks.forEach(function (m) {
-          var mark = el("span", "tl-mark tl-mark--" + m.kind);
+          var mark = el("span", "tl-mark tl-mark--" + m.kind, m.icon);
           mark.style.left = (m.year - lo) * px + "px";
           mark.title = m.text;
           track.appendChild(mark);
@@ -1538,9 +1549,9 @@
     var item = couples[coupleKey(id, otherId)] || {};
     var parts = [];
     if (index[id].partners.length > 1) parts.push(partnersInOrder(id, index, couples).indexOf(otherId) + 1 + ". związek");
-    if (item.since) parts.push("ślub " + item.since);
+    if (item.since || item.place) parts.push(["ślub", item.since, item.place ? "(" + item.place + ")" : ""].filter(Boolean).join(" "));
     if (item.ended) parts.push("rozwód");
-    return { text: parts.join(" · "), since: item.since || "", ended: !!item.ended };
+    return { text: parts.join(" · "), since: item.since || "", place: item.place || "", ended: !!item.ended };
   }
 
   function coupleForm(person, other, info) {
@@ -1553,6 +1564,15 @@
     since.id = "slub-" + other.id;
     var sinceLabel = el("label", "", "Rok ślubu");
     sinceLabel.htmlFor = since.id;
+    // ETAP 47: miejsce ślubu.
+    var place = el("input");
+    place.type = "text";
+    place.value = info.place;
+    place.placeholder = "np. parafia w Kraczkowej";
+    place.maxLength = 200;
+    place.id = "slub-miejsce-" + other.id;
+    var placeLabel = el("label", "", "Miejsce ślubu");
+    placeLabel.htmlFor = place.id;
     var ended = el("label", "check check--switch");
     var box = el("input");
     box.type = "checkbox";
@@ -1561,10 +1581,10 @@
     ended.appendChild(document.createTextNode(" Rozwód lub rozstanie"));
     var save = el("button", "button button--quiet", "Zapisz");
     save.type = "submit";
-    [sinceLabel, since, ended, save].forEach(function (node) { form.appendChild(node); });
+    [sinceLabel, since, placeLabel, place, ended, save].forEach(function (node) { form.appendChild(node); });
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      send(urls.couple, { person: person.id, other: other.id, since: since.value, ended: box.checked }).then(function () {
+      send(urls.couple, { person: person.id, other: other.id, since: since.value, place: place.value, ended: box.checked }).then(function () {
         state.coupleEdit = null;
         renderSheet();
         showMessage("Zapisano: " + person.name + " i " + other.name + ".");
@@ -1578,6 +1598,7 @@
   var FACT_ROWS = [
     ["Urodzenie", "birth", "birthPlace"],
     ["Śmierć", "death", "deathPlace"],
+    ["Pochówek", "burial"],
   ];
 
   function personFacts(person) {
@@ -1616,11 +1637,13 @@
   var EDIT_FIELDS = [
     ["name", "Imię i nazwisko", "", 100],
     ["maiden", "Nazwisko rodowe", "np. Nowak", 100],
+    ["gender", "Płeć"],
     ["birth", "Data urodzenia", "np. 12.06.1921, 1921, ok. 1920, lata 20.", 60],
     ["birthPlace", "Miejsce urodzenia", "", 200],
     ["deceased"],
     ["death", "Data śmierci", "jak data urodzenia", 60],
     ["deathPlace", "Miejsce śmierci", "", 200],
+    ["burial", "Pochówek", "cmentarz, kwatera", 200],
     ["bio", "Opis", "Kim była, gdzie mieszkała, rodzinne historie.", 0],
   ];
 
@@ -1633,12 +1656,13 @@
   function openEdit(id) {
     var person = state.byId[id];
     if (!person || !state.data.canEdit) return;
-    state.edit = { id: id, portraits: null, portrait: null, errors: {} };
+    state.edit = { id: id, portraits: null, portrait: null, crop: null, errors: {} };
     renderEdit();
     request(personUrl(id)).then(function (data) {
       if (!state.edit || state.edit.id !== id) return;
       state.edit.portraits = data.portraits;
       state.edit.portrait = data.portrait;
+      state.edit.crop = data.crop;
       renderPortraits();
     }).catch(function () {
       if (state.edit && state.edit.id === id) { state.edit.portraits = []; renderPortraits(); }
@@ -1691,7 +1715,26 @@
         form.appendChild(row);
         return;
       }
-      if (key === "death" || key === "deathPlace") row.classList.add("field--death");
+      if (key === "gender") {
+        // ETAP 46: płeć podpowiadana z imienia, tu do poprawienia.
+        var genderLabel = el("label", "", field[1]);
+        genderLabel.htmlFor = "osoba-gender";
+        var select = el("select");
+        select.id = "osoba-gender";
+        select.name = key;
+        [["", "nie wiadomo"], ["K", "kobieta"], ["M", "mężczyzna"]].forEach(function (option) {
+          var node = el("option", "", option[1]);
+          node.value = option[0];
+          select.appendChild(node);
+        });
+        select.value = person.gender || "";
+        row.appendChild(genderLabel);
+        row.appendChild(select);
+        inputs[key] = select;
+        form.appendChild(row);
+        return;
+      }
+      if (key === "death" || key === "deathPlace" || key === "burial") row.classList.add("field--death");
       var id = "osoba-" + key;
       var label = el("label", "", field[1]);
       label.htmlFor = id;
@@ -1733,9 +1776,14 @@
         body[field[0]] = field[0] === "deceased" ? input.checked : input.value;
       });
       // Wyłączony przełącznik „Nie żyje” znaczy: bez daty i miejsca śmierci.
-      if (!body.deceased) { body.death = ""; body.deathPlace = ""; }
+      if (!body.deceased) { body.death = ""; body.deathPlace = ""; body.burial = ""; }
       var chosen = form.querySelector("input[name=portrait]:checked");
       body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
+      // Kadr portretu z okna wyboru (ETAP 45); bez okna serwer zostawia dotychczasowy.
+      [["portraitX", "portrait_x"], ["portraitY", "portrait_y"], ["portraitZoom", "portrait_zoom"]].forEach(function (pair) {
+        var field = form.querySelector("input[name=" + pair[1] + "]");
+        if (field && field.value !== "") body[pair[0]] = Number(field.value);
+      });
       var id = state.edit.id;
       request(personUrl(id), body).then(function (data) {
         closeEdit();
@@ -1772,7 +1820,7 @@
       box.appendChild(el("p", "hint", "Portret wybierzesz, gdy ktoś oznaczy tę osobę na zdjęciu (pole „Kto” w opisie zdjęcia)."));
       return;
     }
-    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie, spośród zdjęć z tą osobą."));
+    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie. Wybierz je i ustaw kadr w oknie."));
     var list = el("ul", "portrait-choice__list");
     var options = [{ id: "", url: null }].concat(portraits);
     options.forEach(function (photo) {
@@ -1783,6 +1831,7 @@
       radio.name = "portrait";
       radio.value = photo.id;
       radio.checked = String(state.edit.portrait || "") === String(photo.id);
+      if (photo.mark) radio.setAttribute("data-mark", photo.mark.join(","));
       label.appendChild(radio);
       if (photo.url) {
         var img = el("img", "rot-" + (photo.turn || 0));
@@ -1798,6 +1847,8 @@
       list.appendChild(item);
     });
     box.appendChild(list);
+    // Zamiast długiej listy: podgląd i przycisk otwierający okno wyboru z ustawianiem kadru.
+    if (window.Portrait) window.Portrait.attach(box, state.edit.crop, person.name.charAt(0));
   }
 
   // Karta osoby w okienku nad drzewem: pełna strona osoby w trybie ``?okno=1`` (bez menu i edycji).
@@ -1928,7 +1979,7 @@
           if (info) {
             if (info.text) item.appendChild(el("span", "hint tree-sheet__couple", info.text));
             if (state.data.canEdit) {
-              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : "Ślub, rozwód");
+              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since || info.place ? "Zmień ślub, rozwód" : "+ Data ślubu"));
               edit.type = "button";
               edit.addEventListener("click", function () {
                 state.coupleEdit = state.coupleEdit === other.id ? null : other.id;
