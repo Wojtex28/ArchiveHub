@@ -30,6 +30,7 @@ urlpatterns = [
     path("opisy/<str:kind>/<int:pk>/", views.named_edit, name="named_edit"),
     path("drzewo/", views.tree_history, name="tree_history"),
     path("drzewo/<int:pk>/przywroc/", views.tree_undo, name="tree_undo"),
+    path("drzewo/osoba/<int:pk>/plec/", views.tree_gender, name="tree_gender"),
     path("synchronizacja/", views.sync, name="sync"),
     path("stan/", views.server_status, name="server_status"),
     path("tlo-logowania/", views.login_photos, name="login_photos"),

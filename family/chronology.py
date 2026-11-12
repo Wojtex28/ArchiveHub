@@ -28,6 +28,7 @@ class Item:
     note: str = ""
     age: str = ""
     event: LifeEvent | None = None  # zdarzenie wpisane ręcznie (da się je poprawić i usunąć)
+    photo: object = None  # zdjęcie przy zdarzeniu, jeśli konto widzi jego album
 
 
 def _word(key, other):
@@ -42,15 +43,15 @@ def years_text(n):
     return f"{n} lat"
 
 
-def timeline(person):
-    """Zdarzenia od najstarszych; te bez daty na końcu."""
+def timeline(person, visible=None):
+    """Zdarzenia od najstarszych; te bez daty na końcu. ``visible``: zdjęcia, które widzi konto."""
     items = []
     if person.birth_date or person.birth_place:
         items.append(Item(person.birth_year, person.birth_date, "✶", "Urodzenie", person.birth_place))
     for other in tree.partners_in_order(person):
         couple = other.couple
-        if couple.since:
-            items.append(Item(couple.since_year, couple.since, "💍", f"Ślub: {other.name}"))
+        if couple.since or couple.place:
+            items.append(Item(couple.since_year, couple.since, "💍", f"Ślub: {other.name}", couple.place))
         if other.death_year and _within_life(person, other.death_year):
             items.append(
                 Item(other.death_year, other.death_date, "✝", f"{_word('partner_died', other)} {other.name}")
@@ -70,12 +71,18 @@ def timeline(person):
                     parent.death_year, parent.death_date, "✝", f"{_word('parent_died', parent)} {parent.name}"
                 )
             )
-    for event in person.life_events.all():
-        items.append(
-            Item(event.year, event.when, event.icon, event.heading, event.place, event.note, event=event)
-        )
-    if person.death_date or person.death_place or person.deceased:
-        items.append(Item(person.death_year, person.death_date, "✝", "Śmierć", person.death_place))
+    events = list(person.life_events.select_related("photo"))
+    shown = set()
+    if visible is not None:
+        wanted = [event.photo_id for event in events if event.photo_id]
+        shown = set(visible.filter(pk__in=wanted).values_list("pk", flat=True))
+    for event in events:
+        item = Item(event.year, event.when, event.icon, event.heading, event.place, event.note, event=event)
+        item.photo = event.photo if event.photo_id in shown else None
+        items.append(item)
+    if person.death_date or person.death_place or person.deceased or person.burial_place:
+        burial = f"Pochówek: {person.burial_place}" if person.burial_place else ""
+        items.append(Item(person.death_year, person.death_date, "✝", "Śmierć", person.death_place, burial))
     for item in items:
         if item.year is not None and person.birth_year is not None and item.title != "Urodzenie":
             age = item.year - person.birth_year

@@ -38,6 +38,8 @@ class Partnership(models.Model):
     since = models.CharField("rok ślubu", max_length=60, blank=True)
     since_year = models.SmallIntegerField(null=True, blank=True, editable=False)
     ended = models.BooleanField("rozwód lub rozstanie", default=False)
+    # ETAP 47: miejsce ślubu (parafia, urząd, miejscowość).
+    place = models.CharField("miejsce ślubu", max_length=200, blank=True)
 
     class Meta:
         constraints = [
@@ -152,6 +154,15 @@ class LifeEvent(models.Model):
     until = models.CharField("do kiedy", max_length=60, blank=True)
     place = models.CharField("miejsce", max_length=200, blank=True)
     note = models.TextField("notatka", max_length=1000, blank=True)
+    # ETAP 47: zdjęcie z archiwum przy zdarzeniu (spośród zdjęć tej osoby).
+    photo = models.ForeignKey(
+        "albums.Photo",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="zdjęcie",
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

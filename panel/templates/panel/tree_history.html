@@ -6,6 +6,25 @@
 </div>
 <p class="hint">Każda zmiana w drzewie, od najnowszych. „Przywróć” cofa jedną zmianę: wraca usuniętą osobę razem z jej połączeniami, poprzednie dane albo usuniętą relację, a dodaną relację usuwa. Cofnięcie też trafia do historii, więc i je da się cofnąć.</p>
 
+{% if genderless %}
+<details class="card" id="bez-plci">
+  <summary><strong>Osoby bez płci ({{ genderless|length }})</strong> <span class="hint">· z imienia nie dało się jej podpowiedzieć</span></summary>
+  <p class="hint">Płeć decyduje o słowach w chronologii (córka/syn, matka/ojciec). Wystarczy jedno kliknięcie przy osobie.</p>
+  <ul class="genderless">
+    {% for person in genderless %}
+    <li class="genderless__item">
+      <a href="{% url 'family:person' person.pk %}">{{ person.name }}</a>
+      <form method="post" action="{% url 'panel:tree_gender' person.pk %}">
+        {% csrf_token %}
+        <button type="submit" name="plec" value="K" class="button button--quiet">kobieta</button>
+        <button type="submit" name="plec" value="M" class="button button--quiet">mężczyzna</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
 <form method="get" class="tree-filters">
   <label>Osoba
     <select name="osoba">

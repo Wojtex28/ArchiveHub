@@ -118,7 +118,7 @@
     (data.partners || []).forEach(function (pair, i) { info[coupleKey(pair[0], pair[1])] = { order: i, year: null, since: "", ended: false }; });
     (data.couples || []).forEach(function (c) {
       var item = info[coupleKey(c.a, c.b)];
-      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; }
+      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; item.place = c.place || ""; }
     });
     return info;
   }
@@ -1544,9 +1544,9 @@
     var item = couples[coupleKey(id, otherId)] || {};
     var parts = [];
     if (index[id].partners.length > 1) parts.push(partnersInOrder(id, index, couples).indexOf(otherId) + 1 + ". związek");
-    if (item.since) parts.push("ślub " + item.since);
+    if (item.since || item.place) parts.push(["ślub", item.since, item.place ? "(" + item.place + ")" : ""].filter(Boolean).join(" "));
     if (item.ended) parts.push("rozwód");
-    return { text: parts.join(" · "), since: item.since || "", ended: !!item.ended };
+    return { text: parts.join(" · "), since: item.since || "", place: item.place || "", ended: !!item.ended };
   }
 
   function coupleForm(person, other, info) {
@@ -1559,6 +1559,15 @@
     since.id = "slub-" + other.id;
     var sinceLabel = el("label", "", "Rok ślubu");
     sinceLabel.htmlFor = since.id;
+    // ETAP 47: miejsce ślubu.
+    var place = el("input");
+    place.type = "text";
+    place.value = info.place;
+    place.placeholder = "np. parafia w Kraczkowej";
+    place.maxLength = 200;
+    place.id = "slub-miejsce-" + other.id;
+    var placeLabel = el("label", "", "Miejsce ślubu");
+    placeLabel.htmlFor = place.id;
     var ended = el("label", "check check--switch");
     var box = el("input");
     box.type = "checkbox";
@@ -1567,10 +1576,10 @@
     ended.appendChild(document.createTextNode(" Rozwód lub rozstanie"));
     var save = el("button", "button button--quiet", "Zapisz");
     save.type = "submit";
-    [sinceLabel, since, ended, save].forEach(function (node) { form.appendChild(node); });
+    [sinceLabel, since, placeLabel, place, ended, save].forEach(function (node) { form.appendChild(node); });
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      send(urls.couple, { person: person.id, other: other.id, since: since.value, ended: box.checked }).then(function () {
+      send(urls.couple, { person: person.id, other: other.id, since: since.value, place: place.value, ended: box.checked }).then(function () {
         state.coupleEdit = null;
         renderSheet();
         showMessage("Zapisano: " + person.name + " i " + other.name + ".");
@@ -1584,6 +1593,7 @@
   var FACT_ROWS = [
     ["Urodzenie", "birth", "birthPlace"],
     ["Śmierć", "death", "deathPlace"],
+    ["Pochówek", "burial"],
   ];
 
   function personFacts(person) {
@@ -1628,6 +1638,7 @@
     ["deceased"],
     ["death", "Data śmierci", "jak data urodzenia", 60],
     ["deathPlace", "Miejsce śmierci", "", 200],
+    ["burial", "Pochówek", "cmentarz, kwatera", 200],
     ["bio", "Opis", "Kim była, gdzie mieszkała, rodzinne historie.", 0],
   ];
 
@@ -1718,7 +1729,7 @@
         form.appendChild(row);
         return;
       }
-      if (key === "death" || key === "deathPlace") row.classList.add("field--death");
+      if (key === "death" || key === "deathPlace" || key === "burial") row.classList.add("field--death");
       var id = "osoba-" + key;
       var label = el("label", "", field[1]);
       label.htmlFor = id;
@@ -1760,7 +1771,7 @@
         body[field[0]] = field[0] === "deceased" ? input.checked : input.value;
       });
       // Wyłączony przełącznik „Nie żyje” znaczy: bez daty i miejsca śmierci.
-      if (!body.deceased) { body.death = ""; body.deathPlace = ""; }
+      if (!body.deceased) { body.death = ""; body.deathPlace = ""; body.burial = ""; }
       var chosen = form.querySelector("input[name=portrait]:checked");
       body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
       // Kadr portretu z okna wyboru (ETAP 45); bez okna serwer zostawia dotychczasowy.
@@ -1963,7 +1974,7 @@
           if (info) {
             if (info.text) item.appendChild(el("span", "hint tree-sheet__couple", info.text));
             if (state.data.canEdit) {
-              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since ? "Zmień datę ślubu, rozwód" : "+ Data ślubu"));
+              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since || info.place ? "Zmień ślub, rozwód" : "+ Data ślubu"));
               edit.type = "button";
               edit.addEventListener("click", function () {
                 state.coupleEdit = state.coupleEdit === other.id ? null : other.id;

@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.47.0 (2026-11-12) · ETAP 47: miejsce ślubu, pochówek, zdjęcie przy zdarzeniu
+
+- **Miejsce ślubu** przy parze (np. „parafia w Kraczkowej”), w panelu bocznym drzewa i na karcie osoby. Widać je w chronologii i przy partnerze („ślub 1950 (Kraczkowa)”).
+- **Pochówek** (cmentarz, kwatera) jako pole przy śmierci, pokazuje się dopiero po włączeniu „Nie żyje”. Widać go na karcie osoby i w chronologii.
+- **Zdjęcie przy zdarzeniu:** przy dodawaniu zdarzenia można wybrać jedno ze zdjęć tej osoby (np. dom, szkoła, wojsko). Miniatura w chronologii prowadzi do zdjęcia.
+- **Panel → Drzewo → „Osoby bez płci”:** osoby, przy których płci nie dało się podpowiedzieć z imienia, z przyciskami „kobieta” i „mężczyzna”.
+- Strona drzewa otwarta przed aktualizacją nie kasuje przy zapisie nowych pól (płeć, pochówek, miejsce ślubu).
+- Aktualizacja dodaje trzy pola (migracje `albums.0018`, `family.0007`).
+
 ## 0.46.0 (2026-11-12) · ETAP 46: płeć, chronologia życia i zdarzenia
 
 - **Chronologia na karcie osoby.** Oś czasu układa się sama z drzewa: urodzenie, śluby, narodziny dzieci, śmierć rodziców, partnera i dzieci, śmierć. Przy zdarzeniach widać wiek osoby.

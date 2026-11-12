@@ -17,6 +17,7 @@ PERSON_FIELDS = [
     "birth_place",
     "death_date",
     "death_place",
+    "burial_place",
     "deceased",
     "bio",
     "portrait_id",
@@ -30,6 +31,7 @@ FIELD_LABELS = {
     "birth_place": "miejsce urodzenia",
     "death_date": "data śmierci",
     "death_place": "miejsce śmierci",
+    "burial_place": "pochówek",
     "deceased": "czy żyje",
     "bio": "historia",
     "portrait_id": "portret",
@@ -441,7 +443,7 @@ def remove_relation(user, person, other, kind, reverts=None):
 
 # --- Związki (ETAP 31) ----------------------------------------------------------------------------
 
-COUPLE_LABELS = {"since": "rok ślubu", "ended": "rozwód"}
+COUPLE_LABELS = {"since": "rok ślubu", "place": "miejsce ślubu", "ended": "rozwód"}
 
 
 def couple(person, other):
@@ -450,7 +452,7 @@ def couple(person, other):
 
 
 def _couple_data(couple):
-    return {"since": couple.since, "ended": couple.ended}
+    return {"since": couple.since, "place": couple.place, "ended": couple.ended}
 
 
 def partners_in_order(person):
@@ -475,13 +477,17 @@ def partners_in_order(person):
 
 def couple_text(couple):
     """„ślub 1950 · rozwód” do list i karty osoby."""
-    parts = [f"ślub {couple.since}" if couple.since else "", "rozwód" if couple.ended else ""]
+    wedding = " ".join(filter(None, ["ślub", couple.since, f"({couple.place})" if couple.place else ""]))
+    parts = [wedding if couple.since or couple.place else "", "rozwód" if couple.ended else ""]
     return " · ".join(part for part in parts if part)
 
 
 @transaction.atomic
-def edit_couple(user, person, other, since, ended, reverts=None):
-    """Rok ślubu i rozwód pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło."""
+def edit_couple(user, person, other, since, ended, reverts=None, place=None):
+    """Rok i miejsce ślubu, rozwód pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło.
+
+    ``place=None`` zostawia miejsce ślubu bez zmian (strona otwarta przed ETAP 47 go nie wysyła).
+    """
     pair = couple(person, other)
     if pair is None:
         raise ValidationError(f"{person.name} i {other.name} nie są parą.")
@@ -493,6 +499,8 @@ def edit_couple(user, person, other, since, ended, reverts=None):
     pair.since = date.text if date else ""
     pair.since_year = (date.year_from + date.year_to) // 2 if date else None
     pair.ended = bool(ended)
+    if place is not None:
+        pair.place = " ".join(str(place).split())[:200]
     after = _couple_data(pair)
     changed = [field for field in COUPLE_LABELS if before[field] != after[field]]
     if not changed:
@@ -597,11 +605,13 @@ EVENT_LABELS = {
     "until": "do kiedy",
     "place": "miejsce",
     "note": "notatka",
+    "photo": "zdjęcie",
 }
+EVENT_TEXT = [field for field in EVENT_LABELS if field != "photo"]
 
 
 def event_data(event):
-    return {"id": event.pk, **{field: getattr(event, field) for field in EVENT_LABELS}}
+    return {"id": event.pk, **{field: getattr(event, field) for field in EVENT_TEXT}, "photo": event.photo_id}
 
 
 @transaction.atomic
@@ -609,10 +619,14 @@ def save_event(user, person, values, event=None, reverts=None):
     """Dodaje zdarzenie albo zapisuje zmiany w istniejącym. Zwraca wpis historii (None bez zmian)."""
     before = event_data(event) if event else {}
     event = event or LifeEvent(person=person)
-    for field in EVENT_LABELS:
+    for field in EVENT_TEXT:
         setattr(event, field, values.get(field, "") or "")
+    photo = values.get("photo")
+    photo_id = getattr(photo, "pk", photo) or None
+    # Zdjęcie usunięte z archiwum po zapisaniu historii: zdarzenie wraca bez niego.
+    event.photo_id = photo_id if photo_id and Photo.objects.filter(pk=photo_id).exists() else None
     event.year = sort_year(event.date) or sort_year(event.until)
-    after = {**before, **{field: getattr(event, field) for field in EVENT_LABELS}}
+    after = {**before, **{field: getattr(event, field) for field in EVENT_TEXT}, "photo": event.photo_id}
     if before == after:
         return None
     event.save()
@@ -742,10 +756,11 @@ def undo(user, change):
     elif kind == TreeChange.RELATION_REMOVED:
         person, other, relation = _link_from(change.before)
         result = add_relation(user, person, other, relation, reverts=change)
-        if relation == PARTNER and (change.before.get("since") or change.before.get("ended")):
+        if relation == PARTNER and any(change.before.get(f) for f in ("since", "place", "ended")):
             Partnership.objects.filter(
                 person1=change.before["person1"], person2=change.before["person2"]
             ).update(
+                place=change.before.get("place", ""),
                 since=change.before.get("since", ""),
                 since_year=sort_year(change.before.get("since", "")),
                 ended=bool(change.before.get("ended")),
@@ -756,7 +771,9 @@ def undo(user, change):
         if pair is None:
             raise ValidationError("Tej pary już nie ma w drzewie.")
         values = {**_couple_data(pair), **{f: change.before[f] for f in COUPLE_LABELS if f in change.before}}
-        result = edit_couple(user, person, other, values["since"], values["ended"], reverts=change)
+        result = edit_couple(
+            user, person, other, values["since"], values["ended"], reverts=change, place=values["place"]
+        )
         if result is None:
             raise ValidationError("Ta para już jest taka jak przed zmianą.")
     elif kind == TreeChange.EVENT_CHANGED:
@@ -806,7 +823,14 @@ def edit_rows(change):
         ]
     if change.kind == TreeChange.EVENT_CHANGED:
         kinds = dict(LifeEvent.KINDS)
-        show = lambda f, data: kinds.get(data.get(f), "") if f == "kind" else data.get(f) or ""  # noqa: E731
+
+        def show(f, data):
+            if f == "kind":
+                return kinds.get(data.get(f), "")
+            if f == "photo":
+                return f"zdjęcie nr {data[f]}" if data.get(f) else ""
+            return data.get(f) or ""
+
         return [
             (label, show(f, change.before), show(f, change.after))
             for f, label in EVENT_LABELS.items()

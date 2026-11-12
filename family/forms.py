@@ -34,6 +34,7 @@ class PersonForm(forms.ModelForm):
             "deceased",
             "death_date",
             "death_place",
+            "burial_place",
             "bio",
             "portrait",
             "portrait_x",
@@ -46,6 +47,7 @@ class PersonForm(forms.ModelForm):
             "birth_date": "Np. 12.06.1921, czerwiec 1921, 1921, ok. 1920 albo lata 20.",
             "deceased": "Na kafelku w drzewie pojawi się †. Włącz, żeby wpisać datę i miejsce śmierci.",
             "death_date": "Jak data urodzenia. Puste, jeśli osoba żyje albo nie wiadomo.",
+            "burial_place": "Cmentarz, kwatera, numer grobu.",
             "bio": "Kim była, gdzie mieszkała, czym się zajmowała, rodzinne historie.",
         }
         widgets = {
@@ -89,7 +91,7 @@ class PersonForm(forms.ModelForm):
     def clean(self):
         data = super().clean()
         # Data śmierci przesądza sprawę, nawet jeśli ktoś zapomniał o przełączniku.
-        if data.get("death_date") or data.get("death_place"):
+        if data.get("death_date") or data.get("death_place") or data.get("burial_place"):
             data["deceased"] = True
         # Kadr portretu: brak wartości (stary formularz, nowe zdjęcie bez ustawiania) to środek zdjęcia.
         changed = data.get("portrait") != self.instance.portrait
@@ -145,17 +147,22 @@ class LifeEventForm(forms.ModelForm):
 
     class Meta:
         model = LifeEvent
-        fields = ["kind", "title", "date", "until", "place", "note"]
+        fields = ["kind", "title", "date", "until", "place", "note", "photo"]
         labels = {"kind": "Co to za zdarzenie", "title": "Tytuł (opcjonalnie)", "date": "Kiedy albo od kiedy"}
         help_texts = {
             "title": "Np. „Kupno domu w Kraczkowej”. Bez tytułu zostanie nazwa rodzaju.",
             "date": "Np. 1950, czerwiec 1950, ok. 1950 albo lata 50.",
             "until": "Tylko gdy coś trwało dłużej, np. mieszkanie albo praca.",
         }
-        widgets = {"note": forms.Textarea(attrs={"rows": 3})}
+        widgets = {"note": forms.Textarea(attrs={"rows": 3}), "photo": forms.RadioSelect}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, photos=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Zdjęcie tylko spośród zdjęć tej osoby, które widzi konto (ETAP 47).
+        self.fields["photo"].queryset = photos if photos is not None else Photo.objects.none()
+        self.fields["photo"].required = False
+        self.fields["photo"].empty_label = "bez zdjęcia"
+        self.fields["photo"].label = "Zdjęcie z archiwum (opcjonalnie)"
         # Bez pustej pozycji na liście: najczęściej dopisuje się, gdzie ktoś mieszkał.
         self.fields["kind"].choices = LifeEvent.KINDS
         self.fields["kind"].initial = LifeEvent.KINDS[0][0]
@@ -176,6 +183,8 @@ class LifeEventForm(forms.ModelForm):
         data = super().clean()
         if data.get("kind") == "inne" and not data.get("title"):
             self.add_error("title", "Przy „Inne” wpisz tytuł zdarzenia.")
-        elif not self.errors and not any(data.get(f) for f in ("title", "date", "until", "place", "note")):
+        elif not self.errors and not any(
+            data.get(f) for f in ("title", "date", "until", "place", "note", "photo")
+        ):
             raise forms.ValidationError("Wpisz przynajmniej datę, miejsce albo notatkę.")
         return data

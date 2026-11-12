@@ -427,6 +427,8 @@ class Person(NamedModel):
     death_date = models.CharField("data śmierci", max_length=60, blank=True)
     death_year = models.SmallIntegerField(null=True, blank=True, editable=False)
     death_place = models.CharField("miejsce śmierci", max_length=200, blank=True)
+    # ETAP 47: cmentarz, kwatera (pokazuje się przy śmierci).
+    burial_place = models.CharField("pochówek", max_length=200, blank=True)
     # Przełącznik „Nie żyje” (ETAP 30): widać go na kafelku drzewa (†), także gdy daty śmierci nie znamy.
     deceased = models.BooleanField("nie żyje", default=False)
     # Płeć (ETAP 46): przy nowej osobie podpowiadana z imienia (albums.names), zawsze do poprawienia.

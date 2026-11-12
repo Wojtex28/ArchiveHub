@@ -70,7 +70,9 @@ def test_api_couple(editor, jan):
     data = post(
         editor, "family:api_couple", {"person": jan.pk, "other": maria.pk, "since": "1960", "ended": True}
     ).json()
-    assert data["couples"] == [{"a": jan.pk, "b": maria.pk, "since": "1960", "year": 1960, "ended": True}]
+    assert data["couples"] == [
+        {"a": jan.pk, "b": maria.pk, "since": "1960", "year": 1960, "ended": True, "place": ""}
+    ]
     response = post(editor, "family:api_couple", {"person": anna.pk, "other": maria.pk, "since": ""})
     assert response.status_code == 400
     assert post(editor, "family:api_couple", {"person": 999999, "other": maria.pk}).status_code == 404
@@ -92,7 +94,7 @@ def test_person_page_shows_and_edits_couples(editor, jan):
     page = editor.get(reverse("family:person", args=[jan.pk])).content.decode()
     assert page.index("Anna Kowalska") < page.index("Maria Nowak")
     assert "1. ślub 1950" in page and "2. ślub 1960 · rozwód" in page
-    assert "Zmień datę ślubu, rozwód" in page
+    assert "Zmień ślub, rozwód" in page
 
     editor.post(url, {"since": "kiedyś"})  # zła data: nic się nie zmienia
     assert Partnership.objects.get(person2=anna).since == "1950"

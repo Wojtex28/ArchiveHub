@@ -176,8 +176,9 @@ def _person_page(request, person, relation_form=None, namesakes=None, embedded=F
             "children": tree.children(person),
             "siblings": tree.siblings(person),
             "photos": photos_by_date(photos),
-            "timeline": chronology.timeline(person),
-            "event_form": event_form or LifeEventForm(),
+            "timeline": chronology.timeline(person, visible=photos),
+            "event_form": event_form or LifeEventForm(photos=photos),
+            "event_photos": _event_photos(photos),
             "event_open": event_form is not None,
             "photo_total": photos.count(),
             "relation_form": relation_form or RelationForm(label_suffix=""),
@@ -282,7 +283,12 @@ def couple_edit(request, pk, other_pk):
     other = get_object_or_404(Person, pk=other_pk)
     try:
         changed = tree.edit_couple(
-            request.user, person, other, request.POST.get("since", ""), request.POST.get("ended") == "on"
+            request.user,
+            person,
+            other,
+            request.POST.get("since", ""),
+            request.POST.get("ended") == "on",
+            place=request.POST.get("place"),
         )
     except ValidationError as exc:
         messages.error(request, exc.messages[0])
@@ -292,12 +298,17 @@ def couple_edit(request, pk, other_pk):
     return redirect("family:person", person.pk)
 
 
+def _event_photos(photos):
+    """Zdjęcia do wyboru przy zdarzeniu: od najstarszych, żeby łatwo trafić w okres."""
+    return list(photos.order_by(F("year_from").asc(nulls_last=True), "album__position", "position")[:200])
+
+
 @tree_access(edit=True)
 @require_POST
 def event_add(request, pk):
     """„+ Dodaj zdarzenie” na karcie osoby (ETAP 46)."""
     person = get_object_or_404(Person, pk=pk)
-    form = LifeEventForm(request.POST)
+    form = LifeEventForm(request.POST, photos=visible_photos(request.user, person))
     if not form.is_valid():
         return _person_page(request, person, event_form=form)
     tree.save_event(request.user, person, form.cleaned_data)
@@ -309,14 +320,21 @@ def event_add(request, pk):
 @require_http_methods(["GET", "HEAD", "POST"])
 def event_edit(request, pk):
     event = get_object_or_404(LifeEvent.objects.select_related("person"), pk=pk)
-    form = LifeEventForm(request.POST or None, instance=event)
+    photos = visible_photos(request.user, event.person)
+    # Zdjęcie z albumu, którego to konto nie widzi, zostaje przy zdarzeniu bez zmian.
+    hidden_photo = event.photo_id and not photos.filter(pk=event.photo_id).exists()
+    form = LifeEventForm(request.POST or None, instance=event, photos=photos)
     if request.method == "POST" and form.is_valid():
         # Formularz nie zapisuje sam: zapis idzie przez historię zmian drzewa.
         event.refresh_from_db()
-        tree.save_event(request.user, event.person, form.cleaned_data, event=event)
+        values = dict(form.cleaned_data)
+        if hidden_photo:
+            values["photo"] = event.photo_id
+        tree.save_event(request.user, event.person, values, event=event)
         messages.success(request, "Zapisano zdarzenie.")
         return redirect(reverse("family:person", args=[event.person_id]) + "#chronologia")
-    return render(request, "family/event_form.html", {"person": event.person, "event": event, "form": form})
+    context = {"person": event.person, "event": event, "form": form, "event_photos": _event_photos(photos)}
+    return render(request, "family/event_form.html", context)
 
 
 @tree_access(edit=True)

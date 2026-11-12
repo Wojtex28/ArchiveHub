@@ -50,6 +50,7 @@ def tree_data(user):
                 "birthPlace": p.birth_place,
                 "death": p.death_date,
                 "deathPlace": p.death_place,
+                "burial": p.burial_place,
                 "bio": p.bio,
                 "x": p.tree_x,
                 "y": p.tree_y,
@@ -64,9 +65,16 @@ def tree_data(user):
         "siblings": list(Sibling.objects.values_list("person1_id", "person2_id")),
         # ETAP 31: rok ślubu (kolejność związków) i rozwód (linia przerywana).
         "couples": [
-            {"a": c.person1_id, "b": c.person2_id, "since": c.since, "year": c.since_year, "ended": c.ended}
+            {
+                "a": c.person1_id,
+                "b": c.person2_id,
+                "since": c.since,
+                "year": c.since_year,
+                "ended": c.ended,
+                "place": c.place,
+            }
             for c in Partnership.objects.all()
-            if c.since or c.ended
+            if c.since or c.ended or c.place
         ],
         "outside": [{"id": p.pk, "name": p.name, "count": p.count} for p in outside[:200]],
         "names": list(Person.objects.values_list("name", flat=True)),
@@ -267,7 +275,15 @@ def couple(request):
     if person is None or other is None:
         return _error("Nie ma takiej osoby w drzewie.", 404)
     try:
-        tree.edit_couple(request.user, person, other, str(body.get("since") or ""), body.get("ended") is True)
+        place = body.get("place")
+        tree.edit_couple(
+            request.user,
+            person,
+            other,
+            str(body.get("since") or ""),
+            body.get("ended") is True,
+            place=str(place) if place is not None else None,
+        )
     except ValidationError as exc:
         return _error(exc.messages[0])
     return _ok(request)
@@ -280,6 +296,7 @@ PERSON_FIELDS = {
     "birthPlace": "birth_place",
     "death": "death_date",
     "deathPlace": "death_place",
+    "burial": "burial_place",
     "bio": "bio",
     "gender": "gender",
 }
@@ -321,9 +338,10 @@ def person(request, pk):
     data = {field: str(body.get(key) or "") for key, field in PERSON_FIELDS.items()}
     if body.get("deceased") is True:
         data["deceased"] = "on"
-    if "gender" not in body:
-        # Strona otwarta przed aktualizacją nie zna płci: zostaje dotychczasowa.
-        data["gender"] = person.gender
+    for key, field in PERSON_FIELDS.items():
+        if key not in body:
+            # Strona otwarta przed aktualizacją nie zna nowych pól (płeć, pochówek): zostają dotychczasowe.
+            data[field] = str(getattr(person, field) or "")
     portrait = body.get("portrait")
     data["portrait"] = str(portrait) if portrait else ""
     for key, field in CROP_FIELDS.items():

@@ -116,3 +116,66 @@ def test_viewer_sees_timeline_but_cannot_add(client, make_user, jan):
         == 404
     )
     assert not LifeEvent.objects.exists()
+
+
+def test_wedding_place_and_burial_show_in_timeline(master_client, jan):
+    """ETAP 47: miejsce ślubu, pochówek i zdjęcie przy zdarzeniu."""
+    anna = tree.add_person(None, "Anna Bereza")
+    tree.add_relation(None, jan, anna, tree.PARTNER)
+    master_client.post(
+        reverse("family:couple_edit", args=[jan.pk, anna.pk]), {"since": "1950", "place": "Kraczkowa"}
+    )
+    # Kanwa sprzed aktualizacji nie wysyła miejsca: zostaje.
+    api = reverse("family:api_couple")
+    body = {"person": jan.pk, "other": anna.pk, "since": "1951", "ended": False}
+    assert master_client.post(api, body, content_type="application/json").status_code == 200
+    pair = tree.couple(jan, anna)
+    assert (pair.since, pair.place) == ("1951", "Kraczkowa")
+    url = reverse("family:api_person", args=[jan.pk])
+    body = {"name": "Jan Bereza", "deceased": True, "death": "1990", "burial": "cmentarz w Kraczkowej, kw. 3"}
+    assert master_client.post(url, body, content_type="application/json").status_code == 200
+    rows = {
+        item.title: (item.place, item.note) for item in chronology.timeline(Person.objects.get(pk=jan.pk))
+    }
+    assert rows["Ślub: Anna Bereza"] == ("Kraczkowa", "")
+    assert rows["Śmierć"] == ("", "Pochówek: cmentarz w Kraczkowej, kw. 3")
+    # Cofnięcie zmiany pary przywraca też miejsce.
+    change = TreeChange.objects.filter(kind=TreeChange.COUPLE_EDITED).first()
+    master_client.post(reverse("panel:tree_undo", args=[change.pk]))
+    pair.refresh_from_db()
+    assert (pair.since, pair.place) == ("1950", "Kraczkowa")
+
+
+def test_event_photo_only_from_this_persons_visible_photos(master_client, jan, tmp_path, settings):
+    from albums.models import Album, Photo
+
+    settings.ARCHIVEHUB_ALBUMS_DIR = tmp_path
+    album = Album.objects.create(folder="01", title="Brązowy")
+    photo = Photo.objects.create(
+        album=album, name="a", source_name="a.png", position=1, checksum="a", width=4, height=3
+    )
+    other = Photo.objects.create(
+        album=album, name="b", source_name="b.png", position=2, checksum="b", width=4, height=3
+    )
+    photo.people.add(jan)
+    add = reverse("family:event_add", args=[jan.pk])
+    master_client.post(add, {"kind": "mieszkanie", "place": "Kraczkowa", "photo": other.pk})
+    assert not LifeEvent.objects.exists()
+    master_client.post(add, {"kind": "mieszkanie", "place": "Kraczkowa", "photo": photo.pk})
+    event = LifeEvent.objects.get()
+    assert event.photo == photo
+    page = master_client.get(reverse("family:person", args=[jan.pk])).content.decode()
+    assert "chronology__photo" in page
+    change = TreeChange.objects.filter(kind=TreeChange.EVENT_CHANGED).first()
+    assert ("zdjęcie", "", f"zdjęcie nr {photo.pk}") in tree.edit_rows(change)
+
+
+def test_panel_lists_people_without_gender(master_client, db):
+    unknown = tree.add_person(None, "J. K.")
+    tree.add_person(None, "Anna Bereza")
+    page = master_client.get(reverse("panel:tree_history")).content.decode()
+    assert "Osoby bez płci (1)" in page
+    master_client.post(reverse("panel:tree_gender", args=[unknown.pk]), {"plec": "M"})
+    unknown.refresh_from_db()
+    assert unknown.gender == "M"
+    assert "Osoby bez płci" not in master_client.get(reverse("panel:tree_history")).content.decode()
