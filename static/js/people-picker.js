@@ -167,7 +167,8 @@
         nodes.push(item);
       });
       if (!options.length) {
-        var empty = element("li", "picker__empty", query ? "Ta osoba już jest na liście." : "Wpisz kilka liter imienia lub nazwiska.");
+        var taken = query && (byName[lower(typed)] || []).some(function (choice) { return isSelected(choice.token); });
+        var empty = element("li", "picker__empty", taken ? "Ta osoba już jest na liście." : query ? "Nie ma takiej osoby. Wpisz co najmniej trzy litery, żeby dodać nową." : "Wpisz kilka liter imienia lub nazwiska.");
         empty.setAttribute("role", "presentation");
         nodes.push(empty);
       }
@@ -181,7 +182,12 @@
     function pick(index) {
       var option = options[index];
       if (!option) return;
-      if (option.fresh) remember({ name: option.name, token: option.name, tree: false });
+      // Nowa osoba trafia też na listę do wyboru: po zdjęciu jej „×” da się ją dodać z powrotem.
+      if (option.fresh) {
+        var fresh = { name: option.name, token: option.name, tree: false };
+        remember(fresh);
+        choices.push(fresh);
+      }
       selected.push(option.fresh ? option.name : option.token);
       save(); drawChips();
       search.value = "";
@@ -202,9 +208,8 @@
         if (!list.hidden && active >= 0) { event.preventDefault(); pick(active); }
         else if (clean(search.value)) event.preventDefault();
       } else if (event.key === "Escape" && !list.hidden) { event.preventDefault(); event.stopPropagation(); close(); }
-      else if (event.key === "Backspace" && !search.value && selected.length) {
-        selected.pop(); save(); drawChips();
-      }
+      // Backspace w pustym polu nie usuwa już ostatniej osoby (ETAP 43): łatwo było to zrobić
+      // niechcący. Osobę zdejmuje tylko „×” na jej etykiecie (dostępny też z klawiatury, Tab).
     });
     // Klik w listę nie zabiera kursora z pola wyszukiwania.
     list.addEventListener("mousedown", function (event) { event.preventDefault(); });

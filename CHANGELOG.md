@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.43.0 (2026-11-12) · ETAP 43: poprawki przy zdjęciach i osi czasu
+
+- **Naprawione:** osoba dodana do zdjęcia przez „+ Dodaj nową osobę”, a potem zdjęta „×”, daje się dodać ponownie (wcześniej było „Ta osoba już jest na liście”).
+- **Backspace nie usuwa już osób.** Osobę ze zdjęcia zdejmuje tylko „×” na jej etykiecie, więc jeden Backspace za dużo niczego nie kasuje.
+- **„Kiedy” i „Gdzie” widać zawsze** w panelu zdjęcia (z napisem „nie wpisano”, gdy są puste), a przycisk nazywa się „Dodaj datę, miejsce i opis”.
+- **Podgląd zdjęcia na komputerze** zajmuje najwyżej 90% miejsca, żeby na dużym ekranie nie było za blisko. Na telefonie bez zmian.
+- **Oś czasu** na wąskim ekranie nie ściska się do szerokości okna, tylko przewija w bok, i ma zawsze widoczny pasek przewijania na dole.
+
 ## 0.42.0 (2026-11-10) · ETAP 42: ładniejsza karta osoby nad drzewem
 
 - **Pasek u góry karty** z napisem „Karta osoby”, przyciskiem „Pełna strona ↗” i ×. Karta przewija się pod paskiem, więc pasek przewijania nie wchodzi już na przycisk zamykania.

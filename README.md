@@ -41,6 +41,7 @@ w projekcie.
 | 40 | Tryb nocny | **gotowe** |
 | 41 | Przełączniki jak w iOS (tryb nocny i pola tak/nie) | **gotowe** |
 | 42 | Ładniejsza karta osoby nad drzewem | **gotowe** |
+| 43 | Poprawki przy zdjęciach i osi czasu | **gotowe** |
 
 ## Technologie
 

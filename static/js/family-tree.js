@@ -1295,7 +1295,9 @@
       hi = Math.ceil((hi + 5) / 10) * 10;
       var nameW = tlNameWidth();
       var fitPx = (timeline.clientWidth - nameW - 24) / (hi - lo);
-      var px = state.tl.px || Math.min(24, Math.max(2.5, fitPx));
+      // ETAP 43: na wąskim ekranie oś nie ściska się do szerokości okna, tylko przewija się w bok.
+      var minPx = timeline.clientWidth < 760 ? 7 : 4;
+      var px = state.tl.px || Math.min(24, Math.max(minPx, fitPx));
       state.tl.lastPx = px;
       var step = px * 10 >= 44 ? 10 : px * 20 >= 44 ? 20 : 50;
       var trackW = Math.ceil((hi - lo) * px) + 16;
