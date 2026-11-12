@@ -15,6 +15,10 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.48.1 (2026-11-12) · poprawka: ikonka trybu nocnego
+
+- Obok przełącznika trybu jest księżyc w trybie dziennym i słońce w trybie nocnym (zmienia się od razu po przełączeniu).
+
 ## 0.48.0 (2026-11-12) · ETAP 48: zdarzenia na osi czasu drzewa
 
 - W widoku „Oś czasu” drzewa zdarzenia z życia z datą (zamieszkanie, nauka, praca, wojsko…) są małymi ikonkami na pasku życia osoby. Po najechaniu widać, co to i gdzie.
