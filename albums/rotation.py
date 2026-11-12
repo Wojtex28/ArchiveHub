@@ -19,6 +19,7 @@ from django.utils import timezone
 from PIL import Image
 
 from .importer import PREVIEW_QUALITY, THUMB_QUALITY, touch_heartbeat
+from .marks import turn_marks
 from .models import Photo
 
 logger = logging.getLogger("albums.importer")
@@ -41,6 +42,8 @@ def rotate(photo, user, reverse=False, clockwise=True):
         value = (getattr(current, field) + step) % 360
         changes = {field: value, "rotated_at": timezone.now(), "rotated_by": user}
         Photo.objects.filter(pk=photo.pk).update(**changes)
+        if not reverse:
+            turn_marks(photo, clockwise)
     setattr(photo, field, value)
     logger.info("%s obrócił(a) %s%s: %s°", user, photo, " (rewers)" if reverse else "", value)
     return value

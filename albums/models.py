@@ -427,12 +427,22 @@ class Person(NamedModel):
     death_date = models.CharField("data śmierci", max_length=60, blank=True)
     death_year = models.SmallIntegerField(null=True, blank=True, editable=False)
     death_place = models.CharField("miejsce śmierci", max_length=200, blank=True)
+    # ETAP 47: cmentarz, kwatera (pokazuje się przy śmierci).
+    burial_place = models.CharField("pochówek", max_length=200, blank=True)
     # Przełącznik „Nie żyje” (ETAP 30): widać go na kafelku drzewa (†), także gdy daty śmierci nie znamy.
     deceased = models.BooleanField("nie żyje", default=False)
+    # Płeć (ETAP 46): przy nowej osobie podpowiadana z imienia (albums.names), zawsze do poprawienia.
+    GENDERS = [("", "nie wiadomo"), ("K", "kobieta"), ("M", "mężczyzna")]
+    gender = models.CharField("płeć", max_length=1, blank=True, choices=GENDERS)
     bio = models.TextField("historia", blank=True)
     portrait = models.ForeignKey(
         "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="portret"
     )
+    # Kadr portretu w kółku (ETAP 45): położenie zdjęcia w procentach (jak ``object-position``)
+    # i powiększenie. Domyślnie środek zdjęcia bez powiększenia, czyli tak jak przed tą wersją.
+    portrait_x = models.FloatField(default=50)
+    portrait_y = models.FloatField(default=50)
+    portrait_zoom = models.FloatField(default=1)
     # Miejsce kafelka na kanwie drzewa (ETAP 22); puste = jeszcze nieułożony.
     tree_x = models.FloatField(null=True, blank=True)
     tree_y = models.FloatField(null=True, blank=True)
@@ -443,6 +453,13 @@ class Person(NamedModel):
     class Meta(NamedModel.Meta):
         verbose_name = "osoba"
         verbose_name_plural = "osoby"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.gender:
+            from .names import guess_gender
+
+            self.gender = guess_gender(self.name)
+        super().save(*args, **kwargs)
 
     @staticmethod
     def _short_date(text, year):
@@ -478,6 +495,31 @@ class Person(NamedModel):
         if died:
             return f"† {died}"
         return "† nie żyje"
+
+
+class PersonMark(models.Model):
+    """Punkt na zdjęciu wskazujący osobę (ETAP 44). Oznaczenie „Kto” działa także bez punktu.
+
+    Współrzędne to ułamek szerokości i wysokości awersu (0–1) w takim ułożeniu, w jakim widać
+    zdjęcie; obrót zdjęcia przelicza punkty (:func:`albums.marks.turn_marks`).
+    """
+
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name="marks")
+    person = models.ForeignKey("Person", on_delete=models.CASCADE, related_name="marks")
+    x = models.FloatField()
+    y = models.FloatField()
+    set_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    set_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "punkt osoby na zdjęciu"
+        verbose_name_plural = "punkty osób na zdjęciach"
+        constraints = [models.UniqueConstraint(fields=["photo", "person"], name="punkt_osoby_raz")]
+
+    def __str__(self):
+        return f"{self.person} na {self.photo}"
 
 
 class Tag(NamedModel):

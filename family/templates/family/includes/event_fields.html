@@ -1,0 +1,22 @@
+{% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+{% for field in form %}{% if field.name != "photo" %}
+<div class="field{% if field.errors %} field--error{% endif %}">
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }}
+  {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+</div>
+{% endif %}{% endfor %}
+{% if event_photos %}
+<details class="field event-photos"{% if form.photo.value %} open{% endif %}>
+  <summary>{{ form.photo.label }}</summary>
+  <p class="hint">Np. zdjęcie domu, szkoły albo z wojska. Do wyboru są zdjęcia, na których oznaczono tę osobę.</p>
+  <ul class="event-photos__list">
+    <li><label><input type="radio" name="photo" value=""{% if not form.photo.value %} checked{% endif %}><span class="event-photos__none">bez zdjęcia</span></label></li>
+    {% for photo in event_photos %}
+    <li><label><input type="radio" name="photo" value="{{ photo.pk }}"{% if form.photo.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}><img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {% if photo.date_text %}z {{ photo.date_text }}{% else %}bez daty{% endif %}, album {{ photo.album.title }}" loading="lazy" title="{{ photo.date_text|default:'bez daty' }}"></label></li>
+    {% endfor %}
+  </ul>
+  {% for error in form.photo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+</details>
+{% endif %}

@@ -17,7 +17,7 @@ from albums.models import NamedModel, Person, Photo
 
 from . import tree
 from .forms import PersonForm
-from .models import ParentChild, Partnership, Sibling
+from .models import LifeEvent, ParentChild, Partnership, Sibling
 from .views import save_person, tree_access, visible_photos
 
 # Kanwa ma granice, żeby kafelek nie uciekł w nieskończoność po błędzie.
@@ -40,6 +40,7 @@ def tree_data(user):
                 "id": p.pk,
                 "name": p.name,
                 "maiden": p.maiden_name,
+                "gender": p.gender,
                 "years": p.life,
                 "deceased": p.deceased,
                 "born": p.birth_year,
@@ -49,11 +50,12 @@ def tree_data(user):
                 "birthPlace": p.birth_place,
                 "death": p.death_date,
                 "deathPlace": p.death_place,
+                "burial": p.burial_place,
                 "bio": p.bio,
                 "x": p.tree_x,
                 "y": p.tree_y,
                 "url": reverse("family:person", args=[p.pk]),
-                "portrait": _portrait(visible.get(p.portrait_id)),
+                "portrait": _portrait(visible.get(p.portrait_id), p),
             }
             for p in people
         ],
@@ -63,9 +65,26 @@ def tree_data(user):
         "siblings": list(Sibling.objects.values_list("person1_id", "person2_id")),
         # ETAP 31: rok ślubu (kolejność związków) i rozwód (linia przerywana).
         "couples": [
-            {"a": c.person1_id, "b": c.person2_id, "since": c.since, "year": c.since_year, "ended": c.ended}
+            {
+                "a": c.person1_id,
+                "b": c.person2_id,
+                "since": c.since,
+                "year": c.since_year,
+                "ended": c.ended,
+                "place": c.place,
+            }
             for c in Partnership.objects.all()
-            if c.since or c.ended
+            if c.since or c.ended or c.place
+        ],
+        # ETAP 48: zdarzenia z życia z datą, jako znaczki na pasku życia w widoku „Oś czasu”.
+        "events": [
+            {
+                "person": e.person_id,
+                "year": e.year,
+                "icon": e.icon,
+                "text": f"{e.heading} ({e.when})" + (f", {e.place}" if e.place else ""),
+            }
+            for e in LifeEvent.objects.filter(person__in_tree=True, year__isnull=False)
         ],
         "outside": [{"id": p.pk, "name": p.name, "count": p.count} for p in outside[:200]],
         "names": list(Person.objects.values_list("name", flat=True)),
@@ -73,11 +92,15 @@ def tree_data(user):
     }
 
 
-def _portrait(photo):
+def _portrait(photo, person=None):
     if photo is None:
         return None
     url = f"{reverse('albums:thumb', args=[photo.pk])}?v={photo.version_front}"
-    return {"url": url, "turn": photo.pending_front}
+    data = {"url": url, "turn": photo.pending_front}
+    if person is not None:
+        # ETAP 45: kadr portretu w kółku.
+        data.update(x=person.portrait_x, y=person.portrait_y, zoom=person.portrait_zoom)
+    return data
 
 
 def _ok(request, **extra):
@@ -262,7 +285,15 @@ def couple(request):
     if person is None or other is None:
         return _error("Nie ma takiej osoby w drzewie.", 404)
     try:
-        tree.edit_couple(request.user, person, other, str(body.get("since") or ""), body.get("ended") is True)
+        place = body.get("place")
+        tree.edit_couple(
+            request.user,
+            person,
+            other,
+            str(body.get("since") or ""),
+            body.get("ended") is True,
+            place=str(place) if place is not None else None,
+        )
     except ValidationError as exc:
         return _error(exc.messages[0])
     return _ok(request)
@@ -275,8 +306,15 @@ PERSON_FIELDS = {
     "birthPlace": "birth_place",
     "death": "death_date",
     "deathPlace": "death_place",
+    "burial": "burial_place",
     "bio": "bio",
+    "gender": "gender",
 }
+
+
+CROP_FIELDS = {"portraitX": "portrait_x", "portraitY": "portrait_y", "portraitZoom": "portrait_zoom"}
+# Tyle zdjęć osoby pokazuje okno wyboru portretu.
+PORTRAITS_SHOWN = 200
 
 
 @tree_access()
@@ -292,10 +330,16 @@ def person(request, pk):
         return _error("Nie ma takiej osoby.", 404)
     portraits = visible_photos(request.user, person)
     if request.method != "POST":
+        # Punkt osoby na zdjęciu (ETAP 44) podpowiada kadr: twarz trafia na środek kółka.
+        marks = {mark.photo_id: [mark.x, mark.y] for mark in person.marks.all()}
         return JsonResponse(
             {
                 "portrait": person.portrait_id if portraits.filter(pk=person.portrait_id).exists() else None,
-                "portraits": [{"id": photo.pk, **_portrait(photo)} for photo in portraits[:60]],
+                "crop": {"x": person.portrait_x, "y": person.portrait_y, "zoom": person.portrait_zoom},
+                "portraits": [
+                    {"id": photo.pk, **_portrait(photo), "mark": marks.get(photo.pk)}
+                    for photo in portraits[:PORTRAITS_SHOWN]
+                ],
             }
         )
     if not request.user.can_edit_tree:
@@ -304,8 +348,15 @@ def person(request, pk):
     data = {field: str(body.get(key) or "") for key, field in PERSON_FIELDS.items()}
     if body.get("deceased") is True:
         data["deceased"] = "on"
+    for key, field in PERSON_FIELDS.items():
+        if key not in body:
+            # Strona otwarta przed aktualizacją nie zna nowych pól (płeć, pochówek): zostają dotychczasowe.
+            data[field] = str(getattr(person, field) or "")
     portrait = body.get("portrait")
     data["portrait"] = str(portrait) if portrait else ""
+    for key, field in CROP_FIELDS.items():
+        if isinstance(body.get(key), (int, float)) and not isinstance(body.get(key), bool):
+            data[field] = str(body[key])
     form = PersonForm(data, instance=person, portraits=portraits)
     before, old_name = tree.snapshot(person), person.name
     if not form.is_valid():

@@ -1253,3 +1253,125 @@ a.chip { color: inherit; text-decoration: none; }
   .theme-toggle { top: 0.375rem; right: 0.75rem; }
   .app-header__title { padding-right: 5.5rem; }
 }
+
+/* --- ETAP 43: drobne poprawki ------------------------------------------- */
+
+/* Na komputerze zdjęcie w podglądzie zajmuje najwyżej 90% miejsca (na dużym ekranie było za blisko). */
+@media (min-width: 40.0625rem) {
+  .viewer__img { max-width: 90%; max-height: 90%; }
+}
+
+/* Oś czasu: zawsze widoczny pasek przewijania na dole (także tam, gdzie system chowa paski). */
+.tree-timeline { scrollbar-width: auto; scrollbar-color: var(--rule-strong) var(--card); }
+.tree-timeline::-webkit-scrollbar { height: 14px; width: 12px; }
+.tree-timeline::-webkit-scrollbar-track { background: var(--card); border-top: 1px solid var(--rule); }
+.tree-timeline::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 999px; border: 3px solid var(--card); }
+.tree-timeline::-webkit-scrollbar-thumb:hover { background: var(--ink-quiet); }
+.tree-timeline::-webkit-scrollbar-corner { background: var(--card); }
+.metadata__missing { color: #a99c89; font-style: italic; }
+
+/* ETAP 44: punkty osób na zdjęciu. Kropka nad zdjęciem, imię po najechaniu albo stuknięciu. */
+.viewer__stage { position: relative; }
+.viewer__marks { position: absolute; inset: 0; pointer-events: none; }
+.viewer__marks[hidden], .viewer__mark-hint[hidden] { display: none; }
+.viewer__mark { position: absolute; width: 1.125rem; height: 1.125rem; margin: -0.5625rem 0 0 -0.5625rem; padding: 0; border-radius: 50%; border: 2px solid #fff; background: #d9892b; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), 0 1px 5px rgb(0 0 0 / 0.6); pointer-events: auto; cursor: pointer; transition: left 0.2s ease, top 0.2s ease, transform 0.15s ease; }
+.viewer__stage.is-gesturing .viewer__mark { transition: none; }
+.viewer__stage.is-marking .viewer__mark { pointer-events: none; opacity: 0.6; }
+.viewer__mark:hover, .viewer__mark.is-active { transform: scale(1.25); z-index: 1; }
+.viewer__mark-name { position: absolute; left: 50%; bottom: calc(100% + 0.375rem); transform: translateX(-50%); padding: 0.125rem 0.5rem; border-radius: 6px; background: rgb(20 17 14 / 0.92); color: #f4efe6; font-size: 0.8125rem; line-height: 1.4; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
+.viewer__mark:hover .viewer__mark-name, .viewer__mark:focus-visible .viewer__mark-name, .viewer__mark.is-active .viewer__mark-name { opacity: 1; }
+.viewer__stage.is-marking, .viewer__stage.is-marking .viewer__img { cursor: crosshair; }
+.viewer__mark-hint { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.375rem 0.625rem; width: max-content; max-width: calc(100% - 1rem); padding: 0.375rem 0.875rem; border-radius: 1.25rem; background: rgb(20 17 14 / 0.92); border: 1px solid rgb(255 255 255 / 0.3); color: #f4efe6; font-size: 0.9375rem; }
+.viewer__mark-action { font: inherit; font-size: 0.875rem; color: inherit; padding: 0.125rem 0.625rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.25); border-radius: 999px; cursor: pointer; }
+.viewer__mark-action:hover { background: rgb(255 255 255 / 0.22); }
+.people__mark { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; padding: 0; font: inherit; font-size: 0.875rem; line-height: 1; background: none; border: 1px dashed rgb(255 255 255 / 0.3); border-radius: 50%; cursor: pointer; filter: grayscale(1); opacity: 0.7; }
+.people__mark:hover { opacity: 1; background: rgb(255 255 255 / 0.12); }
+.people__mark.is-set { filter: none; opacity: 1; border-style: solid; border-color: #d9892b; }
+.people__list li { margin-right: 0.25rem; }
+.people__mark-help { margin: -0.25rem 0 0.75rem; }
+.viewer.is-reverse .people__mark, .viewer.is-reverse .people__mark-help { display: none; }
+
+/* ETAP 45: kadr portretu (zdjęcie w okrągłej ramce) i okno wyboru portretu. */
+.tree-avatar--photo, .tree-node__avatar--photo { display: inline-block; overflow: hidden; isolation: isolate; }
+.tree-avatar--photo img, .tree-node__avatar--photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tree-avatar--photo.tree-avatar--empty { display: inline-flex; }
+.portrait-choice__list[hidden] { display: none; }
+.portrait-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+.portrait-pick__preview { width: 4.5rem; height: 4.5rem; font-size: 1.75rem; }
+.portrait-dialog { width: min(46rem, calc(100vw - 1.5rem)); max-height: calc(100dvh - 1.5rem); padding: 0; border: 1px solid var(--rule-strong); border-radius: 14px; background: var(--card); color: var(--ink); box-shadow: 0 1rem 3rem rgb(var(--shadow) / 0.35); }
+.portrait-dialog[open] { display: flex; flex-direction: column; }
+.portrait-dialog::backdrop { background: rgb(20 17 14 / 0.55); }
+.portrait-dialog__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--rule); }
+.portrait-dialog__title { margin: 0; font-size: 1.25rem; }
+.portrait-dialog__close { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; padding: 0; font: inherit; color: inherit; background: none; border: 1px solid var(--rule-strong); border-radius: 50%; cursor: pointer; }
+.portrait-dialog__close:hover { border-color: var(--accent); color: var(--accent); }
+.portrait-dialog__body { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 1.25rem; padding: 1.25rem; min-height: 0; overflow: hidden; }
+.portrait-dialog__crop { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.portrait-dialog__frame { width: 14rem; height: 14rem; font-size: 5rem; border: 3px solid var(--accent); cursor: grab; touch-action: none; user-select: none; }
+.portrait-dialog__frame:active { cursor: grabbing; }
+.portrait-dialog__frame.tree-avatar--empty { display: inline-flex; cursor: default; }
+.portrait-dialog__zoom { display: flex; align-items: center; gap: 0.625rem; width: 100%; font-size: 0.9375rem; }
+.portrait-dialog__zoom[hidden] { display: none; }
+.portrait-dialog__zoom input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.portrait-dialog__note { margin: 0; text-align: center; }
+.portrait-dialog__side { display: flex; flex-direction: column; min-height: 0; }
+.portrait-dialog__label { margin: 0 0 0.5rem; font-weight: 600; font-size: 0.9375rem; }
+.portrait-dialog__grid { list-style: none; margin: 0; padding: 0.25rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: 0.5rem; overflow-y: auto; max-height: 24rem; }
+.portrait-dialog__photo { display: block; width: 100%; aspect-ratio: 1; padding: 0; font: inherit; font-size: 0.8125rem; color: var(--ink-quiet); background: var(--field); border: 1px solid var(--rule-strong); border-radius: 8px; overflow: hidden; cursor: pointer; }
+.portrait-dialog__photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.portrait-dialog__photo[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: 1px; }
+.portrait-dialog__foot { display: flex; gap: 0.625rem; padding: 0.875rem 1.25rem; border-top: 1px solid var(--rule); }
+@media (max-width: 40rem) {
+  .portrait-dialog__body { grid-template-columns: minmax(0, 1fr); overflow-y: auto; padding: 1rem; }
+  .portrait-dialog__frame { width: 11rem; height: 11rem; }
+  .portrait-dialog__grid { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr)); }
+}
+.gallery-grid__period { grid-column: 1 / -1; margin: 0.5rem 0 -0.25rem; padding-bottom: 0.25rem; font: 400 1.125rem/1.3 var(--serif); color: var(--ink-quiet); border-bottom: 1px solid var(--rule); }
+.gallery-grid__period:first-child { margin-top: 0; }
+
+/* ETAP 46: chronologia życia na karcie osoby. Data po lewej, znak na osi, opis po prawej. */
+.chronology { list-style: none; margin: 1rem 0 1.25rem; padding: 0; max-width: 44rem; }
+.chronology__item { position: relative; display: grid; grid-template-columns: 7.5rem 2rem minmax(0, 1fr); gap: 0 0.75rem; padding-bottom: 1.125rem; }
+.chronology__item::before { content: ""; position: absolute; left: calc(7.5rem + 0.75rem + 1rem - 1px); top: 2rem; bottom: 0; width: 2px; background: var(--rule); }
+.chronology__item:last-child { padding-bottom: 0; }
+.chronology__item:last-child::before { display: none; }
+.chronology__when { padding-top: 0.25rem; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-quiet); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.chronology__icon { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--card); border: 1px solid var(--rule-strong); font-size: 0.9375rem; line-height: 1; }
+.chronology__item--own .chronology__icon { border-color: var(--accent); }
+.chronology__body { padding-top: 0.1875rem; min-width: 0; }
+.chronology__place { color: var(--ink-quiet); font-size: 0.9375rem; }
+.chronology__note { margin: 0.25rem 0 0; font-size: 0.9375rem; overflow-wrap: anywhere; }
+.chronology__actions { display: flex; gap: 0.875rem; align-items: center; margin-top: 0.25rem; font-size: 0.875rem; }
+.chronology__actions form { margin: 0; }
+.event-add { margin: 0 0 2rem; }
+.event-add > summary { display: inline-flex; list-style: none; cursor: pointer; }
+.event-add > summary::-webkit-details-marker { display: none; }
+.event-add[open] > summary { margin-bottom: 0.75rem; }
+@media (max-width: 40rem) {
+  .chronology__item { grid-template-columns: 4.75rem 1.75rem minmax(0, 1fr); gap: 0 0.5rem; }
+  .chronology__item::before { left: calc(4.75rem + 0.5rem + 0.875rem - 1px); top: 1.75rem; }
+  .chronology__icon { width: 1.75rem; height: 1.75rem; font-size: 0.8125rem; }
+  .chronology__when { font-size: 0.8125rem; }
+}
+
+/* ETAP 47: zdjęcie przy zdarzeniu z życia i lista osób bez płci. */
+.chronology__photo { display: inline-block; margin-top: 0.375rem; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule-strong); }
+.chronology__photo img { display: block; width: 7.5rem; height: 5.5rem; object-fit: cover; }
+.chronology__photo:hover { border-color: var(--accent); }
+.event-photos > summary { cursor: pointer; font-weight: 600; }
+.event-photos__list { list-style: none; margin: 0.5rem 0 0; padding: 0.25rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: 0.5rem; max-height: 19rem; overflow-y: auto; }
+.event-photos__list label { position: relative; display: block; cursor: pointer; }
+.event-photos__list input { position: absolute; opacity: 0; }
+.event-photos__list img, .event-photos__none { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 3px solid transparent; background: var(--field); font-size: 0.8125rem; color: var(--ink-quiet); text-align: center; box-sizing: border-box; }
+.event-photos__none { border: 1px solid var(--rule-strong); }
+.event-photos__list input:checked + img, .event-photos__list input:checked + .event-photos__none { border: 3px solid var(--accent); }
+.event-photos__list input:focus-visible + img, .event-photos__list input:focus-visible + .event-photos__none { outline: 3px solid var(--focus); }
+.genderless { list-style: none; margin: 0.5rem 0 1.5rem; padding: 0; display: grid; gap: 0.375rem; max-width: 36rem; }
+.genderless__item { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.genderless__item > a { flex: 1; min-width: 10rem; }
+.genderless__item form { display: flex; gap: 0.375rem; margin: 0; }
+.tree-couple input[id^="slub-miejsce-"] { max-width: none; }
+
+/* ETAP 48: zdarzenia z życia na pasku w widoku „Oś czasu” (ikonka nad paskiem, opis po najechaniu). */
+.tl-mark--event { top: 9px; display: inline-grid; place-items: center; width: 16px; height: 16px; font-size: 10px; line-height: 1; background: var(--card); border: 1px solid var(--rule-strong); box-shadow: 0 1px 2px rgb(var(--shadow) / 0.2); cursor: help; z-index: 1; }
+.tl-mark--event:hover { transform: translate(-50%, -50%) scale(1.4); z-index: 2; }

@@ -15,9 +15,57 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
-## 0.42.1 (2026-11-12) · poprawka: ikonka trybu nocnego
+## 0.48.1 (2026-11-12) · poprawka: ikonka trybu nocnego
 
 - Obok przełącznika trybu jest księżyc w trybie dziennym i słońce w trybie nocnym (zmienia się od razu po przełączeniu).
+
+## 0.48.0 (2026-11-12) · ETAP 48: zdarzenia na osi czasu drzewa
+
+- W widoku „Oś czasu” drzewa zdarzenia z życia z datą (zamieszkanie, nauka, praca, wojsko…) są małymi ikonkami na pasku życia osoby. Po najechaniu widać, co to i gdzie.
+- Bez zmian w bazie.
+
+## 0.47.0 (2026-11-12) · ETAP 47: miejsce ślubu, pochówek, zdjęcie przy zdarzeniu
+
+- **Miejsce ślubu** przy parze (np. „parafia w Kraczkowej”), w panelu bocznym drzewa i na karcie osoby. Widać je w chronologii i przy partnerze („ślub 1950 (Kraczkowa)”).
+- **Pochówek** (cmentarz, kwatera) jako pole przy śmierci, pokazuje się dopiero po włączeniu „Nie żyje”. Widać go na karcie osoby i w chronologii.
+- **Zdjęcie przy zdarzeniu:** przy dodawaniu zdarzenia można wybrać jedno ze zdjęć tej osoby (np. dom, szkoła, wojsko). Miniatura w chronologii prowadzi do zdjęcia.
+- **Panel → Drzewo → „Osoby bez płci”:** osoby, przy których płci nie dało się podpowiedzieć z imienia, z przyciskami „kobieta” i „mężczyzna”.
+- Strona drzewa otwarta przed aktualizacją nie kasuje przy zapisie nowych pól (płeć, pochówek, miejsce ślubu).
+- Aktualizacja dodaje trzy pola (migracje `albums.0018`, `family.0007`).
+
+## 0.46.0 (2026-11-12) · ETAP 46: płeć, chronologia życia i zdarzenia
+
+- **Chronologia na karcie osoby.** Oś czasu układa się sama z drzewa: urodzenie, śluby, narodziny dzieci, śmierć rodziców, partnera i dzieci, śmierć. Przy zdarzeniach widać wiek osoby.
+- **Zdarzenia dopisywane ręcznie** przyciskiem „+ Dodaj zdarzenie”: miejsce zamieszkania, chrzest / ślub kościelny, nauka, praca, wojsko i wojna, przeprowadzka / emigracja, inne. Każde ma datę (także „od–do”), miejsce i notatkę; można je poprawić i usunąć.
+- Zdarzenia są w historii zmian drzewa (Panel → Drzewo) i da się je cofnąć jak resztę.
+- **Płeć osoby** (kobieta, mężczyzna, nie wiadomo) podpowiada się z imienia przy dodaniu osoby i jest do poprawienia w „Edytuj dane”. Osoby dodane wcześniej dostały ją tą samą regułą przy aktualizacji. Od płci zależą słowa w chronologii („urodziła się córka”, „śmierć ojca”).
+- Data ślubu jest bardziej widoczna: przy partnerze jest „+ Data ślubu” zamiast „Ślub, rozwód”.
+- Aktualizacja dodaje pole płci (migracja `albums.0017`) i tabelę zdarzeń (`family.0006`).
+
+## 0.45.0 (2026-11-12) · ETAP 45: okno portretu i zdjęcia osoby według dat
+
+- **Portret wybiera się w oknie.** W „Edytuj dane” zamiast długiego paska zdjęć jest podgląd i przycisk „Wybierz portret”. W oknie widać wszystkie zdjęcia z tą osobą, a wybrane zdjęcie można przesunąć i powiększyć pod kółkiem, żeby twarz była na środku.
+- Jeśli osoba ma na zdjęciu punkt (ETAP 44), kadr od razu ustawia się na ten punkt.
+- Ten sam kadr widać na kafelku w drzewie, w panelu bocznym, na liście osób i na karcie osoby. Portrety wybrane wcześniej zostają wyśrodkowane jak dotąd.
+- **Zdjęcia na karcie osoby są ułożone od najnowszych**, z nagłówkami dziesięcioleci („1980–1989”), a zdjęcia bez daty są na końcu.
+- Naprawione: tytuł karty osoby w zakładce przeglądarki zawierał fragment kodu strony.
+- Aktualizacja dodaje trzy pola kadru do osób (migracja `albums.0016`), z wartościami domyślnymi.
+
+## 0.44.0 (2026-11-12) · ETAP 44: punkty osób na zdjęciu
+
+- **Osobę można wskazać punktem na zdjęciu.** W panelu zdjęcia, przy każdej osobie z „Kto jest na zdjęciu”, jest przycisk 📍: po nim jedno kliknięcie na zdjęciu stawia kropkę. Imię widać po najechaniu na kropkę (na telefonie po stuknięciu) albo na osobę na liście.
+- Punkt można przesunąć (📍 i nowe kliknięcie) albo usunąć („Usuń punkt”). Kropki trzymają się miejsca przy powiększaniu i obracają się razem ze zdjęciem.
+- **Zgodne wstecz:** osoby oznaczone wcześniej zostają bez punktu i nic się u nich nie zmienia. Zdjęcie osoby z listy „Kto” usuwa też jej punkt.
+- Zmiany punktów widać w Panelu → Opisy, jak inne zmiany opisu.
+- Aktualizacja dodaje jedną nową tabelę (migracja `albums.0015`), istniejących danych nie zmienia.
+
+## 0.43.0 (2026-11-12) · ETAP 43: poprawki przy zdjęciach i osi czasu
+
+- **Naprawione:** osoba dodana do zdjęcia przez „+ Dodaj nową osobę”, a potem zdjęta „×”, daje się dodać ponownie (wcześniej było „Ta osoba już jest na liście”).
+- **Backspace nie usuwa już osób.** Osobę ze zdjęcia zdejmuje tylko „×” na jej etykiecie, więc jeden Backspace za dużo niczego nie kasuje.
+- **„Kiedy” i „Gdzie” widać zawsze** w panelu zdjęcia (z napisem „nie wpisano”, gdy są puste), a przycisk nazywa się „Dodaj datę, miejsce i opis”.
+- **Podgląd zdjęcia na komputerze** zajmuje najwyżej 90% miejsca, żeby na dużym ekranie nie było za blisko. Na telefonie bez zmian.
+- **Oś czasu** na wąskim ekranie nie ściska się do szerokości okna, tylko przewija w bok, i ma zawsze widoczny pasek przewijania na dole.
 
 ## 0.42.0 (2026-11-10) · ETAP 42: ładniejsza karta osoby nad drzewem
 

@@ -1,18 +1,15 @@
 <section class="metadata" id="opis" aria-labelledby="opis-tytul">
-  <h2 class="panel-section__title" id="opis-tytul">Opis zdjęcia</h2>
-  {% if has_metadata %}
+  <h2 class="panel-section__title" id="opis-tytul">Kiedy, gdzie i opis</h2>
+  {# ETAP 43: „Kiedy” i „Gdzie” widać zawsze, żeby było jasne, że można je wpisać. #}
   <dl class="metadata__list">
-    {% if photo.date_text %}<div class="metadata__row"><dt>Kiedy</dt><dd>{% if photo.year_from %}<a class="metadata__link" href="{% url 'albums:search' %}?od={{ photo.year_from }}&amp;do={{ photo.year_to }}" title="Zdjęcia z tych lat">{{ photo.date_text }}</a>{% else %}{{ photo.date_text }}{% endif %}</dd></div>{% endif %}
-    {% if photo.place %}<div class="metadata__row"><dt>Gdzie</dt><dd><a class="metadata__link" href="{% url 'albums:search' %}?miejsce={{ photo.place|urlencode }}" title="Wszystkie zdjęcia z tego miejsca">{{ photo.place }}</a></dd></div>{% endif %}
+    <div class="metadata__row"><dt>Kiedy</dt><dd>{% if photo.date_text %}{% if photo.year_from %}<a class="metadata__link" href="{% url 'albums:search' %}?od={{ photo.year_from }}&amp;do={{ photo.year_to }}" title="Zdjęcia z tych lat">{{ photo.date_text }}</a>{% else %}{{ photo.date_text }}{% endif %}{% else %}<span class="metadata__missing">nie wpisano</span>{% endif %}</dd></div>
+    <div class="metadata__row"><dt>Gdzie</dt><dd>{% if photo.place %}<a class="metadata__link" href="{% url 'albums:search' %}?miejsce={{ photo.place|urlencode }}" title="Wszystkie zdjęcia z tego miejsca">{{ photo.place }}</a>{% else %}<span class="metadata__missing">nie wpisano</span>{% endif %}</dd></div>
     {% if photo_tags %}<div class="metadata__row"><dt>Tagi</dt><dd><ul class="chips">{% for tag in photo_tags %}<li><a class="chip chip--tag" href="{% url 'albums:search' %}?tag={{ tag.name|urlencode }}" title="Wszystkie zdjęcia z tagiem {{ tag.name }}">#{{ tag.name }}</a></li>{% endfor %}</ul></dd></div>{% endif %}
   </dl>
   {% if photo.description %}<p class="metadata__description">{{ photo.description|linebreaksbr }}</p>{% endif %}
-  {% if photo.described_at %}<p class="metadata__meta">Ostatnia zmiana: {% if photo.described_by %}{{ photo.described_by.username }}{% else %}konto usunięte{% endif %}, <time datetime="{{ photo.described_at|date:'c' }}">{{ photo.described_at|date:"j E Y, H:i" }}</time></p>{% endif %}
-  {% else %}
-  <p class="metadata__empty">Nikt jeszcze nie opisał tego zdjęcia. Wiesz, kiedy i gdzie je zrobiono?</p>
-  {% endif %}
+  {% if has_metadata and photo.described_at %}<p class="metadata__meta">Ostatnia zmiana: {% if photo.described_by %}{{ photo.described_by.username }}{% else %}konto usunięte{% endif %}, <time datetime="{{ photo.described_at|date:'c' }}">{{ photo.described_at|date:"j E Y, H:i" }}</time></p>{% endif %}
   <details class="metadata__edit"{% if metadata_open %} open{% endif %}>
-    <summary class="metadata__toggle">{% if has_metadata %}Popraw opis{% else %}Dodaj opis{% endif %}</summary>
+    <summary class="metadata__toggle">{% if has_metadata %}Popraw datę, miejsce i opis{% else %}Dodaj datę, miejsce i opis{% endif %}</summary>
     <form method="post" action="{% url 'albums:metadata' photo.pk %}" class="metadata__form" data-metadata-form novalidate>
       {% csrf_token %}
       <input type="hidden" name="czesc" value="opis">

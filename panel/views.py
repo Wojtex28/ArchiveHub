@@ -747,8 +747,25 @@ def tree_history(request):
             "filters": filters,
             "filter_query": _tree_query(filters),
             "kinds": dict(TreeChange.KINDS),
+            # ETAP 47: osoby z drzewa, przy których płci nie dało się podpowiedzieć z imienia.
+            "genderless": Person.objects.filter(in_tree=True, gender="").order_by("key"),
         },
     )
+
+
+@master_required
+@require_POST
+def tree_gender(request, pk):
+    """Szybkie ustawienie płci z listy „Osoby bez płci” (Panel → Drzewo)."""
+    person = get_object_or_404(Person, pk=pk)
+    gender = request.POST.get("plec")
+    if gender in ("K", "M"):
+        before = family_tree.snapshot(person)
+        person.gender = gender
+        person.save(update_fields=["gender"])
+        family_tree.edit_person(request.user, person, before)
+        messages.success(request, f"{person.name}: {person.get_gender_display()}.")
+    return redirect(reverse("panel:tree_history") + "#bez-plci")
 
 
 @master_required
