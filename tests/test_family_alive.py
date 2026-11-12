@@ -100,3 +100,23 @@ def test_life_text(db):
     assert life(death_date="1998", death_year=1998, deceased=True) == "† 1998"
     assert life(deceased=True) == "† nie żyje"
     assert life() == ""
+
+
+def test_death_fields_wait_for_the_switch(editor, db):
+    """ETAP 42: data i miejsce śmierci są schowane, dopóki „Nie żyje” jest wyłączone."""
+    anna = tree.add_person(None, "Anna Bereza")
+    url = reverse("family:person_edit", args=[anna.pk])
+    page = editor.get(url).content.decode()
+    assert page.count("field--death") == 2
+    assert "js/person-form.js" in page
+
+    editor.post(url, form_data(deceased="on", death_date="1998", death_place="Kraków"))
+    anna.refresh_from_db()
+    assert anna.deceased and anna.death_place == "Kraków"
+
+    # Wyłączony przełącznik wyłącza pola, więc przeglądarka ich nie wysyła: dane śmierci znikają.
+    data = form_data()
+    del data["death_date"], data["death_place"]
+    editor.post(url, data)
+    anna.refresh_from_db()
+    assert not anna.deceased and anna.death_date == "" and anna.death_place == ""

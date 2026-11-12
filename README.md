@@ -40,6 +40,7 @@ w projekcie.
 | 29 | Osoby na zdjęciu na wierzchu, ulubione | **gotowe** |
 | 40 | Tryb nocny | **gotowe** |
 | 41 | Przełączniki jak w iOS (tryb nocny i pola tak/nie) | **gotowe** |
+| 42 | Ładniejsza karta osoby nad drzewem | **gotowe** |
 
 ## Technologie
 

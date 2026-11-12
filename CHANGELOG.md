@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.42.0 (2026-11-10) · ETAP 42: ładniejsza karta osoby nad drzewem
+
+- **Pasek u góry karty** z napisem „Karta osoby”, przyciskiem „Pełna strona ↗” i ×. Karta przewija się pod paskiem, więc pasek przewijania nie wchodzi już na przycisk zamykania.
+- **Większe marginesy** od ramki do treści (2 rem na komputerze, 1,25 rem na telefonie).
+- Urodzenie i śmierć w osobnych kafelkach, sekcje „Rodzina” i „Zdjęcia” oddzielone linią, nagłówki grup (Rodzice, Partnerzy…) mniejsze i spokojniejsze.
+- Na telefonie mniejszy portret, a urodzenie i śmierć stoją obok siebie.
+- W panelu bocznym drzewa „Nie żyje” i „Rozwód lub rozstanie” są przełącznikami jak w iOS, a pole „Rok ślubu” wygląda jak inne pola.
+- **Pola śmierci schowane za przełącznikiem**: „Data śmierci” i „Miejsce śmierci” pojawiają się dopiero po włączeniu „Nie żyje” (w panelu drzewa i w formularzu). Wyłączenie przełącznika czyści te pola przy zapisie.
+
 ## 0.41.0 (2026-11-10) · ETAP 41: przełączniki jak w iOS
 
 - **Tryb nocny to teraz przełącznik** (zielony, gdy włączony) z ikoną 🌙, na prawej krawędzi paska, w linii z tytułem strony. Na telefonie też stoi obok tytułu.
