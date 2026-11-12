@@ -1261,3 +1261,24 @@ a.chip { color: inherit; text-decoration: none; }
 .tree-timeline::-webkit-scrollbar-thumb:hover { background: var(--ink-quiet); }
 .tree-timeline::-webkit-scrollbar-corner { background: var(--card); }
 .metadata__missing { color: #a99c89; font-style: italic; }
+
+/* ETAP 44: punkty osób na zdjęciu. Kropka nad zdjęciem, imię po najechaniu albo stuknięciu. */
+.viewer__stage { position: relative; }
+.viewer__marks { position: absolute; inset: 0; pointer-events: none; }
+.viewer__marks[hidden], .viewer__mark-hint[hidden] { display: none; }
+.viewer__mark { position: absolute; width: 1.125rem; height: 1.125rem; margin: -0.5625rem 0 0 -0.5625rem; padding: 0; border-radius: 50%; border: 2px solid #fff; background: #d9892b; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), 0 1px 5px rgb(0 0 0 / 0.6); pointer-events: auto; cursor: pointer; transition: left 0.2s ease, top 0.2s ease, transform 0.15s ease; }
+.viewer__stage.is-gesturing .viewer__mark { transition: none; }
+.viewer__stage.is-marking .viewer__mark { pointer-events: none; opacity: 0.6; }
+.viewer__mark:hover, .viewer__mark.is-active { transform: scale(1.25); z-index: 1; }
+.viewer__mark-name { position: absolute; left: 50%; bottom: calc(100% + 0.375rem); transform: translateX(-50%); padding: 0.125rem 0.5rem; border-radius: 6px; background: rgb(20 17 14 / 0.92); color: #f4efe6; font-size: 0.8125rem; line-height: 1.4; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
+.viewer__mark:hover .viewer__mark-name, .viewer__mark:focus-visible .viewer__mark-name, .viewer__mark.is-active .viewer__mark-name { opacity: 1; }
+.viewer__stage.is-marking, .viewer__stage.is-marking .viewer__img { cursor: crosshair; }
+.viewer__mark-hint { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.375rem 0.625rem; width: max-content; max-width: calc(100% - 1rem); padding: 0.375rem 0.875rem; border-radius: 1.25rem; background: rgb(20 17 14 / 0.92); border: 1px solid rgb(255 255 255 / 0.3); color: #f4efe6; font-size: 0.9375rem; }
+.viewer__mark-action { font: inherit; font-size: 0.875rem; color: inherit; padding: 0.125rem 0.625rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.25); border-radius: 999px; cursor: pointer; }
+.viewer__mark-action:hover { background: rgb(255 255 255 / 0.22); }
+.people__mark { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; padding: 0; font: inherit; font-size: 0.875rem; line-height: 1; background: none; border: 1px dashed rgb(255 255 255 / 0.3); border-radius: 50%; cursor: pointer; filter: grayscale(1); opacity: 0.7; }
+.people__mark:hover { opacity: 1; background: rgb(255 255 255 / 0.12); }
+.people__mark.is-set { filter: none; opacity: 1; border-style: solid; border-color: #d9892b; }
+.people__list li { margin-right: 0.25rem; }
+.people__mark-help { margin: -0.25rem 0 0.75rem; }
+.viewer.is-reverse .people__mark, .viewer.is-reverse .people__mark-help { display: none; }

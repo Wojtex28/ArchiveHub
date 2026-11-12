@@ -66,6 +66,7 @@
     if (state.turn) parts.push("rotate(" + state.turn + "deg)");
     img.style.transform = parts.join(" ");
     img.parentNode.classList.toggle("is-zoomed", state.scale > 1);
+    if (img.marks) img.marks.place();
   }
 
   // Powiększonego zdjęcia nie da się odsunąć tak, żeby za nim było puste tło.
@@ -276,6 +277,180 @@
   document.addEventListener("input", suggestNames);
   document.addEventListener("focusin", suggestNames);
 
+  // Punkty osób na zdjęciu (ETAP 44). Lista „Kto jest na zdjęciu” w panelu niesie współrzędne
+  // (ułamek szerokości i wysokości zdjęcia), a tu rysują się kropki nad zdjęciem. 📍 przy osobie
+  // włącza wskazywanie: następne kliknięcie na zdjęciu zapisuje punkt.
+  function createMarks(stage, img, options) {
+    var layer = document.createElement("div");
+    layer.className = "viewer__marks";
+    layer.hidden = true;
+    var hint = document.createElement("div");
+    hint.className = "viewer__mark-hint";
+    hint.hidden = true;
+    stage.append(layer, hint);
+    var people = [];
+    var placing = null;
+    var down = null;
+    var url = "";
+
+    // Środek i rozmiar zdjęcia tak, jak je widać (po powiększeniu, przesunięciu i obrocie).
+    function box() {
+      var state = view(img);
+      var width = img.offsetWidth;
+      var height = img.offsetHeight;
+      var cx = img.offsetLeft + width / 2 + state.x;
+      var cy = img.offsetTop + height / 2 + state.y;
+      if (state.turn % 180) {
+        var swap = width;
+        width = height;
+        height = swap;
+      }
+      return { cx: cx, cy: cy, width: width * state.scale, height: height * state.scale };
+    }
+
+    function place() {
+      var area = box();
+      people.forEach(function (person) {
+        if (!person.dot) return;
+        person.dot.style.left = area.cx + (person.x - 0.5) * area.width + "px";
+        person.dot.style.top = area.cy + (person.y - 0.5) * area.height + "px";
+      });
+    }
+
+    function stop() {
+      placing = null;
+      hint.hidden = true;
+      stage.classList.remove("is-marking");
+    }
+
+    function clear() {
+      stop();
+      people = [];
+      layer.replaceChildren();
+      layer.hidden = true;
+    }
+
+    function lit(person, on) {
+      if (person.dot) person.dot.classList.toggle("is-active", on);
+    }
+
+    function sync() {
+      var root = options.panel();
+      var list = root && root.querySelector("[data-marks]");
+      var wanted = placing && placing.id;
+      clear();
+      if (!list) return;
+      url = list.getAttribute("data-mark-url");
+      Array.prototype.forEach.call(list.querySelectorAll("li[data-person]"), function (item) {
+        var person = { id: item.getAttribute("data-person"), name: item.getAttribute("data-name"), item: item };
+        if (item.hasAttribute("data-x")) {
+          person.x = Number(item.getAttribute("data-x"));
+          person.y = Number(item.getAttribute("data-y"));
+          person.dot = document.createElement("button");
+          person.dot.type = "button";
+          person.dot.className = "viewer__mark";
+          person.dot.setAttribute("aria-label", person.name);
+          var label = document.createElement("span");
+          label.className = "viewer__mark-name";
+          label.textContent = person.name;
+          person.dot.append(label);
+          person.dot.addEventListener("click", function () { person.dot.classList.toggle("is-active"); });
+          layer.append(person.dot);
+        }
+        item.addEventListener("mouseenter", function () { lit(person, true); });
+        item.addEventListener("mouseleave", function () { lit(person, false); });
+        item.querySelector("[data-mark-person]").addEventListener("click", function () { start(person); });
+        people.push(person);
+        if (person.id === wanted) start(person);
+      });
+      layer.hidden = false;
+      place();
+    }
+
+    function hintButton(text, action) {
+      var node = document.createElement("button");
+      node.type = "button";
+      node.className = "viewer__mark-action";
+      node.textContent = text;
+      node.addEventListener("click", action);
+      return node;
+    }
+
+    function start(person) {
+      if (placing === person) return stop();
+      placing = person;
+      stage.classList.add("is-marking");
+      var text = document.createElement("span");
+      text.textContent = "Kliknij na zdjęciu: " + person.name;
+      hint.replaceChildren(text);
+      if (person.dot) hint.append(hintButton("Usuń punkt", function () { send(person, null); }));
+      hint.append(hintButton("Anuluj", stop));
+      hint.hidden = false;
+    }
+
+    function send(person, point) {
+      var body = new FormData();
+      body.append("osoba", person.id);
+      if (point) {
+        body.append("x", point.x.toFixed(4));
+        body.append("y", point.y.toFixed(4));
+      } else body.append("usun", "1");
+      stop();
+      fetch(url, {
+        method: "POST",
+        body: body,
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "fetch", "X-CSRFToken": options.csrf() }
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error(response.status);
+          return response.text().then(function (html) { options.onPanel(response, html); });
+        })
+        .catch(function () {
+          hint.replaceChildren("Nie udało się zapisać punktu. Spróbuj ponownie.");
+          hint.hidden = false;
+          window.setTimeout(function () { if (!placing) hint.hidden = true; }, 4000);
+        });
+    }
+
+    stage.addEventListener("pointerdown", function (event) { down = { x: event.clientX, y: event.clientY }; }, true);
+    stage.addEventListener("click", function (event) {
+      if (!placing || event.target.closest(".viewer__mark-hint")) return;
+      // Przesuwanie powiększonego zdjęcia to nie kliknięcie.
+      if (!down || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 8) return;
+      var area = box();
+      var rect = stage.getBoundingClientRect();
+      var x = (event.clientX - rect.left - area.cx) / area.width + 0.5;
+      var y = (event.clientY - rect.top - area.cy) / area.height + 0.5;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return;
+      send(placing, { x: x, y: y });
+    });
+    // Escape najpierw kończy wskazywanie, dopiero potem zamyka podgląd.
+    document.addEventListener("keydown", function (event) {
+      if (!placing || event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      stop();
+    }, true);
+    img.addEventListener("load", place);
+
+    // Serwer obraca punkty razem ze zdjęciem; tu to samo od razu na ekranie.
+    function turn(clockwise) {
+      people.forEach(function (person) {
+        if (!person.dot) return;
+        var x = clockwise ? 1 - person.y : person.y;
+        person.y = clockwise ? person.x : 1 - person.x;
+        person.x = x;
+        person.item.setAttribute("data-x", person.x);
+        person.item.setAttribute("data-y", person.y);
+      });
+      place();
+    }
+
+    img.marks = { place: place, sync: sync, clear: clear, turn: turn };
+    return img.marks;
+  }
+
   // Osobna strona zdjęcia (otwarta z linku): strzałki i gesty prowadzą po linkach.
   var page = document.querySelector("[data-viewer-page]");
   if (page) {
@@ -301,16 +476,31 @@
     var refit = function (keepZoom) { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation")), keepZoom); };
     refit();
     window.addEventListener("resize", function () { refit(true); });
+    var pagePanel = page.querySelector(".viewer__panel");
+    var pageMarks = null;
+    if (pagePanel && rotateBox.getAttribute("data-side") === "awers") {
+      pageMarks = createMarks(pageStage, pageImg, {
+        panel: function () { return pagePanel; },
+        csrf: function () { return rotateBox.getAttribute("data-csrf"); },
+        onPanel: function (response, html) {
+          pagePanel.innerHTML = html;
+          pageMarks.sync();
+        }
+      });
+      pageMarks.sync();
+    }
     rotateBox.addEventListener("click", function (event) {
       var button = event.target.closest("[data-direction]");
       if (!button) return;
       var before = Number(pageImg.getAttribute("data-rotation"));
       var direction = button.getAttribute("data-direction");
       pageImg.setAttribute("data-rotation", turned(before, direction));
+      if (pageMarks) pageMarks.turn(direction === "prawo");
       refit();
       saveRotation(rotateBox.getAttribute("data-rotate-url"), rotateBox.getAttribute("data-csrf"),
         rotateBox.getAttribute("data-side"), direction, function () {
           pageImg.setAttribute("data-rotation", before);
+          if (pageMarks) pageMarks.turn(direction !== "prawo");
           refit();
         });
     });
@@ -324,9 +514,10 @@
   var csrf = grid.getAttribute("data-csrf");
 
   var viewer, img, count, flip, download, prevButton, nextButton, closeButton, rotateLeft, rotateRight;
-  var commentsButton, commentsCount, panel, caption, title, favoriteButton;
+  var commentsButton, commentsCount, panel, caption, title, favoriteButton, marks;
   var panelOpen = false;
   var panelTile = null;
+  var panelFilled = null; // zdjęcie, którego opis faktycznie jest w panelu (wczytywanie trwa chwilę)
   var commentsRequest = 0;
   var current = -1;
   var reverse = false;
@@ -418,6 +609,14 @@
     window.addEventListener("resize", function () { if (!viewer.hidden) fitRotation(img, rotationOf(tiles[current], reverse), true); });
     onSwipe(stage, step, function () { return stage.gesture || view(img).scale > 1; });
     enableZoom(stage, img);
+    marks = createMarks(stage, img, {
+      panel: function () { return panelOpen && panelFilled === tiles[current] && !reverse ? panel : null; },
+      csrf: function () { return csrf; },
+      onPanel: function (response, html) {
+        commentsRequest += 1;
+        fillPanel(panelTile, response, html);
+      }
+    });
     // Na całym dokumencie: gdy fokus zniknie z ukrytego przycisku, klawisze nadal działają.
     document.addEventListener("keydown", onKey);
   }
@@ -437,8 +636,10 @@
     var side = reverse;
     var before = rotationOf(tile, side);
     setRotation(tile, side, turned(before, direction));
+    if (!side) marks.turn(direction === "prawo");
     saveRotation(tile.getAttribute("data-rotate-url"), csrf, side ? "rewers" : "awers", direction, function () {
       setRotation(tile, side, before);
+      if (!side && tiles[current] === tile) marks.turn(direction !== "prawo");
     });
   }
 
@@ -507,6 +708,7 @@
     viewer.classList.toggle("has-panel", open);
     showCommentCount(tiles[current]);
     fitRotation(img, rotationOf(tiles[current], reverse), true);
+    marks.sync();
     if (open) {
       loadComments(tiles[current]);
       panel.focus();
@@ -522,6 +724,7 @@
   // Treść z naszego serwera: komentarze i opis są już escapowane w szablonie.
   function fillPanel(tile, response, html) {
     panel.innerHTML = html;
+    panelFilled = tile;
     panel.removeAttribute("aria-busy");
     var number = response.headers.get("X-Comment-Count");
     if (number !== null) setCommentCount(tile, Number(number));
@@ -530,6 +733,7 @@
       tile.setAttribute("data-caption", body.getAttribute("data-caption"));
       if (tile === tiles[current]) showCaption(tile);
     }
+    marks.sync();
   }
 
   function panelError(text) {
@@ -634,7 +838,9 @@
     showCommentCount(tile);
     showFavorite(tile);
     showCaption(tile);
+    viewer.classList.toggle("is-reverse", onReverse);
     if (panelOpen && panelTile !== tile) loadComments(tile);
+    marks.sync();
     prevButton.disabled = index === 0;
     nextButton.disabled = index === tiles.length - 1;
     if (!viewer.contains(document.activeElement) || document.activeElement.disabled || document.activeElement.hidden) closeButton.focus();

@@ -31,6 +31,7 @@ LABELS = {
     "people": "Osoby",
     "tags": "Tagi",
     "description": "Opis",
+    "points": "Punkty na zdjęciu",
 }
 
 
@@ -60,6 +61,9 @@ def _set_names(photo, field, model, names):
     else:
         items = [model.objects.get_or_create_named(name) for name in names]
     relation.set(items)
+    if model is Person:
+        # Punkt na zdjęciu (ETAP 44) znika razem z oznaczeniem osoby.
+        photo.marks.exclude(person__in=items).delete()
     orphans = model.objects.filter(pk__in=old - {item.pk for item in items}, photos__isnull=True)
     if model is Person:
         # Osoba z drzewa (albo z historią drzewa, którą da się przywrócić) zostaje także bez zdjęć.

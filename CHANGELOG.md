@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.44.0 (2026-11-12) · ETAP 44: punkty osób na zdjęciu
+
+- **Osobę można wskazać punktem na zdjęciu.** W panelu zdjęcia, przy każdej osobie z „Kto jest na zdjęciu”, jest przycisk 📍: po nim jedno kliknięcie na zdjęciu stawia kropkę. Imię widać po najechaniu na kropkę (na telefonie po stuknięciu) albo na osobę na liście.
+- Punkt można przesunąć (📍 i nowe kliknięcie) albo usunąć („Usuń punkt”). Kropki trzymają się miejsca przy powiększaniu i obracają się razem ze zdjęciem.
+- **Zgodne wstecz:** osoby oznaczone wcześniej zostają bez punktu i nic się u nich nie zmienia. Zdjęcie osoby z listy „Kto” usuwa też jej punkt.
+- Zmiany punktów widać w Panelu → Opisy, jak inne zmiany opisu.
+- Aktualizacja dodaje jedną nową tabelę (migracja `albums.0015`), istniejących danych nie zmienia.
+
 ## 0.43.0 (2026-11-12) · ETAP 43: poprawki przy zdjęciach i osi czasu
 
 - **Naprawione:** osoba dodana do zdjęcia przez „+ Dodaj nową osobę”, a potem zdjęta „×”, daje się dodać ponownie (wcześniej było „Ta osoba już jest na liście”).

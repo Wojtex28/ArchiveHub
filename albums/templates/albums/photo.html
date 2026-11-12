@@ -3,7 +3,7 @@
 {% block title %}{{ album.title }} · zdjęcie {{ number }} · {{ site_title }}{% endblock %}
 {% block body_class %}page-viewer{% endblock %}
 {% block content %}
-<div class="viewer viewer--page{% if show_comments %} has-panel{% endif %}" data-viewer-page>
+<div class="viewer viewer--page{% if show_comments %} has-panel{% endif %}{% if reverse %} is-reverse{% endif %}" data-viewer-page>
   <div class="viewer__bar">
     <a class="viewer__close" href="{% url 'albums:gallery' album.pk %}#zdjecie-{{ photo.pk }}" data-close>✕<span class="visually-hidden"> Wróć do albumu</span></a>
     <span class="viewer__title">{{ album.title }}</span>

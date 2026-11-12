@@ -480,6 +480,31 @@ class Person(NamedModel):
         return "† nie żyje"
 
 
+class PersonMark(models.Model):
+    """Punkt na zdjęciu wskazujący osobę (ETAP 44). Oznaczenie „Kto” działa także bez punktu.
+
+    Współrzędne to ułamek szerokości i wysokości awersu (0–1) w takim ułożeniu, w jakim widać
+    zdjęcie; obrót zdjęcia przelicza punkty (:func:`albums.marks.turn_marks`).
+    """
+
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name="marks")
+    person = models.ForeignKey("Person", on_delete=models.CASCADE, related_name="marks")
+    x = models.FloatField()
+    y = models.FloatField()
+    set_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    set_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "punkt osoby na zdjęciu"
+        verbose_name_plural = "punkty osób na zdjęciach"
+        constraints = [models.UniqueConstraint(fields=["photo", "person"], name="punkt_osoby_raz")]
+
+    def __str__(self):
+        return f"{self.person} na {self.photo}"
+
+
 class Tag(NamedModel):
     key = models.CharField(max_length=NamedModel.MAX_LENGTH, unique=True, editable=False)
 
