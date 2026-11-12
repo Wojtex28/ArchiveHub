@@ -5,6 +5,8 @@
 
   var SWIPE_MIN = 50; // px w poziomie, żeby przesunięcie palcem zmieniło zdjęcie
   var ZOOM_MAX = 5;
+  // Poniżej 1 zdjęcie robi się mniejsze niż ekran: przy nietypowych proporcjach łatwiej je wtedy objąć wzrokiem.
+  var ZOOM_MIN = 0.3;
   var ZOOM_DOUBLE = 2.5; // dwuklik albo dwukrotne stuknięcie
   var TAP_MS = 300;
 
@@ -90,13 +92,16 @@
   function zoomAt(img, scale, clientX, clientY) {
     var state = view(img);
     var box = img.parentNode.getBoundingClientRect();
-    scale = Math.min(ZOOM_MAX, Math.max(1, scale));
+    scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
+    // Przy powrocie do zwykłego rozmiaru zdjęcie lekko „przyciąga” do 1.
+    if (Math.abs(scale - 1) < 0.04) scale = 1;
     var px = clientX - (box.left + box.width / 2);
     var py = clientY - (box.top + box.height / 2);
     state.x = px - (px - state.x) * (scale / state.scale);
     state.y = py - (py - state.y) * (scale / state.scale);
     state.scale = scale;
-    if (scale === 1) state.x = state.y = 0;
+    // Pomniejszone zdjęcie zawsze stoi na środku.
+    if (scale <= 1) state.x = state.y = 0;
     clampPan(img);
     applyView(img);
   }
@@ -107,7 +112,7 @@
   }
 
   function toggleZoom(img, clientX, clientY) {
-    zoomAt(img, view(img).scale > 1 ? 1 : ZOOM_DOUBLE, clientX, clientY);
+    zoomAt(img, view(img).scale !== 1 ? 1 : ZOOM_DOUBLE, clientX, clientY);
   }
 
   // Powiększanie: kółko myszy, dwuklik, dwa palce, dwukrotne stuknięcie; przeciąganie przesuwa.
@@ -209,6 +214,23 @@
     }, { passive: false });
   }
 
+  // Przyciski „−” i „+” na pasku (na komputerze): pomniejszają też poniżej rozmiaru ekranu.
+  function zoomButtons(currentImg) {
+    var box = document.createElement("span");
+    box.className = "viewer__zoom";
+    [["−", "Pomniejsz (klawisz −)", 1 / 1.5], ["+", "Powiększ (klawisz +)", 1.5]].forEach(function (item) {
+      var node = document.createElement("button");
+      node.type = "button";
+      node.className = "viewer__rotate-button viewer__zoom-button";
+      node.textContent = item[0];
+      node.title = item[1];
+      node.setAttribute("aria-label", item[1]);
+      node.addEventListener("click", function () { zoomBy(currentImg(), item[2]); });
+      box.appendChild(node);
+    });
+    return box;
+  }
+
   function zoomKey(img, key) {
     if (key === "+" || key === "=") zoomBy(img, 1.5);
     else if (key === "-") zoomBy(img, 1 / 1.5);
@@ -228,8 +250,15 @@
       state.x = state.y = 0;
     }
     if (degrees % 180) {
-      img.style.maxWidth = stage.clientHeight + "px";
-      img.style.maxHeight = stage.clientWidth + "px";
+      // Te same granice co bez obrotu: wnętrze sceny (bez marginesu) i na komputerze najwyżej 90%.
+      var styles = window.getComputedStyle(stage);
+      var room = window.matchMedia("(min-width: 40.0625rem)").matches ? 0.9 : 1;
+      var inner = {
+        width: stage.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight),
+        height: stage.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)
+      };
+      img.style.maxWidth = Math.floor(inner.height * room) + "px";
+      img.style.maxHeight = Math.floor(inner.width * room) + "px";
     } else {
       img.style.maxWidth = "";
       img.style.maxHeight = "";
@@ -473,6 +502,7 @@
     }, function () { return pageStage.gesture || view(pageImg).scale > 1; });
     enableZoom(pageStage, pageImg);
     var rotateBox = page.querySelector("[data-rotate-url]");
+    rotateBox.parentNode.insertBefore(zoomButtons(function () { return pageImg; }), rotateBox);
     var refit = function (keepZoom) { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation")), keepZoom); };
     refit();
     window.addEventListener("resize", function () { refit(true); });
@@ -567,7 +597,8 @@
     commentsButton.append(commentsCount);
     favoriteButton = button("viewer__favorite", "☆", "Dodaj do ulubionych");
     title = element("span", "viewer__title", albumTitle);
-    bar.append(closeButton, title, count, rotate, flip, favoriteButton, commentsButton, download);
+    var zoom = zoomButtons(function () { return img; });
+    bar.append(closeButton, title, count, zoom, rotate, flip, favoriteButton, commentsButton, download);
 
     var stage = element("div", "viewer__stage");
     img = element("img", "viewer__img");

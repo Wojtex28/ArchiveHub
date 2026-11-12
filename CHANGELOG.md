@@ -15,6 +15,12 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.49.1 (2026-11-12) · poprawka: mocniejsze pomniejszanie zdjęć
+
+- **Zdjęcie można pomniejszyć poniżej rozmiaru ekranu** (do 30%): kółkiem myszy, rozsunięciem palców na touchpadzie albo telefonie, klawiszem „−”. Przy nietypowych proporcjach łatwiej je wtedy objąć wzrokiem. Dwuklik albo klawisz „0” wraca do zwykłego rozmiaru.
+- **Przyciski „−” i „+” na pasku podglądu** (na komputerze), obok obracania.
+- Obrócone zdjęcie mieści się w tych samych granicach co nieobrócone (na komputerze 90% miejsca); wcześniej dochodziło do samych krawędzi ekranu.
+
 ## 0.49.0 (2026-11-12) · ETAP 49: nowa lista albumów
 
 ### Zmienione
