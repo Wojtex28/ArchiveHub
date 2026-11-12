@@ -38,6 +38,11 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 - Podgląd zdjęcia był i zostaje ciemny w obu trybach.
 - W środku: każdy kolor w `site.css` jest teraz zmienną w `:root`, a tryb nocny podmienia tylko te zmienne (test pilnuje, żeby żadnej nie zabrakło).
 
+## 0.39.0 (2026-11-09) · ETAP 39: połączenia bez uskoków
+
+- **Bez „schodków” w liniach.** Gdy linia od rodziców schodzi prawie nad środkiem dziecka, linia dziecka wchodzi w kafelek dokładnie pod nią (do 48 px od środka), zamiast robić krótki uskok w bok.
+- Jedno dziecko dokładnie pod rodzicami to jedna prosta kreska, bez kropek.
+
 ## 0.38.0 (2026-11-09) · ETAP 38: uporządkowany układ drzewa
 
 Zamiast „jak najmniej przecięć za wszelką cenę” drzewo trzyma się kilku stałych zasad:
