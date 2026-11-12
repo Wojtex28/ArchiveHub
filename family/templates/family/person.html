@@ -1,7 +1,6 @@
 {% extends base_template %}
 {% load static %}
-{% block title %}{{ person.name }} · Drzewo rodzinne · {{ site_title }}<script src="{% static 'js/confirm.js' %}" defer></script>
-{% endblock %}
+{% block title %}{{ person.name }} · Drzewo rodzinne · {{ site_title }}{% endblock %}
 {% block main %}
 {% if not embedded %}<p><a href="{% url 'family:tree' %}{% if person.in_tree %}?osoba={{ person.pk }}{% endif %}">← Drzewo rodzinne</a></p>{% endif %}
 <div class="person-head">
@@ -50,9 +49,10 @@
 
 <h2>Zdjęcia{% if photo_total %} ({{ photo_total }}){% endif %}</h2>
 {% if photos %}
-<p class="hint">Kliknij zdjęcie, żeby je obejrzeć. Pod zdjęciem jest album, z którego pochodzi.</p>
+<p class="hint">Od najnowszych do najstarszych, według daty z opisu zdjęcia. Kliknij zdjęcie, żeby je obejrzeć.</p>
 <ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
+  {% ifchanged photo.period %}<li class="gallery-grid__period">{{ photo.period }}</li>{% endifchanged %}
   {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}
   {% endfor %}
 </ul>
@@ -70,4 +70,5 @@
 </form>
 {% endif %}
 <script src="{% static 'js/confirm.js' %}" defer></script>
+<script src="{% static 'js/portrait.js' %}" defer></script>
 {% endblock %}

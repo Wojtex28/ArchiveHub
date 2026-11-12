@@ -13,6 +13,10 @@ def _sort_year(date):
     return (date.year_from + date.year_to) // 2
 
 
+# Kadr portretu: (najmniej, najwięcej, domyślnie).
+CROP_LIMITS = {"portrait_x": (0, 100, 50), "portrait_y": (0, 100, 50), "portrait_zoom": (1, 4, 1)}
+
+
 class PersonForm(forms.ModelForm):
     portrait = forms.ModelChoiceField(
         queryset=None, required=False, label="Portret", widget=forms.RadioSelect, empty_label="bez portretu"
@@ -30,6 +34,9 @@ class PersonForm(forms.ModelForm):
             "death_place",
             "bio",
             "portrait",
+            "portrait_x",
+            "portrait_y",
+            "portrait_zoom",
         ]
         labels = {"name": "Imię i nazwisko", "deceased": "Nie żyje"}
         help_texts = {
@@ -38,7 +45,12 @@ class PersonForm(forms.ModelForm):
             "death_date": "Jak data urodzenia. Puste, jeśli osoba żyje albo nie wiadomo.",
             "bio": "Kim była, gdzie mieszkała, czym się zajmowała, rodzinne historie.",
         }
-        widgets = {"bio": forms.Textarea(attrs={"rows": 6})}
+        widgets = {
+            "bio": forms.Textarea(attrs={"rows": 6}),
+            "portrait_x": forms.HiddenInput,
+            "portrait_y": forms.HiddenInput,
+            "portrait_zoom": forms.HiddenInput,
+        }
 
     def __init__(self, *args, portraits=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,6 +59,8 @@ class PersonForm(forms.ModelForm):
         self.fields["portrait"].label_from_instance = lambda photo: photo.pk
         for name in ("birth_date", "death_date"):
             self.fields[name].widget.attrs["placeholder"] = "np. ok. 1920"
+        for name in CROP_LIMITS:
+            self.fields[name].required = False
 
     def clean_name(self):
         name = " ".join(self.cleaned_data["name"].split())
@@ -74,6 +88,13 @@ class PersonForm(forms.ModelForm):
         # Data śmierci przesądza sprawę, nawet jeśli ktoś zapomniał o przełączniku.
         if data.get("death_date") or data.get("death_place"):
             data["deceased"] = True
+        # Kadr portretu: brak wartości (stary formularz, nowe zdjęcie bez ustawiania) to środek zdjęcia.
+        changed = data.get("portrait") != self.instance.portrait
+        for name, (low, high, default) in CROP_LIMITS.items():
+            value = data.get(name)
+            if value is None or value != value:
+                value = default if changed else getattr(self.instance, name)
+            data[name] = min(high, max(low, value))
         return data
 
     def save(self, commit=True):

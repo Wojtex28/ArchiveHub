@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.45.0 (2026-11-12) · ETAP 45: okno portretu i zdjęcia osoby według dat
+
+- **Portret wybiera się w oknie.** W „Edytuj dane” zamiast długiego paska zdjęć jest podgląd i przycisk „Wybierz portret”. W oknie widać wszystkie zdjęcia z tą osobą, a wybrane zdjęcie można przesunąć i powiększyć pod kółkiem, żeby twarz była na środku.
+- Jeśli osoba ma na zdjęciu punkt (ETAP 44), kadr od razu ustawia się na ten punkt.
+- Ten sam kadr widać na kafelku w drzewie, w panelu bocznym, na liście osób i na karcie osoby. Portrety wybrane wcześniej zostają wyśrodkowane jak dotąd.
+- **Zdjęcia na karcie osoby są ułożone od najnowszych**, z nagłówkami dziesięcioleci („1980–1989”), a zdjęcia bez daty są na końcu.
+- Naprawione: tytuł karty osoby w zakładce przeglądarki zawierał fragment kodu strony.
+- Aktualizacja dodaje trzy pola kadru do osób (migracja `albums.0016`), z wartościami domyślnymi.
+
 ## 0.44.0 (2026-11-12) · ETAP 44: punkty osób na zdjęciu
 
 - **Osobę można wskazać punktem na zdjęciu.** W panelu zdjęcia, przy każdej osobie z „Kto jest na zdjęciu”, jest przycisk 📍: po nim jedno kliknięcie na zdjęciu stawia kropkę. Imię widać po najechaniu na kropkę (na telefonie po stuknięciu) albo na osobę na liście.

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
@@ -135,6 +135,29 @@ def _embedded_card(request, person):
     return response
 
 
+def photos_by_date(photos):
+    """Zdjęcia od najnowszych, jak w galerii telefonu (ETAP 45); bez daty na końcu.
+
+    Każde dostaje ``period`` (dziesięciolecie albo „Bez daty”) na nagłówek nad grupą.
+    """
+    ordered = list(
+        photos.order_by(
+            F("year_to").desc(nulls_last=True),
+            F("year_from").desc(nulls_last=True),
+            "album__position",
+            "album__title",
+            "position",
+        )[:PHOTOS_SHOWN]
+    )
+    for photo in ordered:
+        if photo.year_to is None:
+            photo.period = "Bez daty"
+        else:
+            decade = photo.year_to // 10 * 10
+            photo.period = f"{decade}–{decade + 9}"
+    return ordered
+
+
 def _person_page(request, person, relation_form=None, namesakes=None, embedded=False):
     photos = visible_photos(request.user, person)
     portrait = person.portrait if person.portrait and photos.filter(pk=person.portrait_id).exists() else None
@@ -150,7 +173,7 @@ def _person_page(request, person, relation_form=None, namesakes=None, embedded=F
             "partners": tree.partners_in_order(person),
             "children": tree.children(person),
             "siblings": tree.siblings(person),
-            "photos": photos[:PHOTOS_SHOWN],
+            "photos": photos_by_date(photos),
             "photo_total": photos.count(),
             "relation_form": relation_form or RelationForm(label_suffix=""),
             "namesakes": namesakes,
@@ -174,8 +197,15 @@ def person_edit(request, pk):
             messages.info(request, notice)
         messages.success(request, "Zapisano.")
         return redirect("family:person", person.pk)
+    # Punkt osoby na zdjęciu (ETAP 44) podpowiada kadr portretu.
+    marks = {mark.photo_id: mark for mark in person.marks.all()}
+    portrait_photos = list(portraits)
+    for photo in portrait_photos:
+        photo.mark = marks.get(photo.pk)
     return render(
-        request, "family/person_form.html", {"person": person, "form": form, "portraits": portraits}
+        request,
+        "family/person_form.html",
+        {"person": person, "form": form, "portrait_photos": portrait_photos},
     )
 
 

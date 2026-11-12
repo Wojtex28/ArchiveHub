@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .comments import photo_page_url, wants_fragment
-from .models import PersonMark, Photo, PhotoChange
+from .models import Person, PersonMark, Photo, PhotoChange
 from .photo_panel import fragment
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,11 @@ def turn_marks(photo, clockwise=True):
     for mark in photo.marks.all():
         mark.x, mark.y = (1 - mark.y, mark.x) if clockwise else (mark.y, 1 - mark.x)
         mark.save(update_fields=["x", "y"])
+    # Kadr portretu z tego zdjęcia obraca się tak samo (w procentach).
+    for person in Person.objects.filter(portrait=photo):
+        x, y = person.portrait_x, person.portrait_y
+        person.portrait_x, person.portrait_y = (100 - y, x) if clockwise else (y, 100 - x)
+        person.save(update_fields=["portrait_x", "portrait_y"])
 
 
 def _fraction(text):

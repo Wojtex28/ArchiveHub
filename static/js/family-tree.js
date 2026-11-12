@@ -880,11 +880,15 @@
 
   function avatar(person, className) {
     if (person.portrait) {
-      var img = el("img", className + " rot-" + person.portrait.turn);
+      // ETAP 45: zdjęcie w ramce, żeby dało się je przesunąć i powiększyć pod kółkiem (kadr portretu).
+      var frame = el("span", className + " " + className + "--photo");
+      var img = el("img", "rot-" + person.portrait.turn);
       img.src = person.portrait.url;
       img.alt = "";
       img.draggable = false;
-      return img;
+      frame.appendChild(img);
+      if (window.Portrait) window.Portrait.apply(img, person.portrait.x, person.portrait.y, person.portrait.zoom);
+      return frame;
     }
     return el("span", className + " " + className + "--empty", person.name.charAt(0));
   }
@@ -1635,12 +1639,13 @@
   function openEdit(id) {
     var person = state.byId[id];
     if (!person || !state.data.canEdit) return;
-    state.edit = { id: id, portraits: null, portrait: null, errors: {} };
+    state.edit = { id: id, portraits: null, portrait: null, crop: null, errors: {} };
     renderEdit();
     request(personUrl(id)).then(function (data) {
       if (!state.edit || state.edit.id !== id) return;
       state.edit.portraits = data.portraits;
       state.edit.portrait = data.portrait;
+      state.edit.crop = data.crop;
       renderPortraits();
     }).catch(function () {
       if (state.edit && state.edit.id === id) { state.edit.portraits = []; renderPortraits(); }
@@ -1738,6 +1743,11 @@
       if (!body.deceased) { body.death = ""; body.deathPlace = ""; }
       var chosen = form.querySelector("input[name=portrait]:checked");
       body.portrait = chosen ? chosen.value : (state.edit.portraits ? "" : state.edit.portrait);
+      // Kadr portretu z okna wyboru (ETAP 45); bez okna serwer zostawia dotychczasowy.
+      [["portraitX", "portrait_x"], ["portraitY", "portrait_y"], ["portraitZoom", "portrait_zoom"]].forEach(function (pair) {
+        var field = form.querySelector("input[name=" + pair[1] + "]");
+        if (field && field.value !== "") body[pair[0]] = Number(field.value);
+      });
       var id = state.edit.id;
       request(personUrl(id), body).then(function (data) {
         closeEdit();
@@ -1774,7 +1784,7 @@
       box.appendChild(el("p", "hint", "Portret wybierzesz, gdy ktoś oznaczy tę osobę na zdjęciu (pole „Kto” w opisie zdjęcia)."));
       return;
     }
-    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie, spośród zdjęć z tą osobą."));
+    box.appendChild(el("p", "hint", "Zdjęcie na kafelku w drzewie. Wybierz je i ustaw kadr w oknie."));
     var list = el("ul", "portrait-choice__list");
     var options = [{ id: "", url: null }].concat(portraits);
     options.forEach(function (photo) {
@@ -1785,6 +1795,7 @@
       radio.name = "portrait";
       radio.value = photo.id;
       radio.checked = String(state.edit.portrait || "") === String(photo.id);
+      if (photo.mark) radio.setAttribute("data-mark", photo.mark.join(","));
       label.appendChild(radio);
       if (photo.url) {
         var img = el("img", "rot-" + (photo.turn || 0));
@@ -1800,6 +1811,8 @@
       list.appendChild(item);
     });
     box.appendChild(list);
+    // Zamiast długiej listy: podgląd i przycisk otwierający okno wyboru z ustawianiem kadru.
+    if (window.Portrait) window.Portrait.attach(box, state.edit.crop, person.name.charAt(0));
   }
 
   // Karta osoby w okienku nad drzewem: pełna strona osoby w trybie ``?okno=1`` (bez menu i edycji).

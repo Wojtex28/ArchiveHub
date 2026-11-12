@@ -43,6 +43,7 @@ w projekcie.
 | 42 | Ładniejsza karta osoby nad drzewem | **gotowe** |
 | 43 | Poprawki przy zdjęciach i osi czasu | **gotowe** |
 | 44 | Punkty osób na zdjęciu | **gotowe** |
+| 45 | Okno portretu i zdjęcia osoby według dat | **gotowe** |
 
 ## Technologie
 

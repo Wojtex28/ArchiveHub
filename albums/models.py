@@ -433,6 +433,11 @@ class Person(NamedModel):
     portrait = models.ForeignKey(
         "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="portret"
     )
+    # Kadr portretu w kółku (ETAP 45): położenie zdjęcia w procentach (jak ``object-position``)
+    # i powiększenie. Domyślnie środek zdjęcia bez powiększenia, czyli tak jak przed tą wersją.
+    portrait_x = models.FloatField(default=50)
+    portrait_y = models.FloatField(default=50)
+    portrait_zoom = models.FloatField(default=1)
     # Miejsce kafelka na kanwie drzewa (ETAP 22); puste = jeszcze nieułożony.
     tree_x = models.FloatField(null=True, blank=True)
     tree_y = models.FloatField(null=True, blank=True)

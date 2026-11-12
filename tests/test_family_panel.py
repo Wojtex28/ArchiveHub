@@ -5,6 +5,7 @@ import json
 import pytest
 from django.urls import reverse
 
+from albums.models import Person
 from family import tree
 from family.models import TreeChange
 
@@ -66,7 +67,7 @@ def test_side_panel_rename_warns_about_namesake(editor, db):
 def test_portraits_listed_and_unknown_portrait_rejected(editor, db):
     anna = tree.add_person(None, "Anna Bereza")
     data = editor.get(reverse("family:api_person", args=[anna.pk])).json()
-    assert data == {"portrait": None, "portraits": []}
+    assert data == {"portrait": None, "crop": {"x": 50, "y": 50, "zoom": 1}, "portraits": []}
     assert save(editor, anna, portrait=999).status_code == 400
 
 
@@ -95,3 +96,18 @@ def test_card_in_window_can_be_framed_only_by_own_site(editor, db):
     assert f'href="{url}" target="_blank"' not in html
     tree_page = editor.get(reverse("family:tree")).content.decode()
     assert 'class="tree-card__bar"' in tree_page and 'class="tree-card__full"' in tree_page
+
+
+def test_portrait_crop_is_saved_and_defaults_to_center(master_client, db):
+    """ETAP 45: kadr portretu z okna wyboru; bez niego portret zostaje wyśrodkowany."""
+    person = Person.objects.create(name="Jan Bereza", in_tree=True)
+    url = reverse("family:api_person", args=[person.pk])
+    assert master_client.get(url).json()["crop"] == {"x": 50, "y": 50, "zoom": 1}
+    body = {"name": "Jan Bereza", "portraitX": 20, "portraitY": 80.5, "portraitZoom": 9}
+    assert master_client.post(url, body, content_type="application/json").status_code == 200
+    person.refresh_from_db()
+    assert (person.portrait_x, person.portrait_y, person.portrait_zoom) == (20, 80.5, 4)
+    # Zapis bez kadru (np. stara karta otwarta w przeglądarce) niczego nie przestawia.
+    assert master_client.post(url, {"name": "Jan Bereza"}, content_type="application/json").status_code == 200
+    person.refresh_from_db()
+    assert (person.portrait_x, person.portrait_y, person.portrait_zoom) == (20, 80.5, 4)

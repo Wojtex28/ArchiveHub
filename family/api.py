@@ -53,7 +53,7 @@ def tree_data(user):
                 "x": p.tree_x,
                 "y": p.tree_y,
                 "url": reverse("family:person", args=[p.pk]),
-                "portrait": _portrait(visible.get(p.portrait_id)),
+                "portrait": _portrait(visible.get(p.portrait_id), p),
             }
             for p in people
         ],
@@ -73,11 +73,15 @@ def tree_data(user):
     }
 
 
-def _portrait(photo):
+def _portrait(photo, person=None):
     if photo is None:
         return None
     url = f"{reverse('albums:thumb', args=[photo.pk])}?v={photo.version_front}"
-    return {"url": url, "turn": photo.pending_front}
+    data = {"url": url, "turn": photo.pending_front}
+    if person is not None:
+        # ETAP 45: kadr portretu w kółku.
+        data.update(x=person.portrait_x, y=person.portrait_y, zoom=person.portrait_zoom)
+    return data
 
 
 def _ok(request, **extra):
@@ -279,6 +283,11 @@ PERSON_FIELDS = {
 }
 
 
+CROP_FIELDS = {"portraitX": "portrait_x", "portraitY": "portrait_y", "portraitZoom": "portrait_zoom"}
+# Tyle zdjęć osoby pokazuje okno wyboru portretu.
+PORTRAITS_SHOWN = 200
+
+
 @tree_access()
 @require_http_methods(["GET", "HEAD", "POST"])
 def person(request, pk):
@@ -292,10 +301,16 @@ def person(request, pk):
         return _error("Nie ma takiej osoby.", 404)
     portraits = visible_photos(request.user, person)
     if request.method != "POST":
+        # Punkt osoby na zdjęciu (ETAP 44) podpowiada kadr: twarz trafia na środek kółka.
+        marks = {mark.photo_id: [mark.x, mark.y] for mark in person.marks.all()}
         return JsonResponse(
             {
                 "portrait": person.portrait_id if portraits.filter(pk=person.portrait_id).exists() else None,
-                "portraits": [{"id": photo.pk, **_portrait(photo)} for photo in portraits[:60]],
+                "crop": {"x": person.portrait_x, "y": person.portrait_y, "zoom": person.portrait_zoom},
+                "portraits": [
+                    {"id": photo.pk, **_portrait(photo), "mark": marks.get(photo.pk)}
+                    for photo in portraits[:PORTRAITS_SHOWN]
+                ],
             }
         )
     if not request.user.can_edit_tree:
@@ -306,6 +321,9 @@ def person(request, pk):
         data["deceased"] = "on"
     portrait = body.get("portrait")
     data["portrait"] = str(portrait) if portrait else ""
+    for key, field in CROP_FIELDS.items():
+        if isinstance(body.get(key), (int, float)) and not isinstance(body.get(key), bool):
+            data[field] = str(body[key])
     form = PersonForm(data, instance=person, portraits=portraits)
     before, old_name = tree.snapshot(person), person.name
     if not form.is_valid():
