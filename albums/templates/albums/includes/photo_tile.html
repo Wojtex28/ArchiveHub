@@ -10,7 +10,7 @@
        data-favorite-url="{% url 'albums:favorite' photo.pk %}"
        data-favorite="{% if photo.pk in favorite_ids %}1{% else %}0{% endif %}"
        data-caption="{{ photo.caption }}"
-       data-album-title="{{ photo.album.title }}"
+       data-album-title="{{ photo.album.display_title }}"
        {% if photo.has_reverse %}data-reverse-preview="{% url 'albums:preview_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-thumb="{% url 'albums:thumb_reverse' photo.pk %}?v={{ photo.version_back }}"
        data-reverse-rotation="{{ photo.pending_back }}"
@@ -21,6 +21,6 @@
       <span class="gallery-tile__favorite" title="W ulubionych"{% if photo.pk not in favorite_ids %} hidden{% endif %}>★<span class="visually-hidden"> w ulubionych</span></span>
       <span class="gallery-tile__comments" {% if not photo.comment_count %}hidden{% endif %}>💬 <span data-comment-count>{{ photo.comment_count }}</span><span class="visually-hidden"> komentarzy</span></span>
     </a>
-    {% if show_caption %}<p class="gallery-tile__album">{{ photo.album.title }}</p><p class="gallery-tile__caption">{% with caption=photo.caption %}{% if caption %}{{ caption }}{% else %}<span class="hint">bez opisu</span>{% endif %}{% endwith %}</p>{% endif %}
+    {% if show_caption %}<p class="gallery-tile__album">{{ photo.album.display_title }}</p><p class="gallery-tile__caption">{% with caption=photo.caption %}{% if caption %}{{ caption }}{% else %}<span class="hint">bez opisu</span>{% endif %}{% endwith %}</p>{% endif %}
     {% if selectable %}<input type="checkbox" class="gallery-select" name="photos" value="{{ photo.pk }}" aria-label="Zaznacz zdjęcie {{ number }}">{% endif %}
   </li>

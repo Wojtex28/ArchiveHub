@@ -81,6 +81,19 @@ class Album(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def label(self):
+        """Numer, czytelna nazwa i lata (albums.display): nazwa z folderu rozłożona na słowa."""
+        from .display import album_label
+
+        return album_label(self)
+
+    @property
+    def display_title(self):
+        """Nazwa do pokazania rodzinie, np. „Brązowy ze Zlota Obramowka, 1997–2004”."""
+        label = self.label
+        return f"{label.title}, {label.years}" if label.years else label.title
+
+    @property
     def cover_photo(self):
         """Okładka wybrana w panelu, a bez niej pierwsze zdjęcie albumu."""
         if self.cover_id and not self.cover.file_missing:

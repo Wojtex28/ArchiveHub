@@ -14,7 +14,7 @@
   <ul class="event-photos__list">
     <li><label><input type="radio" name="photo" value=""{% if not form.photo.value %} checked{% endif %}><span class="event-photos__none">bez zdjęcia</span></label></li>
     {% for photo in event_photos %}
-    <li><label><input type="radio" name="photo" value="{{ photo.pk }}"{% if form.photo.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}><img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {% if photo.date_text %}z {{ photo.date_text }}{% else %}bez daty{% endif %}, album {{ photo.album.title }}" loading="lazy" title="{{ photo.date_text|default:'bez daty' }}"></label></li>
+    <li><label><input type="radio" name="photo" value="{{ photo.pk }}"{% if form.photo.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}><img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {% if photo.date_text %}z {{ photo.date_text }}{% else %}bez daty{% endif %}, album {{ photo.album.display_title }}" loading="lazy" title="{{ photo.date_text|default:'bez daty' }}"></label></li>
     {% endfor %}
   </ul>
   {% for error in form.photo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}

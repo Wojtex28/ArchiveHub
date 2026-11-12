@@ -1,32 +1,48 @@
 {% extends "app_base.html" %}
+{% load static %}
 {% block title %}Archiwum · {{ site_title }}{% endblock %}
 {% block main %}
 <h1>Witaj, {{ user }}</h1>
 {% with groups=user.family_groups.all %}
 {% if groups %}<p class="lead">Twoje grupy: {% for g in groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 {% endwith %}
-{% if albums %}
-<h2 class="section-title">Albumy</h2>
+{% if cards %}
+<a class="favorites-strip{% if not favorite_photos %} favorites-strip--empty{% endif %}" href="{% url 'albums:favorites' %}">
+  <span class="favorites-strip__head">
+    <span class="favorites-strip__title"><span class="favorites-strip__star" aria-hidden="true">★</span> Ulubione</span>
+    <span class="favorites-strip__meta">{% if favorite_photos %}{{ favorite_count }} · widzisz tylko Ty{% else %}Zaznacz gwiazdką ☆ zdjęcia, które chcesz mieć pod ręką.{% endif %}</span>
+  </span>
+  {% if favorite_photos %}
+  <span class="favorites-strip__photos" aria-hidden="true">
+    {% for photo in favorite_photos %}<img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="" loading="lazy">{% endfor %}
+  </span>
+  <span class="favorites-strip__more">Zobacz wszystkie →</span>
+  {% endif %}
+</a>
+<h2 class="section-title">Albumy <span class="section-title__count">{{ cards|length }}</span></h2>
 <ul class="album-grid">
-  <li class="album-card album-card--favorites">
-    <a class="album-card__link" href="{% url 'albums:favorites' %}">
-      <span class="album-card__cover">{% if favorite_cover %}<img class="rot-{{ favorite_cover.pending_front }}" src="{% url 'albums:thumb' favorite_cover.pk %}?v={{ favorite_cover.version_front }}" alt="" loading="lazy">{% else %}<span class="album-card__star" aria-hidden="true">☆</span>{% endif %}</span>
-      <span class="album-card__title">★ Ulubione</span>
-      <span class="album-card__description">{% if favorite_count %}Twoje wybrane zdjęcia z różnych albumów, do obejrzenia i pobrania w całości.{% else %}Zaznacz gwiazdką ☆ zdjęcia, które chcesz mieć pod ręką.{% endif %}</span>
-      <span class="album-card__meta">{{ favorite_count }} zdj. · widzisz tylko Ty</span>
-    </a>
-  </li>
-  {% for album in albums %}
+  {% for card in cards %}
+  {% with album=card.album label=card.label %}
   <li class="album-card">
-    <a class="album-card__link" href="{% url 'albums:gallery' album.pk %}">
-      {% with cover=album.cover_photo %}<span class="album-card__cover">{% if cover %}<img class="rot-{{ cover.pending_front }}" src="{% url 'albums:thumb' cover.pk %}?v={{ cover.version_front }}" alt="" loading="lazy">{% endif %}</span>{% endwith %}
-      <span class="album-card__title">{{ album.title }}</span>
-      {% if album.description %}<span class="album-card__description">{{ album.description|truncatewords:30 }}</span>{% endif %}
-      <span class="album-card__meta">{{ album.photo_count }} zdj.{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</span>
+    <a class="album-card__link" href="{% url 'albums:gallery' album.pk %}" title="{{ album.display_title }}">
+      <span class="album-card__cover{% if card.mosaic|length == 2 %} album-card__cover--mosaic{% endif %}"{% if card.photos|length > 1 %} data-album-preview{% endif %}>
+        <span class="album-card__main">{% for photo in card.photos %}<img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="" loading="lazy"{% if not forloop.first %} hidden{% endif %}>{% empty %}<span class="album-card__blank" aria-hidden="true">{{ label.title|slice:":1" }}</span>{% endfor %}</span>
+        {% if card.mosaic|length == 2 %}<span class="album-card__side" aria-hidden="true">{% for photo in card.mosaic %}<img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="" loading="lazy">{% endfor %}</span>{% endif %}
+        {% if label.number %}<span class="album-card__number">{{ label.number }}</span>{% endif %}
+        {% if album.is_hidden %}<span class="album-card__hidden">ukryty</span>{% endif %}
+        {% if card.photos|length > 1 %}<span class="album-card__dots" aria-hidden="true">{% for photo in card.photos %}<span{% if forloop.first %} class="is-on"{% endif %}></span>{% endfor %}</span>{% endif %}
+      </span>
+      <span class="album-card__body">
+        <span class="album-card__title">{{ label.title }}</span>
+        <span class="album-card__meta">{% for part in card.meta %}<span>{{ part }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+        {% if album.description %}<span class="album-card__description">{{ album.description|truncatewords:30 }}</span>{% endif %}
+      </span>
     </a>
   </li>
+  {% endwith %}
   {% endfor %}
 </ul>
+<script src="{% static 'js/album-list.js' %}" defer></script>
 {% else %}
 <div class="empty-state">
   <p>Nie widzisz jeszcze żadnych albumów.</p>
