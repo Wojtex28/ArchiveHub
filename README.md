@@ -46,6 +46,7 @@ w projekcie.
 | 45 | Okno portretu i zdjęcia osoby według dat | **gotowe** |
 | 46 | Płeć, chronologia życia i zdarzenia | **gotowe** |
 | 47 | Miejsce ślubu, pochówek, zdjęcie przy zdarzeniu | **gotowe** |
+| 48 | Zdarzenia na osi czasu drzewa | **gotowe** |
 
 ## Technologie
 

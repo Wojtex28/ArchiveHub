@@ -17,7 +17,7 @@ from albums.models import NamedModel, Person, Photo
 
 from . import tree
 from .forms import PersonForm
-from .models import ParentChild, Partnership, Sibling
+from .models import LifeEvent, ParentChild, Partnership, Sibling
 from .views import save_person, tree_access, visible_photos
 
 # Kanwa ma granice, żeby kafelek nie uciekł w nieskończoność po błędzie.
@@ -75,6 +75,16 @@ def tree_data(user):
             }
             for c in Partnership.objects.all()
             if c.since or c.ended or c.place
+        ],
+        # ETAP 48: zdarzenia z życia z datą, jako znaczki na pasku życia w widoku „Oś czasu”.
+        "events": [
+            {
+                "person": e.person_id,
+                "year": e.year,
+                "icon": e.icon,
+                "text": f"{e.heading} ({e.when})" + (f", {e.place}" if e.place else ""),
+            }
+            for e in LifeEvent.objects.filter(person__in_tree=True, year__isnull=False)
         ],
         "outside": [{"id": p.pk, "name": p.name, "count": p.count} for p in outside[:200]],
         "names": list(Person.objects.values_list("name", flat=True)),

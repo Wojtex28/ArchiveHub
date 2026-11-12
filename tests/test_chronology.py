@@ -179,3 +179,13 @@ def test_panel_lists_people_without_gender(master_client, db):
     unknown.refresh_from_db()
     assert unknown.gender == "M"
     assert "Osoby bez płci" not in master_client.get(reverse("panel:tree_history")).content.decode()
+
+
+def test_tree_data_lists_dated_events_for_timeline(master_client, jan):
+    """ETAP 48: zdarzenia z datą trafiają jako znaczki na oś czasu drzewa."""
+    tree.save_event(None, jan, {"kind": "praca", "date": "1955", "place": "Rzeszów"})
+    tree.save_event(None, jan, {"kind": "inne", "title": "Bez daty"})
+    data = master_client.get(reverse("family:data")).json()
+    assert data["events"] == [
+        {"person": jan.pk, "year": 1955, "icon": "💼", "text": "Praca / zawód (1955), Rzeszów"}
+    ]

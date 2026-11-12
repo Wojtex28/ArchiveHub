@@ -15,6 +15,11 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.48.0 (2026-11-12) · ETAP 48: zdarzenia na osi czasu drzewa
+
+- W widoku „Oś czasu” drzewa zdarzenia z życia z datą (zamieszkanie, nauka, praca, wojsko…) są małymi ikonkami na pasku życia osoby. Po najechaniu widać, co to i gdzie.
+- Bez zmian w bazie.
+
 ## 0.47.0 (2026-11-12) · ETAP 47: miejsce ślubu, pochówek, zdjęcie przy zdarzeniu
 
 - **Miejsce ślubu** przy parze (np. „parafia w Kraczkowej”), w panelu bocznym drzewa i na karcie osoby. Widać je w chronologii i przy partnerze („ślub 1950 (Kraczkowa)”).

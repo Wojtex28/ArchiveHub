@@ -1257,6 +1257,8 @@
     var rel = relativesIndex(state.data);
     var couples = couplesIndex(state.data);
     var rows = [], undated = [];
+    var eventsBy = {};
+    (state.data.events || []).forEach(function (ev) { (eventsBy[ev.person] = eventsBy[ev.person] || []).push(ev); });
     state.data.people.forEach(function (p) {
       var born = p.born, died = p.died;
       if (born == null && died == null) { undated.push(p); return; }
@@ -1268,6 +1270,9 @@
       rel[p.id].children.forEach(function (q) {
         var child = state.byId[q];
         if (child && child.born != null) marks.push({ year: child.born, kind: "child", text: "Urodzenie dziecka: " + child.name + " (" + child.born + ")" });
+      });
+      (eventsBy[p.id] || []).forEach(function (ev) {
+        marks.push({ year: ev.year, kind: "event", icon: ev.icon, text: ev.text });
       });
       var start = born != null ? born : null, end = died != null ? died : null, open = false;
       if (end === null && start !== null && !p.deceased && NOW - start <= TL_MAX_AGE) { end = NOW; open = true; }
@@ -1341,7 +1346,7 @@
         bar.title = p.name + (r.start === null ? ": rok urodzenia nieznany" : "") + (r.end === null ? ": rok śmierci nieznany" : "") + (r.open ? ": żyje" : "");
         track.appendChild(bar);
         r.marks.forEach(function (m) {
-          var mark = el("span", "tl-mark tl-mark--" + m.kind);
+          var mark = el("span", "tl-mark tl-mark--" + m.kind, m.icon);
           mark.style.left = (m.year - lo) * px + "px";
           mark.title = m.text;
           track.appendChild(mark);
