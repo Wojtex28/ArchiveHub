@@ -1722,43 +1722,8 @@
 
   // --- ETAP 55: sprawdzanie drzewa ------------------------------------------------------
 
-  // Uwagi o układzie: dziecko stoi dwa lub więcej rzędów pod rodzicami, bo jego partner(ka) jest
-  // z młodszego pokolenia. Linia do rodziców jest wtedy długa i przechodzi przez cudze rzędy.
-  function layoutIssues() {
-    var data = state.data, gen = state.layoutGen || {}, byId = state.byId;
-    var parentsOf = {}, partnersOf = {};
-    data.parents.forEach(function (link) { (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]); });
-    data.partners.forEach(function (pair) {
-      (partnersOf[pair[0]] = partnersOf[pair[0]] || []).push(pair[1]);
-      (partnersOf[pair[1]] = partnersOf[pair[1]] || []).push(pair[0]);
-    });
-    var out = [];
-    Object.keys(parentsOf).forEach(function (childId) {
-      var child = byId[childId];
-      if (!child) return;
-      var ps = parentsOf[childId].filter(function (id) { return byId[id]; });
-      var far = ps.filter(function (id) { return gen[childId] - gen[id] >= 2; });
-      if (!far.length) return;
-      var rows = gen[childId] - gen[far[0]];
-      var mates = (partnersOf[childId] || []).map(function (id) { return byId[id]; }).filter(Boolean);
-      var names = far.map(function (id) { return byId[id].name; }).join(" i ");
-      var text = child.name + " stoi " + rows + " rzędy pod rodzicami (" + names + ")"
-        + (mates.length ? ", bo w rzędzie partnera lub partnerki: " + mates.map(function (m) { return m.name; }).join(", ") : "")
-        + ". Linia do rodziców jest przez to długa. Jeśli rodzice są wpisani dobrze (a nie np. dziadkowie), wszystko w porządku.";
-      out.push({
-        key: ("uklad-" + childId + "-" + rows + "-" + far.slice().sort().join("-")).slice(0, 40),
-        kind: "uklad", level: "uwaga", text: text,
-        people: [child].concat(far.map(function (id) { return byId[id]; })).concat(mates)
-          .map(function (p) { return { id: p.id, name: p.name }; }),
-      });
-    });
-    return out;
-  }
-
   function updateChecks() {
-    var hidden = {};
-    (state.data.dismissed || []).forEach(function (key) { hidden[key] = true; });
-    state.issues = (state.data.issues || []).concat(layoutIssues().filter(function (i) { return !hidden[i.key]; }));
+    state.issues = state.data.issues || [];
     var button = root.querySelector("[data-tree-action=check]");
     if (!button) return;
     var errors = state.issues.filter(function (i) { return i.level === "blad"; }).length;
