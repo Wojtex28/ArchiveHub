@@ -475,6 +475,24 @@
       layer.hidden = true;
     }
 
+    // Kropki są ledwo widoczne (szare, 10%), żeby nie zasłaniać zdjęcia; wyraźnieją, gdy kursor jest blisko.
+    var NEAR_FULL = 40;
+    var NEAR_FADE = 160;
+    function nearness(event) {
+      if (event.pointerType !== "mouse" || layer.hidden) return;
+      people.forEach(function (person) {
+        if (!person.dot) return;
+        var dot = person.dot.getBoundingClientRect();
+        var distance = Math.hypot(event.clientX - (dot.left + dot.width / 2), event.clientY - (dot.top + dot.height / 2));
+        var near = Math.max(0, Math.min(1, (NEAR_FADE - distance) / (NEAR_FADE - NEAR_FULL)));
+        person.dot.style.setProperty("--near", near.toFixed(2));
+      });
+    }
+    stage.addEventListener("pointermove", nearness);
+    stage.addEventListener("pointerleave", function () {
+      people.forEach(function (person) { if (person.dot) person.dot.style.removeProperty("--near"); });
+    });
+
     function lit(person, on) {
       if (person.dot) person.dot.classList.toggle("is-active", on);
     }
@@ -499,7 +517,10 @@
           label.className = "viewer__mark-name";
           label.textContent = person.name;
           person.dot.append(label);
-          person.dot.addEventListener("click", function () { person.dot.classList.toggle("is-active"); });
+          // Myszą podpis pokazuje się pod kursorem i znika po zjechaniu; palcem stuknięcie go włącza i wyłącza.
+          person.dot.addEventListener("pointerup", function (event) {
+            if (event.pointerType !== "mouse") person.dot.classList.toggle("is-active");
+          });
           layer.append(person.dot);
         }
         item.addEventListener("mouseenter", function () { lit(person, true); });

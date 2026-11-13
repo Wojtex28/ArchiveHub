@@ -15,6 +15,11 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.52.1 (2026-11-13) · poprawka: dyskretne kropki osób na zdjęciu
+
+- Kropki osób na zdjęciu są domyślnie ledwo widoczne i szare (10%), więc nie zasłaniają zdjęcia. Wyraźnieją płynnie, gdy kursor się do nich zbliża.
+- Po najechaniu na kropkę pokazuje się, kto to jest, a po zjechaniu podpis znika (kliknięcie już go nie zostawia). Na telefonie kropki są półprzezroczyste, a stuknięcie pokazuje i chowa podpis.
+
 ## 0.52.0 (2026-11-13) · ETAP 50–52: kafelki i lista, „Moje albumy”, edycja albumu
 
 ### ETAP 50: kafelki albo lista
