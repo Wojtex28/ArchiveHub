@@ -71,13 +71,15 @@ def timeline(person, visible=None):
                     parent.death_year, parent.death_date, "✝", f"{_word('parent_died', parent)} {parent.name}"
                 )
             )
-    events = list(person.life_events.select_related("photo"))
+    # ETAP 54: zdarzenia „pod osią czasu” (np. adres domu) pokazuje :func:`notes`.
+    events = [event for event in person.life_events.select_related("photo") if event.on_timeline]
     shown = set()
     if visible is not None:
         wanted = [event.photo_id for event in events if event.photo_id]
         shown = set(visible.filter(pk__in=wanted).values_list("pk", flat=True))
     for event in events:
-        item = Item(event.year, event.when, event.icon, event.heading, event.place, event.note, event=event)
+        place = event.shown_place
+        item = Item(event.year, event.when, event.icon, event.heading, place, event.note, event=event)
         item.photo = event.photo if event.photo_id in shown else None
         items.append(item)
     if person.death_date or person.death_place or person.deceased or person.burial_place:
@@ -91,6 +93,22 @@ def timeline(person, visible=None):
     # Urodzenie zawsze pierwsze, śmierć ostatnia wśród zdarzeń z tego samego roku.
     rank = {"Urodzenie": 0, "Śmierć": 2}
     return sorted(items, key=lambda item: (item.year is None, item.year or 0, rank.get(item.title, 1)))
+
+
+def notes(person, visible=None):
+    """Zdarzenia wpisane jako informacja pod osią czasu (ETAP 54), np. gdzie ktoś mieszkał.
+
+    Kolejność jak na osi: od najwcześniejszych, te bez daty na końcu. ``shown_photo`` to zdjęcie
+    przy zdarzeniu, o ile konto widzi jego album.
+    """
+    events = [event for event in person.life_events.select_related("photo") if not event.on_timeline]
+    shown = set()
+    if visible is not None:
+        wanted = [event.photo_id for event in events if event.photo_id]
+        shown = set(visible.filter(pk__in=wanted).values_list("pk", flat=True))
+    for event in events:
+        event.shown_photo = event.photo if event.photo_id in shown else None
+    return sorted(events, key=lambda event: (event.year is None, event.year or 0, event.pk))
 
 
 def _within_life(person, year):

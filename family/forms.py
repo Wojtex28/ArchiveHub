@@ -142,12 +142,25 @@ class NewPersonForm(forms.Form):
         return name
 
 
+PLACEMENT = [("1", "Na osi czasu, według daty"), ("0", "Pod osią czasu, jako informacja")]
+
+
 class LifeEventForm(forms.ModelForm):
     """Zdarzenie z życia wpisywane ręcznie (ETAP 46)."""
 
+    # ETAP 54: gdzie pokazać na karcie osoby; adres domu nie musi być punktem na osi.
+    on_timeline = forms.TypedChoiceField(
+        label="Gdzie pokazać",
+        choices=PLACEMENT,
+        coerce=lambda value: value == "1",
+        widget=forms.RadioSelect,
+        required=False,
+        empty_value=None,
+    )
+
     class Meta:
         model = LifeEvent
-        fields = ["kind", "title", "date", "until", "place", "note", "photo"]
+        fields = ["kind", "title", "date", "until", "place", "note", "on_timeline", "photo"]
         labels = {"kind": "Co to za zdarzenie", "title": "Tytuł (opcjonalnie)", "date": "Kiedy albo od kiedy"}
         help_texts = {
             "title": "Np. „Kupno domu w Kraczkowej”. Bez tytułu zostanie nazwa rodzaju.",
@@ -166,6 +179,11 @@ class LifeEventForm(forms.ModelForm):
         # Bez pustej pozycji na liście: najczęściej dopisuje się, gdzie ktoś mieszkał.
         self.fields["kind"].choices = LifeEvent.KINDS
         self.fields["kind"].initial = LifeEvent.KINDS[0][0]
+        # Domyślne miejsce zależy od rodzaju; skrypt przestawia je przy zmianie rodzaju (life-events.js).
+        self.fields["kind"].widget.attrs["data-event-kind"] = " ".join(LifeEvent.OFF_TIMELINE)
+        kind = self.instance.kind if self.instance.pk else LifeEvent.KINDS[0][0]
+        on = self.instance.on_timeline if self.instance.pk else kind not in LifeEvent.OFF_TIMELINE
+        self.initial["on_timeline"] = "1" if on else "0"
 
     def _clean_date(self, field):
         try:

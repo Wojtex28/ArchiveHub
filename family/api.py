@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 from albums.models import NamedModel, Person, Photo
 
 from . import tree
-from .forms import PersonForm
+from .forms import LifeEventForm, PersonForm
 from .models import LifeEvent, ParentChild, Partnership, Sibling
 from .views import save_person, tree_access, visible_photos
 
@@ -76,20 +76,57 @@ def tree_data(user):
             for c in Partnership.objects.all()
             if c.since or c.ended or c.place
         ],
-        # ETAP 48: zdarzenia z życia z datą, jako znaczki na pasku życia w widoku „Oś czasu”.
-        "events": [
-            {
-                "person": e.person_id,
-                "year": e.year,
-                "icon": e.icon,
-                "text": f"{e.heading} ({e.when})" + (f", {e.place}" if e.place else ""),
-            }
-            for e in LifeEvent.objects.filter(person__in_tree=True, year__isnull=False)
-        ],
+        # ETAP 48: zdarzenia z życia jako znaczki na pasku życia w widoku „Oś czasu”.
+        # ETAP 54: wszystkie, także bez daty i te „pod osią” (lista w panelu bocznym).
+        "events": [_event(e) for e in LifeEvent.objects.filter(person__in_tree=True)],
         "outside": [{"id": p.pk, "name": p.name, "count": p.count} for p in outside[:200]],
         "names": list(Person.objects.values_list("name", flat=True)),
         "canEdit": user.can_edit_tree,
+        "eventKinds": LifeEvent.KINDS,
+        "offTimeline": list(LifeEvent.OFF_TIMELINE),
     }
+
+
+def _event(e):
+    place = e.shown_place
+    return {
+        "id": e.pk,
+        "person": e.person_id,
+        "year": e.year,
+        "icon": e.icon,
+        "kind": e.get_kind_display(),
+        "heading": e.heading,
+        "when": e.when,
+        "place": place,
+        "onTimeline": e.on_timeline,
+        "text": e.heading + (f" ({e.when})" if e.when else "") + (f", {place}" if place else ""),
+    }
+
+
+EVENT_FIELDS = {field: field for field in ("kind", "title", "date", "until", "place", "note")}
+
+
+@tree_access(edit=True)
+@require_POST
+def event(request):
+    """Nowe zdarzenie z panelu bocznego drzewa (ETAP 54): pola jak „+ Dodaj zdarzenie” na karcie osoby.
+
+    ``{"person", "kind", "title", "date", "until", "place", "note", "onTimeline"}``; bez zdjęcia.
+    """
+    body = _body(request)
+    person = _person(body.get("person"), in_tree=True)
+    if person is None:
+        return _error("Nie ma takiej osoby w drzewie.", 404)
+    data = {field: str(body.get(key) or "") for key, field in EVENT_FIELDS.items()}
+    if isinstance(body.get("onTimeline"), bool):
+        data["on_timeline"] = "1" if body["onTimeline"] else "0"
+    form = LifeEventForm(data, photos=Photo.objects.none())
+    if not form.is_valid():
+        errors = {key: form.errors[field][0] for key, field in EVENT_FIELDS.items() if field in form.errors}
+        message = form.non_field_errors()[0] if form.non_field_errors() else "Popraw zaznaczone pola."
+        return JsonResponse({"error": message, "errors": errors}, status=400)
+    tree.save_event(request.user, person, form.cleaned_data)
+    return _ok(request)
 
 
 def _portrait(photo, person=None):

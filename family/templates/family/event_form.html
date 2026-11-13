@@ -1,4 +1,5 @@
 {% extends "app_base.html" %}
+{% load static %}
 {% block title %}Zdarzenie: {{ person.name }} · {{ site_title }}{% endblock %}
 {% block main %}
 <p><a href="{% url 'family:person' person.pk %}#chronologia">← {{ person.name }}</a></p>
@@ -8,4 +9,5 @@
   {% include "family/includes/event_fields.html" %}
   <button type="submit" class="button">Zapisz</button>
 </form>
+<script src="{% static 'js/life-events.js' %}" defer></script>
 {% endblock %}

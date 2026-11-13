@@ -144,6 +144,8 @@ class LifeEvent(models.Model):
         "przeprowadzka": "🧳",
         "inne": "📌",
     }
+    # ETAP 54: te rodzaje domyślnie nie stoją na osi czasu, tylko jako tekst pod nią.
+    OFF_TIMELINE = ("mieszkanie",)
 
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="life_events")
     kind = models.CharField("rodzaj", max_length=20, choices=KINDS)
@@ -154,6 +156,8 @@ class LifeEvent(models.Model):
     until = models.CharField("do kiedy", max_length=60, blank=True)
     place = models.CharField("miejsce", max_length=200, blank=True)
     note = models.TextField("notatka", max_length=1000, blank=True)
+    # ETAP 54: zdarzenie na osi czasu (według daty) albo informacja pod osią (np. adres domu).
+    on_timeline = models.BooleanField("na osi czasu", default=True)
     # ETAP 47: zdjęcie z archiwum przy zdarzeniu (spośród zdjęć tej osoby).
     photo = models.ForeignKey(
         "albums.Photo",
@@ -180,6 +184,11 @@ class LifeEvent(models.Model):
     @property
     def icon(self):
         return self.ICONS.get(self.kind, "📌")
+
+    @property
+    def shown_place(self):
+        """Miejsce, o ile nie powtarza tytułu („Boreczek 70” jako tytuł i jako miejsce)."""
+        return "" if self.place == self.title else self.place
 
     @property
     def when(self):

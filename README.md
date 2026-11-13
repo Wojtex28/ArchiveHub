@@ -51,6 +51,7 @@ w projekcie.
 | 50 | Lista albumów: kafelki albo lista, kolumna „Twoje” | **gotowe** |
 | 51 | „Moje albumy” i wybór albumu przy gwiazdce | **gotowe** |
 | 52 | Edycja albumu: nazwa, opis, lata, okładka | **gotowe** |
+| 54 | Zdarzenia pod osią czasu, dodawanie z panelu drzewa | **gotowe** |
 
 ## Technologie
 

@@ -177,6 +177,7 @@ def _person_page(request, person, relation_form=None, namesakes=None, embedded=F
             "siblings": tree.siblings(person),
             "photos": photos_by_date(photos),
             "timeline": chronology.timeline(person, visible=photos),
+            "life_notes": chronology.notes(person, visible=photos),
             "event_form": event_form or LifeEventForm(photos=photos),
             "event_photos": _event_photos(photos),
             "event_open": event_form is not None,

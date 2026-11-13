@@ -50,6 +50,27 @@
 {% else %}
 <p class="hint">Chronologia ułoży się sama, gdy pojawi się data urodzenia, ślubu albo dzieci.{% if can_edit %} Możesz też dopisać zdarzenia ręcznie.{% endif %}</p>
 {% endif %}
+{% if life_notes %}
+<dl class="life-notes">
+  {% for event in life_notes %}
+  <div class="life-notes__item">
+    <dt>{{ event.get_kind_display }}</dt>
+    <dd>
+      {% if event.title %}{{ event.title }}{% endif %}{% if event.title and event.shown_place %}, {% endif %}{{ event.shown_place }}{% if not event.title and not event.place and not event.when %}{{ event.get_kind_display }}{% endif %}
+      {% if event.when %}<span class="hint">{% if event.title or event.place %} · {% endif %}{{ event.when }}</span>{% endif %}
+      {% if event.note %}<p class="life-notes__note">{{ event.note|linebreaksbr }}</p>{% endif %}
+      {% if event.shown_photo %}<a class="chronology__photo" href="{% url 'albums:photo' event.shown_photo.album_id event.shown_photo.pk %}"{% if embedded %} target="_blank" rel="noopener"{% endif %}><img class="rot-{{ event.shown_photo.pending_front }}" src="{% url 'albums:thumb' event.shown_photo.pk %}?v={{ event.shown_photo.version_front }}" alt="Zdjęcie: {{ event.heading }}" loading="lazy"></a>{% endif %}
+      {% if can_edit %}
+      <span class="chronology__actions life-notes__actions">
+        <a href="{% url 'family:event_edit' event.pk %}">Popraw</a>
+        <form method="post" action="{% url 'family:event_remove' event.pk %}">{% csrf_token %}<button type="submit" class="link-button" data-confirm="Usunąć „{{ event.heading }}”?">Usuń</button></form>
+      </span>
+      {% endif %}
+    </dd>
+  </div>
+  {% endfor %}
+</dl>
+{% endif %}
 {% if can_edit %}
 <details class="event-add"{% if event_open %} open{% endif %}>
   <summary class="button button--quiet">+ Dodaj zdarzenie</summary>
@@ -108,4 +129,5 @@
 {% endif %}
 <script src="{% static 'js/confirm.js' %}" defer></script>
 <script src="{% static 'js/portrait.js' %}" defer></script>
+<script src="{% static 'js/life-events.js' %}" defer></script>
 {% endblock %}

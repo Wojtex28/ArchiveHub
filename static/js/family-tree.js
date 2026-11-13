@@ -33,6 +33,7 @@
     remove: root.getAttribute("data-url-remove"),
     alive: root.getAttribute("data-url-alive"),
     couple: root.getAttribute("data-url-couple"),
+    event: root.getAttribute("data-url-event"),
     person: root.getAttribute("data-url-person"),
   };
   var csrf = root.getAttribute("data-csrf");
@@ -1272,6 +1273,8 @@
         if (child && child.born != null) marks.push({ year: child.born, kind: "child", text: "Urodzenie dziecka: " + child.name + " (" + child.born + ")" });
       });
       (eventsBy[p.id] || []).forEach(function (ev) {
+        // ETAP 54: zdarzenia „pod osią czasu” (np. adres) i bez daty nie mają znaczka na pasku.
+        if (ev.year == null || ev.onTimeline === false) return;
         marks.push({ year: ev.year, kind: "event", icon: ev.icon, text: ev.text });
       });
       var start = born != null ? born : null, end = died != null ? died : null, open = false;
@@ -1634,6 +1637,140 @@
     return box;
   }
 
+  // --- ETAP 54: zdarzenia z życia w panelu bocznym ------------------------------------
+
+  function personEvents(person) {
+    var box = el("div", "tree-events");
+    var events = (state.data.events || []).filter(function (ev) { return ev.person === person.id; });
+    events.sort(function (a, b) {
+      return (a.onTimeline === b.onTimeline ? 0 : a.onTimeline ? -1 : 1)
+        || (a.year == null) - (b.year == null) || (a.year || 0) - (b.year || 0) || a.id - b.id;
+    });
+    if (events.length) {
+      box.appendChild(el("h3", "tree-events__title", "Zdarzenia"));
+      var list = el("ul", "tree-events__list");
+      events.forEach(function (ev) {
+        var item = el("li", ev.onTimeline ? "" : "is-note");
+        if (ev.onTimeline) item.appendChild(el("span", "tree-events__icon", ev.icon));
+        var text = el("span", "tree-events__text");
+        text.appendChild(el("strong", "", ev.onTimeline ? ev.heading : ev.kind + ": "));
+        if (!ev.onTimeline) text.appendChild(document.createTextNode([ev.heading !== ev.kind ? ev.heading : "", ev.place].filter(Boolean).join(", ")));
+        if (ev.when) text.appendChild(el("span", "hint", " · " + ev.when));
+        if (ev.onTimeline && ev.place) text.appendChild(el("span", "hint", " · " + ev.place));
+        item.appendChild(text);
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+    }
+    if (!state.data.canEdit) return box;
+    if (state.eventForm === person.id) {
+      box.appendChild(eventForm(person));
+    } else {
+      var add = el("button", "link-button tree-events__add", "+ Dodaj zdarzenie");
+      add.type = "button";
+      add.addEventListener("click", function () {
+        state.eventForm = person.id;
+        renderSheet();
+        var first = sheet.querySelector(".tree-event-form select");
+        if (first) first.focus();
+      });
+      box.appendChild(add);
+    }
+    return box;
+  }
+
+  function eventForm(person) {
+    var form = el("form", "tree-event-form");
+    form.appendChild(el("h3", "tree-events__title", "Nowe zdarzenie"));
+    var off = state.data.offTimeline || [];
+    function field(label, input, hint) {
+      var id = "zd-" + label.toLowerCase().replace(/[^a-ząćęłńóśźż]+/g, "-") + "-" + person.id;
+      input.id = id;
+      var wrap = el("div", "field");
+      var lab = el("label", "", label);
+      lab.htmlFor = id;
+      wrap.appendChild(lab);
+      wrap.appendChild(input);
+      if (hint) wrap.appendChild(el("p", "hint", hint));
+      form.appendChild(wrap);
+      return input;
+    }
+    function text(placeholder, max) {
+      var input = el("input");
+      input.type = "text";
+      input.placeholder = placeholder || "";
+      input.maxLength = max;
+      return input;
+    }
+    var kind = el("select");
+    (state.data.eventKinds || []).forEach(function (pair) {
+      var option = el("option", "", pair[1]);
+      option.value = pair[0];
+      kind.appendChild(option);
+    });
+    field("Co to za zdarzenie", kind);
+    var title = field("Tytuł (opcjonalnie)", text("np. dom w Boreczku", 120));
+    var date = field("Kiedy albo od kiedy", text("np. 1950, ok. 1950, lata 50.", 60));
+    var until = field("Do kiedy", text("tylko gdy trwało dłużej", 60));
+    var place = field("Miejsce", text("", 200));
+    var note = el("textarea");
+    note.rows = 2;
+    note.maxLength = 1000;
+    field("Notatka", note);
+    var where = el("div", "field event-place");
+    where.appendChild(el("span", "field__label", "Gdzie pokazać"));
+    var radios = [["1", "Na osi czasu, według daty"], ["0", "Pod osią czasu, jako informacja"]].map(function (pair) {
+      var label = el("label", "check");
+      var radio = el("input");
+      radio.type = "radio";
+      radio.name = "gdzie-" + person.id;
+      radio.value = pair[0];
+      label.appendChild(radio);
+      label.appendChild(document.createTextNode(" " + pair[1]));
+      where.appendChild(label);
+      radio.addEventListener("change", function () { touched = true; });
+      return radio;
+    });
+    form.appendChild(where);
+    var touched = false;
+    function placement() {
+      if (touched) return;
+      var value = off.indexOf(kind.value) >= 0 ? "0" : "1";
+      radios.forEach(function (radio) { radio.checked = radio.value === value; });
+    }
+    kind.addEventListener("change", placement);
+    placement();
+    var error = el("p", "field__error");
+    error.hidden = true;
+    form.appendChild(error);
+    var buttons = el("div", "tree-event-form__buttons");
+    var save = el("button", "button", "Dodaj");
+    save.type = "submit";
+    var cancel = el("button", "button button--quiet", "Anuluj");
+    cancel.type = "button";
+    cancel.addEventListener("click", function () { state.eventForm = null; renderSheet(); });
+    buttons.appendChild(save);
+    buttons.appendChild(cancel);
+    form.appendChild(buttons);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      send(urls.event, {
+        person: person.id, kind: kind.value, title: title.value, date: date.value, until: until.value,
+        place: place.value, note: note.value, onTimeline: radios[0].checked,
+      }).then(function () {
+        state.eventForm = null;
+        renderSheet();
+        showMessage("Dodano zdarzenie: " + person.name + ".");
+      }).catch(function (err) {
+        var errors = (err.data && err.data.errors) || {};
+        var first = Object.keys(errors)[0];
+        error.textContent = first ? errors[first] : err.message;
+        error.hidden = false;
+      });
+    });
+    return form;
+  }
+
   var EDIT_FIELDS = [
     ["name", "Imię i nazwisko", "", 100],
     ["maiden", "Nazwisko rodowe", "np. Nowak", 100],
@@ -1938,6 +2075,7 @@
         sheet.appendChild(alive);
       }
       sheet.appendChild(personFacts(person));
+      sheet.appendChild(personEvents(person));
       var buttons = el("div", "tree-sheet__buttons");
       if (state.data.canEdit) {
         var editButton = el("button", "button", "Edytuj dane");
@@ -2181,6 +2319,7 @@
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
+    if (state.eventForm !== id) state.eventForm = null;
     render();
     renderSheet();
     if (state.mode === "os") { revealRow(id); return; }
