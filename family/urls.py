@@ -28,5 +28,6 @@ urlpatterns = [
     path("drzewo/api/zyje/", api.alive, name="api_alive"),
     path("drzewo/api/para/", api.couple, name="api_couple"),
     path("drzewo/api/zdarzenie/", api.event, name="api_event"),
+    path("drzewo/api/sprawdzenie/", api.check, name="api_check"),
     path("drzewo/api/osoba/<int:pk>/", api.person, name="api_person"),
 ]

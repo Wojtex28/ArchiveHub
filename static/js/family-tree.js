@@ -13,6 +13,10 @@
   var SNAP_X = 48; // px: linia dziecka do 48 px od środka kafelka zamiast krótkiego uskoku (ETAP 39)
   var GAP_FAMILY = 112; // przerwa między różnymi rodzinami w rzędzie (ETAP 38)
   var ROW_H = 180;
+  // ETAP 55: linia rodzic → dziecko przez kilka rzędów idzie „korytarzem” zarezerwowanym w każdym
+  // rzędzie pośrodku (punkt pośredni o tej szerokości, z małym odstępem z obu stron).
+  var DUMMY_W = 24;
+  var DUMMY_GAP = 20;
   // Kary w układaniu kolejności (ETAP 38, zob. autoLayout): przecięcie linii > dwie rodziny z kreskami
   // jedna nad drugą (rodzeństwo nie stoi blokiem) > rodzeństwo nie po kolei urodzenia.
   var CROSS_WEIGHT = 4;
@@ -34,6 +38,7 @@
     alive: root.getAttribute("data-url-alive"),
     couple: root.getAttribute("data-url-couple"),
     event: root.getAttribute("data-url-event"),
+    check: root.getAttribute("data-url-check"),
     person: root.getAttribute("data-url-person"),
   };
   var csrf = root.getAttribute("data-csrf");
@@ -386,12 +391,44 @@
       return order;
     }
 
+    // ETAP 55: rodzic dwa lub więcej rzędów nad dzieckiem (np. dziecko poślubiło kogoś z młodszego
+    // pokolenia). W każdym rzędzie pomiędzy wstawiamy punkt pośredni, który układa się jak osoba
+    // (jak w metodzie Sugiyamy): wtedy taka linia też liczy się do przecięć i dostaje własne przejście.
+    var ids = data.people.map(function (p) { return p.id; });
+    var chains = [];
+    data.people.forEach(function (p) {
+      var far = rel[p.id].parents.filter(function (id) { return gen[id] <= gen[p.id] - 2; });
+      var groups = {};
+      far.forEach(function (id) { (groups[gen[id]] = groups[gen[id]] || []).push(id); });
+      Object.keys(groups).forEach(function (g) {
+        var ps = groups[g], prev = ps, key = ps.slice().sort().join("_") + "_" + p.id, points = [];
+        for (var r = +g + 1; r < gen[p.id]; r++) {
+          var dummy = "d" + key + "_" + r;
+          rel[dummy] = { parents: prev.slice(), children: [], partners: [], siblings: [] };
+          byId[dummy] = { id: dummy, name: "", born: null };
+          gen[dummy] = r;
+          prev.forEach(function (q) {
+            var list = rel[q].children, at = list.indexOf(p.id);
+            if (at >= 0) list.splice(at, 1);
+            list.push(dummy);
+          });
+          rows[r].push([dummy]);
+          ids.push(dummy);
+          points.push(dummy);
+          prev = [dummy];
+        }
+        rel[p.id].parents = rel[p.id].parents.filter(function (id) { return ps.indexOf(id) < 0; }).concat(prev);
+        chains.push({ parents: ps, child: p.id, points: points });
+      });
+    });
+    function isDummy(id) { return typeof id === "string" && id.charAt(0) === "d"; }
+
     // Krawędzie rodzic → dziecko między sąsiednimi rzędami: źródło to środek pary albo jeden rodzic.
     var familiesOf = {};
-    data.people.forEach(function (p) {
-      var ps = rel[p.id].parents.filter(function (id) { return gen[id] === gen[p.id] - 1; });
+    ids.forEach(function (id) {
+      var ps = rel[id].parents.filter(function (q) { return gen[q] === gen[id] - 1; });
       if (!ps.length) return;
-      familiesOf[p.id] = ps.length === 2 && rel[ps[0]].partners.indexOf(ps[1]) >= 0 ? [ps] : ps.map(function (id) { return [id]; });
+      familiesOf[id] = ps.length === 2 && rel[ps[0]].partners.indexOf(ps[1]) >= 0 ? [ps] : ps.map(function (q) { return [q]; });
     });
 
     // Numer miejsca osoby w rzędzie (po kolei przez jednostki); wystarczy do liczenia przecięć.
@@ -667,7 +704,7 @@
     var pos = {};
     var step = NODE_W + GAP_X;
     var childrenOf = {};
-    data.people.forEach(function (p) { childrenOf[p.id] = rel[p.id].children; });
+    ids.forEach(function (id) { childrenOf[id] = rel[id].children; });
     // Odstępy mówią, kto do kogo należy (ETAP 38): rodzeństwo i rodzina stoją ciasno (GAP_X),
     // a między różnymi rodzinami jest większa przerwa (GAP_FAMILY).
     function familyKeys(unit) {
@@ -685,14 +722,21 @@
     var gapsAfter = orders.map(function (order) {
       return order.map(function (unit, j) {
         if (j === order.length - 1) return 0;
+        if (isDummy(unit[0]) || isDummy(order[j + 1][0])) return DUMMY_GAP;
         return together(unit, order[j + 1]) ? GAP_X : GAP_FAMILY;
       });
     });
-    function unitWidth(order, j) { return (order[j].length - 1) * step + NODE_W + gapsAfter[orders.indexOf(order)][j]; }
+    function unitWidth(order, j) {
+      var w = isDummy(order[j][0]) ? DUMMY_W : (order[j].length - 1) * step + NODE_W;
+      return w + gapsAfter[orders.indexOf(order)][j];
+    }
+    // Punkt pośredni zajmuje DUMMY_W, ale jego „x” liczymy jak u kafelka (lewa krawędź pudełka NODE_W),
+    // żeby środki wszystkich wychodziły z tego samego wzoru x + NODE_W / 2.
+    function shiftOf(unit) { return isDummy(unit[0]) ? (NODE_W - DUMMY_W) / 2 : 0; }
     orders.forEach(function (order, depth) {
       var x = 0;
       order.forEach(function (unit, j) {
-        unit.forEach(function (id, k) { pos[id] = [x + k * step, depth * ROW_H]; });
+        unit.forEach(function (id, k) { pos[id] = [x + k * step - shiftOf(unit), depth * ROW_H]; });
         x += unitWidth(order, j);
       });
     });
@@ -721,9 +765,9 @@
         var sum = 0, weight = 0;
         unit.forEach(function (id, k) {
           var want = wantOf(id, useParents, useChildren);
-          if (want !== null) { sum += want - k * step; weight += 1; }
+          if (want !== null) { sum += want - k * step + shiftOf(unit); weight += 1; }
         });
-        var current = pos[unit[0]][0];
+        var current = pos[unit[0]][0] + shiftOf(unit);
         var target = weight ? sum / weight : current;
         if (!weight) weight = 0.01;
         // Przesunięcie o szerokość wcześniejszych jednostek: wtedy warunek „bez nachodzenia” to
@@ -741,7 +785,7 @@
       blocks.forEach(function (block) {
         var y = block.wt / block.w;
         for (; j <= block.to; j++) {
-          order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step; });
+          order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step - shiftOf(order[j]); });
           offset += unitWidth(order, j);
         }
       });
@@ -756,6 +800,11 @@
       var right = Math.max.apply(null, all.map(function (id) { return pos[id][0]; }));
       all.forEach(function (id) { pos[id][0] = Math.round(pos[id][0] - (left + right) / 2); });
     }
+    // Przejścia linii przez rzędy: środki punktów pośrednich, od góry.
+    pos.chains = chains.map(function (c) {
+      return { parents: c.parents, child: c.child, points: c.points.map(function (id) { return [pos[id][0] + NODE_W / 2, pos[id][1]]; }) };
+    });
+    chains.forEach(function (c) { c.points.forEach(function (id) { delete pos[id]; }); });
     return pos;
   }
 
@@ -1011,10 +1060,37 @@
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
     // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
     var parentsOf = {};
+    // ETAP 55: linie przez kilka rzędów rysujemy osobno, przez przejścia z układu (state.chains).
+    var far = {};
+    (state.chains || []).forEach(function (c) { c.parents.forEach(function (p) { far[p + ">" + c.child] = true; }); });
     state.shown.parents.forEach(function (link) {
+      if (far[link[0] + ">" + link[1]]) return;
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
     });
     var families = {};
+    function addFamily(key, src, kid) {
+      var family = families[key] || (families[key] = { x: src.x, y: src.y, top: kid.y, kids: [] });
+      family.top = Math.min(family.top, kid.y);
+      family.kids.push(kid);
+    }
+    (state.chains || []).forEach(function (c) {
+      var child = byId[c.child];
+      var ps = c.parents.map(function (id) { return byId[id]; }).filter(Boolean);
+      if (!child || !ps.length || !c.points.length) return;
+      var src = ps.length === 2
+        ? { key: ps.map(function (p) { return p.id; }).sort().join("+"), x: (ps[0].x + ps[1].x) / 2 + NODE_W / 2, y: (ps[0].y + ps[1].y) / 2 + NODE_H / 2 }
+        : { key: String(ps[0].id), x: ps[0].x + NODE_W / 2, y: ps[0].y + NODE_H };
+      var prev = null;
+      c.points.forEach(function (pt, i) {
+        var stop = { x: pt[0] - NODE_W / 2, y: pt[1], through: true };
+        if (!i) addFamily(src.key + "|" + Math.round(pt[1]), src, stop);
+        else addFamily("przejscie|" + c.child + "|" + i, { x: prev[0], y: prev[1] + NODE_H }, stop);
+        // Przez rząd: prosto w dół korytarzem między kafelkami.
+        path("M" + pt[0] + "," + pt[1] + " V" + (pt[1] + NODE_H), "tree-line");
+        prev = pt;
+      });
+      addFamily("przejscie|" + c.child + "|koniec", { x: prev[0], y: prev[1] + NODE_H }, child);
+    });
     Object.keys(parentsOf).forEach(function (childId) {
       var child = byId[childId];
       if (!child) return;
@@ -1481,6 +1557,7 @@
     }
     layout();
     render();
+    updateChecks();
     renderSheet();
     if (first) {
       if (state.byId[wanted]) focusOn(wanted); else fit();
@@ -1497,6 +1574,7 @@
     state.shown = data;
     state.layoutGen = generations(data);
     var pos = data.people.length ? autoLayout(data) : {};
+    state.chains = pos.chains || [];
     data.people.forEach(function (p) {
       var at = pos[p.id];
       p.x = at ? at[0] : null;
@@ -1634,6 +1712,91 @@
     if (!box.childNodes.length) {
       box.appendChild(el("p", "hint tree-facts__empty", state.data.canEdit ? "Brak dat i opisu. Uzupełnisz je w „Edytuj dane”." : "Brak dat i opisu."));
     }
+    return box;
+  }
+
+  // --- ETAP 55: sprawdzanie drzewa ------------------------------------------------------
+
+  // Uwagi o układzie: dziecko stoi dwa lub więcej rzędów pod rodzicami, bo jego partner(ka) jest
+  // z młodszego pokolenia. Linia do rodziców jest wtedy długa i przechodzi przez cudze rzędy.
+  function layoutIssues() {
+    var data = state.data, gen = state.layoutGen || {}, byId = state.byId;
+    var parentsOf = {}, partnersOf = {};
+    data.parents.forEach(function (link) { (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]); });
+    data.partners.forEach(function (pair) {
+      (partnersOf[pair[0]] = partnersOf[pair[0]] || []).push(pair[1]);
+      (partnersOf[pair[1]] = partnersOf[pair[1]] || []).push(pair[0]);
+    });
+    var out = [];
+    Object.keys(parentsOf).forEach(function (childId) {
+      var child = byId[childId];
+      if (!child) return;
+      var ps = parentsOf[childId].filter(function (id) { return byId[id]; });
+      var far = ps.filter(function (id) { return gen[childId] - gen[id] >= 2; });
+      if (!far.length) return;
+      var rows = gen[childId] - gen[far[0]];
+      var mates = (partnersOf[childId] || []).map(function (id) { return byId[id]; }).filter(Boolean);
+      var names = far.map(function (id) { return byId[id].name; }).join(" i ");
+      var text = child.name + " stoi " + rows + " rzędy pod rodzicami (" + names + ")"
+        + (mates.length ? ", bo w rzędzie partnera lub partnerki: " + mates.map(function (m) { return m.name; }).join(", ") : "")
+        + ". Linia do rodziców jest przez to długa. Jeśli rodzice są wpisani dobrze (a nie np. dziadkowie), wszystko w porządku.";
+      out.push({
+        key: ("uklad-" + childId + "-" + rows + "-" + far.slice().sort().join("-")).slice(0, 40),
+        kind: "uklad", level: "uwaga", text: text,
+        people: [child].concat(far.map(function (id) { return byId[id]; })).concat(mates)
+          .map(function (p) { return { id: p.id, name: p.name }; }),
+      });
+    });
+    return out;
+  }
+
+  function updateChecks() {
+    var hidden = {};
+    (state.data.dismissed || []).forEach(function (key) { hidden[key] = true; });
+    state.issues = (state.data.issues || []).concat(layoutIssues().filter(function (i) { return !hidden[i.key]; }));
+    var button = root.querySelector("[data-tree-action=check]");
+    if (!button) return;
+    var errors = state.issues.filter(function (i) { return i.level === "blad"; }).length;
+    button.hidden = !state.issues.length;
+    button.classList.toggle("has-errors", errors > 0);
+    button.querySelector(".tree-check__count").textContent = state.issues.length;
+    button.setAttribute("aria-pressed", state.checks ? "true" : "false");
+    if (!state.issues.length) state.checks = false;
+  }
+
+  function checksPanel() {
+    var box = el("div", "tree-checks");
+    var close = el("button", "tree-sheet__close", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", "Zamknij");
+    close.addEventListener("click", function () { state.checks = false; renderSheet(); });
+    box.appendChild(close);
+    box.appendChild(el("h2", "", "Do sprawdzenia"));
+    box.appendChild(el("p", "hint", "Rzeczy, które wyglądają na pomyłkę w drzewie. Kliknij osobę, żeby ją poprawić. Jeśli dane są dobre, kliknij „To się zgadza”, a uwaga zniknie (wróci, gdy dane się zmienią)."));
+    var list = el("ul", "tree-checks__list");
+    state.issues.forEach(function (issue) {
+      var item = el("li", "tree-checks__item tree-checks__item--" + issue.level);
+      item.appendChild(el("span", "tree-checks__level", issue.level === "blad" ? "Błąd" : "Do sprawdzenia"));
+      item.appendChild(el("p", "tree-checks__text", issue.text));
+      var who = el("div", "tree-checks__people");
+      issue.people.forEach(function (p) {
+        var link = el("button", "link-button", p.name);
+        link.type = "button";
+        link.addEventListener("click", function () { select(p.id, true); });
+        who.appendChild(link);
+      });
+      item.appendChild(who);
+      if (state.data.canEdit) {
+        var ok = el("button", "button button--quiet button--small", "To się zgadza");
+        ok.type = "button";
+        ok.addEventListener("click", function () {
+          send(urls.check, { key: issue.key, text: issue.text }).then(function () { showMessage("Schowano uwagę."); });
+        });
+        item.appendChild(ok);
+      }
+      list.appendChild(item);
+    });
+    box.appendChild(list);
     return box;
   }
 
@@ -2032,6 +2195,12 @@
 
   function renderSheet() {
     sheet.textContent = "";
+    if (state.checks) {
+      sheet.hidden = false;
+      root.classList.add("has-sheet");
+      sheet.appendChild(checksPanel());
+      return;
+    }
     var person = state.selected && state.byId[state.selected];
     var editing = state.form && state.data.canEdit;
     sheet.hidden = !person && !editing;
@@ -2319,6 +2488,7 @@
     state.selected = id;
     state.form = null;
     state.coupleEdit = null;
+    state.checks = false;
     if (state.eventForm !== id) state.eventForm = null;
     render();
     renderSheet();
@@ -2561,6 +2731,11 @@
     if (name === "zoom-in") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 1.25);
     if (name === "zoom-out") zoomAt(rect.left + a.w / 2, rect.top + a.h / 2, 0.8);
     if (name === "fit") fit();
+    if (name === "check") {
+      state.checks = !state.checks;
+      renderSheet();
+      return;
+    }
     if (name === "add") {
       state.selected = null;
       openForm(null, null, null);

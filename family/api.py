@@ -15,9 +15,9 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from albums.models import NamedModel, Person, Photo
 
-from . import tree
+from . import checks, tree
 from .forms import LifeEventForm, PersonForm
-from .models import LifeEvent, ParentChild, Partnership, Sibling
+from .models import CheckDismissal, LifeEvent, ParentChild, Partnership, Sibling
 from .views import save_person, tree_access, visible_photos
 
 # Kanwa ma granice, żeby kafelek nie uciekł w nieskończoność po błędzie.
@@ -83,6 +83,9 @@ def tree_data(user):
         "names": list(Person.objects.values_list("name", flat=True)),
         "canEdit": user.can_edit_tree,
         "eventKinds": LifeEvent.KINDS,
+        # ETAP 55: sprawdzanie drzewa; uwagi o układzie (rzędy) dolicza kanwa i filtruje „dismissed”.
+        "issues": [issue.as_dict() for issue in checks.issues_for(user)],
+        "dismissed": list(CheckDismissal.objects.values_list("key", flat=True)),
         "offTimeline": list(LifeEvent.OFF_TIMELINE),
     }
 
@@ -126,6 +129,23 @@ def event(request):
         message = form.non_field_errors()[0] if form.non_field_errors() else "Popraw zaznaczone pola."
         return JsonResponse({"error": message, "errors": errors}, status=400)
     tree.save_event(request.user, person, form.cleaned_data)
+    return _ok(request)
+
+
+@tree_access(edit=True)
+@require_POST
+def check(request):
+    """„To się zgadza” przy uwadze ze sprawdzania drzewa (ETAP 55): ``{"key", "text", "undo"}``."""
+    body = _body(request)
+    key = str(body.get("key") or "")[:40]
+    if not key:
+        return _error("Nie wiadomo, której uwagi to dotyczy.")
+    if body.get("undo") is True:
+        CheckDismissal.objects.filter(key=key).delete()
+    else:
+        CheckDismissal.objects.get_or_create(
+            key=key, defaults={"text": str(body.get("text") or "")[:300], "user": request.user}
+        )
     return _ok(request)
 
 

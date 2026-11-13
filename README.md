@@ -52,6 +52,7 @@ w projekcie.
 | 51 | „Moje albumy” i wybór albumu przy gwiazdce | **gotowe** |
 | 52 | Edycja albumu: nazwa, opis, lata, okładka | **gotowe** |
 | 54 | Zdarzenia pod osią czasu, dodawanie z panelu drzewa | **gotowe** |
+| 55 | Sprawdzanie drzewa, linie przez kilka pokoleń | **gotowe** |
 
 ## Technologie
 

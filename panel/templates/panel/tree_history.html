@@ -6,6 +6,22 @@
 </div>
 <p class="hint">Każda zmiana w drzewie, od najnowszych. „Przywróć” cofa jedną zmianę: wraca usuniętą osobę razem z jej połączeniami, poprzednie dane albo usuniętą relację, a dodaną relację usuwa. Cofnięcie też trafia do historii, więc i je da się cofnąć.</p>
 
+{% if issues %}
+<details class="card" id="sprawdzenie">
+  <summary><strong>Do sprawdzenia w drzewie ({{ issues|length }})</strong> <span class="hint">· rzeczy, które wyglądają na pomyłkę w danych</span></summary>
+  <p class="hint">Kliknij osobę, żeby ją poprawić w drzewie. „To się zgadza” klikniesz w drzewie, przycisk „⚠ Do sprawdzenia” nad kanwą; tam są też uwagi o liniach przez kilka rzędów.</p>
+  <ul class="tree-checks__list">
+    {% for issue in issues %}
+    <li class="tree-checks__item tree-checks__item--{{ issue.level }}">
+      <span class="tree-checks__level">{% if issue.level == "blad" %}Błąd{% else %}Do sprawdzenia{% endif %}</span>
+      <p class="tree-checks__text">{{ issue.text }}</p>
+      <div class="tree-checks__people">{% for pk, name in issue.people %}<a href="{% url 'family:tree' %}?osoba={{ pk }}">{{ name }}</a>{% endfor %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
 {% if genderless %}
 <details class="card" id="bez-plci">
   <summary><strong>Osoby bez płci ({{ genderless|length }})</strong> <span class="hint">· z imienia nie dało się jej podpowiedzieć</span></summary>
