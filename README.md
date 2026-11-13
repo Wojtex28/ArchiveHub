@@ -47,6 +47,7 @@ w projekcie.
 | 46 | Płeć, chronologia życia i zdarzenia | **gotowe** |
 | 47 | Miejsce ślubu, pochówek, zdjęcie przy zdarzeniu | **gotowe** |
 | 48 | Zdarzenia na osi czasu drzewa | **gotowe** |
+| 49 | Nowa lista albumów: czytelne nazwy, mozaiki, lata | **gotowe** |
 
 ## Technologie
 

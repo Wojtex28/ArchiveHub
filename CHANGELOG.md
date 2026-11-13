@@ -15,6 +15,23 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.49.1 (2026-11-12) · poprawka: mocniejsze pomniejszanie zdjęć
+
+- **Zdjęcie można pomniejszyć poniżej rozmiaru ekranu** (do 30%): kółkiem myszy, rozsunięciem palców na touchpadzie albo telefonie, klawiszem „−”. Przy nietypowych proporcjach łatwiej je wtedy objąć wzrokiem. Dwuklik albo klawisz „0” wraca do zwykłego rozmiaru.
+- **Przyciski „−” i „+” na pasku podglądu** (na komputerze), obok obracania.
+- Obrócone zdjęcie mieści się w tych samych granicach co nieobrócone (na komputerze 90% miejsca); wcześniej dochodziło do samych krawędzi ekranu.
+
+## 0.49.0 (2026-11-12) · ETAP 49: nowa lista albumów
+
+### Zmienione
+- **Czytelne nazwy albumów.** Nazwa z folderu („01_BrązowyZeZlotaObramowka97-04_Pocięte”) jest pokazywana jako „Brązowy ze Zlota Obramowka” z latami „1997–2004” i numerem „01” na okładce; końcówka „Pocięte” znika. Dane w bazie się nie zmieniają, a nazwa wpisana w Panel → Albumy zawsze wygrywa. Ta sama czytelna nazwa jest w nagłówku albumu i w przeglądarce zdjęć.
+- **Nic nie wychodzi poza kartę**: długie nazwy łamią się i kończą wielokropkiem po dwóch linijkach (pełna nazwa w podpowiedzi). Na telefonie strona nie przesuwa się już w bok.
+- **Okładka jako mozaika**: zdjęcie okładki i dwa kolejne obok. Na komputerze przesunięcie myszą po okładce pokazuje kolejne zdjęcia z albumu (kropki pod spodem mówią, które).
+- **Pod nazwą konkretne informacje**: liczba zdjęć z poprawną odmianą, lata (z nazwy folderu albo z dat zdjęć) i liczba oznaczonych osób, np. „212 zdjęć · 1962–1968 · 14 osób”.
+- **Ulubione jako pasek nad albumami** z miniaturami ostatnio oznaczonych zdjęć, zamiast kafelka udającego album.
+- **Telefon**: jedna kolumna szerokich kart, okładka po lewej, opis po prawej.
+- Karta lekko się unosi pod myszą; wygląd spójny w trybie jasnym i nocnym.
+
 ## 0.48.1 (2026-11-12) · poprawka: ikonka trybu nocnego
 
 - Obok przełącznika trybu jest księżyc w trybie dziennym i słońce w trybie nocnym (zmienia się od razu po przełączeniu).

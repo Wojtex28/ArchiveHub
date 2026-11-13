@@ -9,11 +9,14 @@ from django.urls import reverse
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_safe
 
+from albums.display import album_cards, photo_count_text
 from albums.favorites import favorite_photos
 from albums.models import Album, Photo
 
 from . import status
 from .models import LoginPhoto
+
+FAVORITES_SHOWN = 8  # miniatury na pasku Ulubionych nad albumami
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +47,7 @@ def _album_photos(user):
             "src": f"{reverse('albums:thumb', args=[photo.pk])}?v={photo.version_front}",
             "href": reverse("albums:photo", args=[photo.album_id, photo.pk]),
             "rotation": photo.pending_front,
-            "alt": f"Zdjęcie z albumu {photo.album.title}",
+            "alt": f"Zdjęcie z albumu {photo.album.display_title}",
         }
         for photo in photos
     ]
@@ -88,7 +91,11 @@ def archive_home(request):
     return render(
         request,
         "core/archive_home.html",
-        {"albums": albums, "favorite_count": favorites.count(), "favorite_cover": favorites.first()},
+        {
+            "cards": album_cards(albums, request.user),
+            "favorite_count": photo_count_text(favorites.count()),
+            "favorite_photos": list(favorites[:FAVORITES_SHOWN]),
+        },
     )
 
 

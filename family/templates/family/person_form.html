@@ -24,7 +24,7 @@
     <ul class="portrait-choice__list">
       <li><label><input type="radio" name="portrait" value=""{% if not form.portrait.value %} checked{% endif %}> <span class="tree-avatar tree-avatar--empty">{{ person.name|slice:":1" }}</span><span class="visually-hidden">bez portretu</span></label></li>
       {% for photo in portrait_photos %}
-      <li><label><input type="radio" name="portrait" value="{{ photo.pk }}"{% if photo.mark %} data-mark="{{ photo.mark.x|unlocalize }},{{ photo.mark.y|unlocalize }}"{% endif %}{% if form.portrait.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}> <img src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" class="rot-{{ photo.pending_front }}" alt="Zdjęcie z albumu {{ photo.album.title }}" loading="lazy"></label></li>
+      <li><label><input type="radio" name="portrait" value="{{ photo.pk }}"{% if photo.mark %} data-mark="{{ photo.mark.x|unlocalize }},{{ photo.mark.y|unlocalize }}"{% endif %}{% if form.portrait.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}> <img src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" class="rot-{{ photo.pending_front }}" alt="Zdjęcie z albumu {{ photo.album.display_title }}" loading="lazy"></label></li>
       {% endfor %}
     </ul>
     {% else %}
