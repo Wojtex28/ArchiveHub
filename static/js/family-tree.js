@@ -232,8 +232,65 @@
       });
       if (!changed) break;
     }
+    shortenLinks(data, gen);
     alignByBirth(data, gen);
     return gen;
+  }
+
+  // Poprawka po wstępnym przydziale rzędów: powyższe reguły stawiają wszystkie gałęzie jak najwyżej,
+  // więc najstarsi znani przodkowie każdej gałęzi lądują w górnym rzędzie, nawet gdy jedna gałąź
+  // sięga w przeszłość głębiej niż druga. Gdy takie gałęzie łączy małżeństwo, dziecko staje dwa
+  // rzędy pod rodzicami. Tu przesuwamy całe bloki (osoba z partnerami, rodzeństwem i dziećmi
+  // stojącymi tuż pod nią, albo z rodzicami tuż nad nią) o rząd w dół lub w górę, dopóki to skraca
+  // łączną długość linii rodzic → dziecko (ETAP 55).
+  function shortenLinks(data, gen) {
+    var rel = relativesIndex(data);
+    var links = data.parents.filter(function (l) { return gen[l[0]] !== undefined && gen[l[1]] !== undefined; });
+    function block(id, down) {
+      var inside = {}, queue = [id];
+      inside[id] = true;
+      while (queue.length) {
+        var x = queue.shift(), r = rel[x];
+        var next = r.partners.concat(r.siblings);
+        // W dół ciągniemy dzieci stojące tuż pod spodem, w górę rodziców stojących tuż nad.
+        (down ? r.children : r.parents).forEach(function (q) {
+          if (Math.abs(gen[q] - gen[x]) === 1) next.push(q);
+        });
+        next.forEach(function (q) {
+          if (!inside[q] && gen[q] !== undefined) { inside[q] = true; queue.push(q); }
+        });
+      }
+      return inside;
+    }
+    function gain(inside, down) {
+      var delta = 0;
+      links.forEach(function (l) {
+        var p = inside[l[0]], c = inside[l[1]];
+        if (p === c) return;
+        // Ruch w dół: linia do bloku się wydłuża, linia z bloku skraca (i odwrotnie w górę).
+        var span = gen[l[1]] - gen[l[0]];
+        if (down) delta += p ? -1 : 1;
+        else delta += c ? -1 : 1;
+        if (span + (down ? (p ? -1 : 1) : (c ? -1 : 1)) < 1) delta = Infinity;
+      });
+      return delta;
+    }
+    for (var round = 0; round < 40; round++) {
+      var moved = false;
+      data.people.forEach(function (p) {
+        [true, false].forEach(function (down) {
+          var inside = block(p.id, down);
+          if (gain(inside, down) < 0) {
+            Object.keys(inside).forEach(function (id) { gen[id] += down ? 1 : -1; });
+            moved = true;
+          }
+        });
+      });
+      if (!moved) break;
+    }
+    var low = Infinity;
+    data.people.forEach(function (p) { low = Math.min(low, gen[p.id]); });
+    if (low !== 0 && isFinite(low)) data.people.forEach(function (p) { gen[p.id] -= low; });
   }
 
   // Osobne gałęzie (jeszcze niepołączone z resztą drzewa) i pojedyncze osoby trafiają do rzędu
