@@ -72,9 +72,13 @@ def tree_data(user):
                 "year": c.since_year,
                 "ended": c.ended,
                 "place": c.place,
+                # ETAP 57: owdowienie i ręczna kolejność związków (oa: dla osoby a, ob: dla b).
+                "widowed": c.widowed,
+                "oa": c.order1,
+                "ob": c.order2,
             }
             for c in Partnership.objects.all()
-            if c.since or c.ended or c.place
+            if c.since or c.ended or c.place or c.widowed or c.order1 or c.order2
         ],
         # ETAP 48: zdarzenia z życia jako znaczki na pasku życia w widoku „Oś czasu”.
         # ETAP 54: wszystkie, także bez daty i te „pod osią” (lista w panelu bocznym).
@@ -336,13 +340,22 @@ def alive(request):
 @tree_access(edit=True)
 @require_POST
 def couple(request):
-    """Rok ślubu i rozwód pary z kanwy: ``{"person", "other", "since", "ended"}``."""
+    """Para z kanwy: ``{"person", "other", "since", "place", "ended", "widowed"}``.
+
+    ETAP 57: ``{"person", "order": [id partnera, …]}`` ustawia kolejność związków osoby.
+    """
     body = _body(request)
-    person, other = _person(body.get("person"), in_tree=True), _person(body.get("other"), in_tree=True)
-    if person is None or other is None:
+    person = _person(body.get("person"), in_tree=True)
+    if person is None:
         return _error("Nie ma takiej osoby w drzewie.", 404)
     try:
-        place = body.get("place")
+        if isinstance(body.get("order"), list):
+            tree.set_partner_order(request.user, person, [int(pk) for pk in body["order"]])
+            return _ok(request)
+        other = _person(body.get("other"), in_tree=True)
+        if other is None:
+            return _error("Nie ma takiej osoby w drzewie.", 404)
+        place, widowed = body.get("place"), body.get("widowed")
         tree.edit_couple(
             request.user,
             person,
@@ -350,9 +363,10 @@ def couple(request):
             str(body.get("since") or ""),
             body.get("ended") is True,
             place=str(place) if place is not None else None,
+            widowed=bool(widowed) if widowed is not None else None,
         )
-    except ValidationError as exc:
-        return _error(exc.messages[0])
+    except (ValidationError, TypeError, ValueError) as exc:
+        return _error(exc.messages[0] if isinstance(exc, ValidationError) else "Zła kolejność.")
     return _ok(request)
 
 

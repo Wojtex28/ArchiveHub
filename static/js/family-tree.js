@@ -117,25 +117,47 @@
 
   // --- Układ -----------------------------------------------------------------
 
-  // Związki (ETAP 31): kolejność wg roku ślubu, bez roku w kolejności dodania; rozwód.
+  // Związki (ETAP 31, 57): kolejność ustawiona ręcznie, bez niej wg roku ślubu, bez roku ślubu
+  // wg roku śmierci partnera (pierwszy mąż zmarł wcześniej), na końcu w kolejności dodania.
   function coupleKey(a, b) { return a < b ? a + "-" + b : b + "-" + a; }
   function couplesIndex(data) {
     var info = {};
-    (data.partners || []).forEach(function (pair, i) { info[coupleKey(pair[0], pair[1])] = { order: i, year: null, since: "", ended: false }; });
+    var died = {};
+    (data.people || []).forEach(function (p) { died[p.id] = p.died; });
+    (data.partners || []).forEach(function (pair, i) {
+      info[coupleKey(pair[0], pair[1])] = { order: i, year: null, since: "", ended: false, widowed: false, place: "", ranks: {}, died: died };
+    });
     (data.couples || []).forEach(function (c) {
       var item = info[coupleKey(c.a, c.b)];
-      if (item) { item.year = c.year; item.since = c.since; item.ended = c.ended; item.place = c.place || ""; }
+      if (!item) return;
+      item.year = c.year; item.since = c.since; item.ended = c.ended; item.place = c.place || "";
+      item.widowed = !!c.widowed;
+      item.ranks[c.a] = c.oa; item.ranks[c.b] = c.ob;
     });
     return info;
   }
+  function known(value) { return value !== null && value !== undefined; }
   // Partnerzy osoby od pierwszego związku.
   function partnersInOrder(id, rel, couples) {
+    function key(other) {
+      var c = couples[coupleKey(id, other)] || { ranks: {}, died: {} };
+      var rank = c.ranks[id];
+      var year = known(c.year) ? c.year : (c.died && known(c.died[other]) ? c.died[other] : null);
+      return [known(rank) ? 0 : 1, rank || 0, known(year) ? 0 : 1, year || 0, c.order || 0];
+    }
     return rel[id].partners.slice().sort(function (a, b) {
-      var x = couples[coupleKey(id, a)] || {}, y = couples[coupleKey(id, b)] || {};
-      var xy = x.year === null || x.year === undefined ? Infinity : x.year;
-      var yy = y.year === null || y.year === undefined ? Infinity : y.year;
-      return xy - yy || (x.order || 0) - (y.order || 0);
+      var x = key(a), y = key(b);
+      for (var i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i];
+      return 0;
     });
+  }
+  // „wdowa od 1925” / „do śmierci (1925)” (ETAP 57); pusty tekst, gdy nie ma czego dopisać.
+  function widowText(person, other, item) {
+    if (!item.widowed || !person) return "";
+    var own = person.died, died = other ? other.died : null;
+    if (known(own) && (!known(died) || own < died)) return "do śmierci (" + own + ")";
+    var word = { K: "wdowa", M: "wdowiec" }[person.gender] || "owdowienie";
+    return word + (known(died) ? " od " + died : "");
   }
 
   function relativesIndex(data) {
@@ -1095,6 +1117,10 @@
     }
     if (info.since) parts.push("ślub " + info.since);
     if (info.ended) parts.push((parts.length > 1 || info.since ? "· " : "") + "rozwód");
+    else if (info.widowed && hub) {
+      var widow = widowText(hub, hub === a ? b : a, info);
+      if (widow) parts.push((parts.length > 1 || info.since ? "· " : "") + widow);
+    }
     if (parts.length) {
       var y = blocked ? Math.min(left.y, right.y) - 24 : Math.min(left.y, right.y) - 8;
       label((ax + bx) / 2, y, parts.join(" "), "tree-couple-label" + (info.ended ? " tree-couple-label--ended" : ""));
@@ -1399,7 +1425,7 @@
       var marks = [];
       rel[p.id].partners.forEach(function (q) {
         var c = couples[coupleKey(p.id, q)];
-        if (c && c.year) marks.push({ year: c.year, kind: c.ended ? "ended" : "marriage", text: "Ślub: " + state.byId[q].name + " (" + c.since + ")" + (c.ended ? ", potem rozwód" : "") });
+        if (c && c.year) marks.push({ year: c.year, kind: c.ended ? "ended" : "marriage", text: "Ślub: " + state.byId[q].name + " (" + c.since + ")" + (c.ended ? ", potem rozwód" : (c.widowed ? ", potem owdowienie" : "")) });
       });
       rel[p.id].children.forEach(function (q) {
         var child = state.byId[q];
@@ -1694,7 +1720,12 @@
     if (index[id].partners.length > 1) parts.push(partnersInOrder(id, index, couples).indexOf(otherId) + 1 + ". związek");
     if (item.since || item.place) parts.push(["ślub", item.since, item.place ? "(" + item.place + ")" : ""].filter(Boolean).join(" "));
     if (item.ended) parts.push("rozwód");
-    return { text: parts.join(" · "), since: item.since || "", place: item.place || "", ended: !!item.ended };
+    else if (item.widowed) parts.push(widowText(state.byId[id], state.byId[otherId], item));
+    var order = partnersInOrder(id, index, couples);
+    return {
+      text: parts.filter(Boolean).join(" · "), since: item.since || "", place: item.place || "",
+      ended: !!item.ended, widowed: !!item.widowed, order: order, at: order.indexOf(otherId)
+    };
   }
 
   function coupleForm(person, other, info) {
@@ -1716,18 +1747,37 @@
     place.id = "slub-miejsce-" + other.id;
     var placeLabel = el("label", "", "Miejsce ślubu");
     placeLabel.htmlFor = place.id;
-    var ended = el("label", "check check--switch");
-    var box = el("input");
-    box.type = "checkbox";
-    box.checked = info.ended;
-    ended.appendChild(box);
-    ended.appendChild(document.createTextNode(" Rozwód lub rozstanie"));
+    // ETAP 57: jak związek się skończył – trwał, rozwód albo śmierć męża/żony.
+    var end = el("fieldset", "couple-end");
+    end.appendChild(el("legend", "", "Jak się skończył"));
+    var current = info.ended ? "rozwod" : (info.widowed ? "smierc" : "");
+    var radios = [
+      ["", "Trwa albo trwał do końca życia obojga"],
+      ["rozwod", "Rozwód lub rozstanie"],
+      ["smierc", "Śmierć męża lub żony (wdowa, wdowiec)"]
+    ].map(function (choice) {
+      var label = el("label", "check");
+      var radio = el("input");
+      radio.type = "radio";
+      radio.name = "koniec-" + other.id;
+      radio.value = choice[0];
+      radio.checked = choice[0] === current;
+      label.appendChild(radio);
+      label.appendChild(document.createTextNode(" " + choice[1]));
+      end.appendChild(label);
+      return radio;
+    });
     var save = el("button", "button button--quiet", "Zapisz");
     save.type = "submit";
-    [sinceLabel, since, placeLabel, place, ended, save].forEach(function (node) { form.appendChild(node); });
+    [sinceLabel, since, placeLabel, place, end, save].forEach(function (node) { form.appendChild(node); });
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      send(urls.couple, { person: person.id, other: other.id, since: since.value, place: place.value, ended: box.checked }).then(function () {
+      var chosen = radios.filter(function (r) { return r.checked; })[0];
+      var kind = chosen ? chosen.value : "";
+      send(urls.couple, {
+        person: person.id, other: other.id, since: since.value, place: place.value,
+        ended: kind === "rozwod", widowed: kind === "smierc"
+      }).then(function () {
         state.coupleEdit = null;
         renderSheet();
         showMessage("Zapisano: " + person.name + " i " + other.name + ".");
@@ -2327,7 +2377,26 @@
           if (info) {
             if (info.text) item.appendChild(el("span", "hint tree-sheet__couple", info.text));
             if (state.data.canEdit) {
-              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since || info.place ? "Zmień ślub, rozwód" : "+ Data ślubu"));
+              // ETAP 57: strzałki ustawiają, który to związek (gdy jest więcej niż jeden).
+              if (info.order.length > 1) {
+                [["↑", -1, "wcześniej"], ["↓", 1, "później"]].forEach(function (arrow) {
+                  var to = info.at + arrow[1];
+                  if (to < 0 || to >= info.order.length) return;
+                  var move = el("button", "icon-button icon-button--small tree-sheet__order", arrow[0]);
+                  move.type = "button";
+                  move.setAttribute("aria-label", "Związek z: " + other.name + " – " + arrow[2]);
+                  move.addEventListener("click", function () {
+                    var ids = info.order.slice();
+                    ids[info.at] = ids[to];
+                    ids[to] = other.id;
+                    send(urls.couple, { person: person.id, order: ids }).then(function () {
+                      showMessage("Zmieniono kolejność związków.");
+                    }).catch(function () {});
+                  });
+                  item.appendChild(move);
+                });
+              }
+              var edit = el("button", "link-button tree-sheet__couple-edit", state.coupleEdit === other.id ? "Zwiń" : (info.since || info.place || info.ended || info.widowed ? "Zmień ślub, koniec związku" : "+ Data ślubu"));
               edit.type = "button";
               edit.addEventListener("click", function () {
                 state.coupleEdit = state.coupleEdit === other.id ? null : other.id;
