@@ -15,9 +15,8 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
-## 0.55.1 (2026-11-13) · poprawka: odnośniki zamiast długich linii, krewni w grupach
+## 0.55.1 (2026-11-13) · poprawka: krewni w panelu drzewa w grupach
 
-- **Odnośnik zamiast długiej linii**: kto wżenił się w młodsze pokolenie (stoi w rzędzie partnera, dwa rzędy pod swoimi rodzicami), ma przy rodzicach i rodzeństwie przygaszony kafelek z przerywaną ramką i podpisem „↓ przy: …”. Kliknięcie przenosi do prawdziwego kafelka, a strzałka ↑ na prawdziwym kafelku wraca do rodziców. Drzewo nie ma już linii przez kilka rzędów.
 - Lista krewnych w panelu bocznym drzewa ma nagłówki: Rodzice, Partner / partnerka, Dzieci, Rodzeństwo. Dzieci są przed rodzeństwem, więc rodzeństwo jednej osoby z pary nie wygląda już jak dzieci, których brakuje drugiej.
 - Z listy „Do sprawdzenia” zniknęła uwaga o długiej linii do rodziców (osoba dwa rzędy pod rodzicami). To nie był błąd w danych, tylko opis układu.
 
