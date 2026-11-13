@@ -1008,6 +1008,11 @@ a.chip { color: inherit; text-decoration: none; }
 /* Osoba zmarła (ETAP 30): szarawy kafelek, portret w odcieniach szarości, † przed latami. */
 .tree-node--deceased { background: var(--deceased-bg); border-color: var(--deceased-rule); }
 .tree-node--deceased .tree-node__avatar { filter: grayscale(1); opacity: 0.85; }
+.tree-node--ghost { border-style: dashed; background: transparent; box-shadow: none; opacity: 0.8; }
+.tree-node--ghost .tree-node__years { color: var(--ink-quiet); }
+.tree-node--ghost:hover { opacity: 1; }
+.tree-node__up { position: absolute; top: -11px; right: 12px; display: grid; place-items: center; width: 22px; height: 22px; border: 1px dashed var(--tree-line); border-radius: 50%; background: var(--tree-bg); color: var(--ink-quiet); font-size: 0.75rem; line-height: 1; cursor: pointer; }
+.tree-node__up:hover { color: var(--ink); border-style: solid; }
 .tree-sheet__alive { margin: 0.5rem 0; }
 .tree-handle {
   position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--card);

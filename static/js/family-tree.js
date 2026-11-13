@@ -13,10 +13,6 @@
   var SNAP_X = 48; // px: linia dziecka do 48 px od środka kafelka zamiast krótkiego uskoku (ETAP 39)
   var GAP_FAMILY = 112; // przerwa między różnymi rodzinami w rzędzie (ETAP 38)
   var ROW_H = 180;
-  // ETAP 55: linia rodzic → dziecko przez kilka rzędów idzie „korytarzem” zarezerwowanym w każdym
-  // rzędzie pośrodku (punkt pośredni o tej szerokości, z małym odstępem z obu stron).
-  var DUMMY_W = 24;
-  var DUMMY_GAP = 20;
   // Kary w układaniu kolejności (ETAP 38, zob. autoLayout): przecięcie linii > dwie rodziny z kreskami
   // jedna nad drugą (rodzeństwo nie stoi blokiem) > rodzeństwo nie po kolei urodzenia.
   var CROSS_WEIGHT = 4;
@@ -391,37 +387,32 @@
       return order;
     }
 
-    // ETAP 55: rodzic dwa lub więcej rzędów nad dzieckiem (np. dziecko poślubiło kogoś z młodszego
-    // pokolenia). W każdym rzędzie pomiędzy wstawiamy punkt pośredni, który układa się jak osoba
-    // (jak w metodzie Sugiyamy): wtedy taka linia też liczy się do przecięć i dostaje własne przejście.
+    // ETAP 55: rodzic dwa lub więcej rzędów nad dzieckiem (dziecko poślubiło kogoś z młodszego
+    // pokolenia i stoi w jego rzędzie). Zamiast długiej linii przez cudze rodziny dziecko dostaje
+    // „odnośnik”: drugi, przygaszony kafelek wśród rodzeństwa, w rzędzie zaraz pod rodzicami.
+    // Odnośnik układa się jak zwykłe dziecko, a kliknięcie w niego pokazuje prawdziwą osobę.
     var ids = data.people.map(function (p) { return p.id; });
-    var chains = [];
+    var ghosts = [];
     data.people.forEach(function (p) {
       var far = rel[p.id].parents.filter(function (id) { return gen[id] <= gen[p.id] - 2; });
       var groups = {};
       far.forEach(function (id) { (groups[gen[id]] = groups[gen[id]] || []).push(id); });
       Object.keys(groups).forEach(function (g) {
-        var ps = groups[g], prev = ps, key = ps.slice().sort().join("_") + "_" + p.id, points = [];
-        for (var r = +g + 1; r < gen[p.id]; r++) {
-          var dummy = "d" + key + "_" + r;
-          rel[dummy] = { parents: prev.slice(), children: [], partners: [], siblings: [] };
-          byId[dummy] = { id: dummy, name: "", born: null };
-          gen[dummy] = r;
-          prev.forEach(function (q) {
-            var list = rel[q].children, at = list.indexOf(p.id);
-            if (at >= 0) list.splice(at, 1);
-            list.push(dummy);
-          });
-          rows[r].push([dummy]);
-          ids.push(dummy);
-          points.push(dummy);
-          prev = [dummy];
-        }
-        rel[p.id].parents = rel[p.id].parents.filter(function (id) { return ps.indexOf(id) < 0; }).concat(prev);
-        chains.push({ parents: ps, child: p.id, points: points });
+        var ps = groups[g], ghost = "g" + p.id + "_" + g, r = +g + 1;
+        rel[ghost] = { parents: ps.slice(), children: [], partners: [], siblings: [] };
+        byId[ghost] = { id: ghost, name: p.name, born: p.born };
+        gen[ghost] = r;
+        ps.forEach(function (q) {
+          var list = rel[q].children, at = list.indexOf(p.id);
+          if (at >= 0) list.splice(at, 1);
+          list.push(ghost);
+        });
+        rows[r].push([ghost]);
+        ids.push(ghost);
+        rel[p.id].parents = rel[p.id].parents.filter(function (id) { return ps.indexOf(id) < 0; });
+        ghosts.push({ id: ghost, parents: ps, child: p.id });
       });
     });
-    function isDummy(id) { return typeof id === "string" && id.charAt(0) === "d"; }
 
     // Krawędzie rodzic → dziecko między sąsiednimi rzędami: źródło to środek pary albo jeden rodzic.
     var familiesOf = {};
@@ -722,21 +713,14 @@
     var gapsAfter = orders.map(function (order) {
       return order.map(function (unit, j) {
         if (j === order.length - 1) return 0;
-        if (isDummy(unit[0]) || isDummy(order[j + 1][0])) return DUMMY_GAP;
         return together(unit, order[j + 1]) ? GAP_X : GAP_FAMILY;
       });
     });
-    function unitWidth(order, j) {
-      var w = isDummy(order[j][0]) ? DUMMY_W : (order[j].length - 1) * step + NODE_W;
-      return w + gapsAfter[orders.indexOf(order)][j];
-    }
-    // Punkt pośredni zajmuje DUMMY_W, ale jego „x” liczymy jak u kafelka (lewa krawędź pudełka NODE_W),
-    // żeby środki wszystkich wychodziły z tego samego wzoru x + NODE_W / 2.
-    function shiftOf(unit) { return isDummy(unit[0]) ? (NODE_W - DUMMY_W) / 2 : 0; }
+    function unitWidth(order, j) { return (order[j].length - 1) * step + NODE_W + gapsAfter[orders.indexOf(order)][j]; }
     orders.forEach(function (order, depth) {
       var x = 0;
       order.forEach(function (unit, j) {
-        unit.forEach(function (id, k) { pos[id] = [x + k * step - shiftOf(unit), depth * ROW_H]; });
+        unit.forEach(function (id, k) { pos[id] = [x + k * step, depth * ROW_H]; });
         x += unitWidth(order, j);
       });
     });
@@ -765,9 +749,9 @@
         var sum = 0, weight = 0;
         unit.forEach(function (id, k) {
           var want = wantOf(id, useParents, useChildren);
-          if (want !== null) { sum += want - k * step + shiftOf(unit); weight += 1; }
+          if (want !== null) { sum += want - k * step; weight += 1; }
         });
-        var current = pos[unit[0]][0] + shiftOf(unit);
+        var current = pos[unit[0]][0];
         var target = weight ? sum / weight : current;
         if (!weight) weight = 0.01;
         // Przesunięcie o szerokość wcześniejszych jednostek: wtedy warunek „bez nachodzenia” to
@@ -785,7 +769,7 @@
       blocks.forEach(function (block) {
         var y = block.wt / block.w;
         for (; j <= block.to; j++) {
-          order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step - shiftOf(order[j]); });
+          order[j].forEach(function (id, k) { pos[id][0] = y + offset + k * step; });
           offset += unitWidth(order, j);
         }
       });
@@ -800,11 +784,11 @@
       var right = Math.max.apply(null, all.map(function (id) { return pos[id][0]; }));
       all.forEach(function (id) { pos[id][0] = Math.round(pos[id][0] - (left + right) / 2); });
     }
-    // Przejścia linii przez rzędy: środki punktów pośrednich, od góry.
-    pos.chains = chains.map(function (c) {
-      return { parents: c.parents, child: c.child, points: c.points.map(function (id) { return [pos[id][0] + NODE_W / 2, pos[id][1]]; }) };
+    pos.ghosts = ghosts.map(function (g) {
+      var at = pos[g.id];
+      delete pos[g.id];
+      return { key: g.id, parents: g.parents, child: g.child, x: at[0], y: at[1] };
     });
-    chains.forEach(function (c) { c.points.forEach(function (id) { delete pos[id]; }); });
     return pos;
   }
 
@@ -914,6 +898,10 @@
   function focusOn(id) {
     var p = state.byId[id];
     if (!p) return;
+    focusAt(p);
+  }
+
+  function focusAt(p) {
     if (canvas.hidden) { state.needFit = true; return; }
     var a = area();
     var scale = Math.max(state.view.scale, 0.8);
@@ -969,6 +957,15 @@
     if (person.years) text.appendChild(el("span", "tree-node__years", person.years));
     node.appendChild(text);
     node.classList.toggle("tree-node--deceased", !!person.deceased);
+    // ETAP 55: rodzice stoją dalej (przy odnośniku): strzałka w górę prowadzi do nich.
+    var ghost = (state.ghosts || []).filter(function (g) { return g.child === person.id; })[0];
+    if (ghost) {
+      var names = ghost.parents.map(function (id) { return state.byId[id] ? state.byId[id].name : ""; }).filter(Boolean);
+      var up = el("span", "tree-node__up", "↑");
+      up.setAttribute("data-ghost", ghost.key);
+      up.title = "Rodzice: " + names.join(" i ") + ". Kliknij, żeby do nich przejść.";
+      node.appendChild(up);
+    }
     node.setAttribute("aria-label", person.name + (person.deceased ? ", nie żyje" : "") + (person.years ? ", " + person.years : ""));
     node.classList.toggle("is-selected", state.selected === person.id);
     if (state.data.canEdit && state.selected === person.id) {
@@ -982,6 +979,41 @@
       });
     }
     positionNode(person);
+  }
+
+  // ETAP 55: odnośnik do osoby, która stoi dalej (w rzędzie partnera), przy jej rodzicach i rodzeństwie.
+  var ghostEls = {};
+  function renderGhosts() {
+    var seen = {};
+    var rel = relativesIndex(state.data);
+    (state.ghosts || []).forEach(function (g) {
+      var person = state.byId[g.child];
+      if (!person) return;
+      seen[g.key] = true;
+      var node = ghostEls[g.key];
+      if (!node) {
+        node = ghostEls[g.key] = el("div", "tree-node tree-node--ghost");
+        node.setAttribute("role", "button");
+        node.tabIndex = 0;
+        nodesLayer.appendChild(node);
+      }
+      node.setAttribute("data-id", person.id);
+      node.textContent = "";
+      node.appendChild(avatar(person, "tree-node__avatar"));
+      var text = el("span", "tree-node__text");
+      text.appendChild(el("strong", "tree-node__name", person.name));
+      var mates = (rel[person.id] ? rel[person.id].partners : []).map(function (id) { return state.byId[id]; }).filter(Boolean);
+      var where = mates.length ? "↓ przy: " + mates[0].name : "↓ niżej w drzewie";
+      text.appendChild(el("span", "tree-node__years", where));
+      node.appendChild(text);
+      node.title = person.name + " stoi niżej w drzewie" + (mates.length ? ", obok: " + mates[0].name : "") + ". Kliknij, żeby przejść.";
+      node.setAttribute("aria-label", person.name + ", odnośnik. " + where);
+      node.classList.toggle("is-selected", state.selected === person.id);
+      node.style.transform = "translate(" + g.x + "px," + g.y + "px)";
+    });
+    Object.keys(ghostEls).forEach(function (key) {
+      if (!seen[key]) { ghostEls[key].remove(); delete ghostEls[key]; }
+    });
   }
 
   // Kogo można dodać: rodzica tylko do dwojga.
@@ -1046,7 +1078,7 @@
 
   function drawLines() {
     lines.textContent = "";
-    var byId = state.byId;
+    var byId = Object.assign({}, state.byId); // + odnośniki (ETAP 55)
     var partnerOf = {};
     var couples = couplesIndex(state.shown);
     var rel = relativesIndex(state.shown);
@@ -1060,36 +1092,17 @@
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
     // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
     var parentsOf = {};
-    // ETAP 55: linie przez kilka rzędów rysujemy osobno, przez przejścia z układu (state.chains).
+    // ETAP 55: dziecko daleko pod rodzicami ma linię do swojego odnośnika (state.ghosts), nie do siebie.
     var far = {};
-    (state.chains || []).forEach(function (c) { c.parents.forEach(function (p) { far[p + ">" + c.child] = true; }); });
+    (state.ghosts || []).forEach(function (g) { g.parents.forEach(function (p) { far[p + ">" + g.child] = true; }); });
     state.shown.parents.forEach(function (link) {
       if (far[link[0] + ">" + link[1]]) return;
       (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]);
     });
     var families = {};
-    function addFamily(key, src, kid) {
-      var family = families[key] || (families[key] = { x: src.x, y: src.y, top: kid.y, kids: [] });
-      family.top = Math.min(family.top, kid.y);
-      family.kids.push(kid);
-    }
-    (state.chains || []).forEach(function (c) {
-      var child = byId[c.child];
-      var ps = c.parents.map(function (id) { return byId[id]; }).filter(Boolean);
-      if (!child || !ps.length || !c.points.length) return;
-      var src = ps.length === 2
-        ? { key: ps.map(function (p) { return p.id; }).sort().join("+"), x: (ps[0].x + ps[1].x) / 2 + NODE_W / 2, y: (ps[0].y + ps[1].y) / 2 + NODE_H / 2 }
-        : { key: String(ps[0].id), x: ps[0].x + NODE_W / 2, y: ps[0].y + NODE_H };
-      var prev = null;
-      c.points.forEach(function (pt, i) {
-        var stop = { x: pt[0] - NODE_W / 2, y: pt[1], through: true };
-        if (!i) addFamily(src.key + "|" + Math.round(pt[1]), src, stop);
-        else addFamily("przejscie|" + c.child + "|" + i, { x: prev[0], y: prev[1] + NODE_H }, stop);
-        // Przez rząd: prosto w dół korytarzem między kafelkami.
-        path("M" + pt[0] + "," + pt[1] + " V" + (pt[1] + NODE_H), "tree-line");
-        prev = pt;
-      });
-      addFamily("przejscie|" + c.child + "|koniec", { x: prev[0], y: prev[1] + NODE_H }, child);
+    (state.ghosts || []).forEach(function (g) {
+      byId[g.key] = { id: g.key, x: g.x, y: g.y };
+      g.parents.forEach(function (p) { (parentsOf[g.key] = parentsOf[g.key] || []).push(p); });
     });
     Object.keys(parentsOf).forEach(function (childId) {
       var child = byId[childId];
@@ -1538,6 +1551,7 @@
         delete nodeEls[id];
       }
     });
+    renderGhosts();
     drawLines();
     renderTimeline();
     root.classList.toggle("is-empty", !state.data.people.length);
@@ -1574,7 +1588,7 @@
     state.shown = data;
     state.layoutGen = generations(data);
     var pos = data.people.length ? autoLayout(data) : {};
-    state.chains = pos.chains || [];
+    state.ghosts = pos.ghosts || [];
     data.people.forEach(function (p) {
       var at = pos[p.id];
       p.x = at ? at[0] : null;
@@ -2589,6 +2603,8 @@
       gesture = {
         type: "pan", start: [event.clientX, event.clientY], origin: [state.view.x, state.view.y], moved: false,
         node: node ? parseInt(node.getAttribute("data-id"), 10) : null,
+        ghost: !!(node && node.classList.contains("tree-node--ghost")),
+        up: event.target.closest(".tree-node__up") ? event.target.closest(".tree-node__up").getAttribute("data-ghost") : null,
       };
     }
     canvas.setPointerCapture(event.pointerId);
@@ -2640,8 +2656,12 @@
     if (event.type === "pointercancel") return;
     if (g.type === "pan") {
       if (g.moved) return;
-      if (g.node) {
-        select(g.node, false);
+      var upTo = g.up && (state.ghosts || []).filter(function (x) { return x.key === g.up; })[0];
+      if (upTo) {
+        glide();
+        focusAt(upTo);
+      } else if (g.node) {
+        select(g.node, g.ghost); // odnośnik: przejdź do prawdziwego kafelka
       } else {
         state.selected = null;
         if (state.form && state.form.to) state.form = null;
@@ -2687,7 +2707,7 @@
     var node = event.target.closest && event.target.closest(".tree-node");
     if (node && (event.key === "Enter" || event.key === " ") && !event.target.closest(".tree-handle")) {
       event.preventDefault();
-      select(parseInt(node.getAttribute("data-id"), 10), false);
+      select(parseInt(node.getAttribute("data-id"), 10), node.classList.contains("tree-node--ghost"));
     }
   });
   canvas.addEventListener("click", function (event) {
