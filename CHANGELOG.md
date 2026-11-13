@@ -15,6 +15,22 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.52.0 (2026-11-13) · ETAP 50–52: kafelki i lista, „Moje albumy”, edycja albumu
+
+### ETAP 50: kafelki albo lista
+- **Przełącznik nad albumami** (≡ lista, ▦ kafelki), zapamiętywany w przeglądarce. Kafelki są po trzy w rzędzie, wyższe i z większą okładką; lista ma w każdym wierszu dużą okładkę, nazwę, lata i dłuższy opis.
+- **Kolumna „Twoje” z lewej**: Ulubione i Twoje albumy z miniaturą i liczbą zdjęć. Na telefonie to przewijany pasek nad albumami.
+- Nazwy z folderów rozkładają się lepiej: „Pociety” też znika, „95-96-97” to lata 1995–1997, a folder bez nazwy pokazuje się jako „Album 49”.
+
+### ETAP 51: „Moje albumy”
+- Pod Ulubionymi jest **„+ Utwórz swój album”**: wpisujesz nazwę i album jest gotowy. Widzisz go tylko Ty; zdjęcia zostają w swoich albumach.
+- Kto ma swój album, po kliknięciu gwiazdki ☆ dostaje **okienko z listą**: Ulubione i jego albumy do zaznaczenia, a także pole „Nowy album…”. Kto nie ma, ma gwiazdkę jak dawniej (od razu do Ulubionych).
+- Strona albumu z pobieraniem całości w ZIP, zmianą nazwy i usuwaniem (usunięcie nie rusza zdjęć).
+
+### ETAP 52: edycja albumu
+- Przycisk **✎ przy albumie** (na liście i nad zdjęciami albumu) otwiera edycję: nazwa, opis, **lata od–do** i **okładka** wybierana kliknięciem w zdjęcie. Nazwa z folderu jest już rozłożona na słowa, wystarczy poprawić polskie znaki. Edycję widzi tylko konto administratora.
+- Wybór okładki przeniesiony z Panel → Albumy do edycji albumu (panel ma do niej przycisk).
+
 ## 0.49.1 (2026-11-12) · poprawka: mocniejsze pomniejszanie zdjęć
 
 - **Zdjęcie można pomniejszyć poniżej rozmiaru ekranu** (do 30%): kółkiem myszy, rozsunięciem palców na touchpadzie albo telefonie, klawiszem „−”. Przy nietypowych proporcjach łatwiej je wtedy objąć wzrokiem. Dwuklik albo klawisz „0” wraca do zwykłego rozmiaru.

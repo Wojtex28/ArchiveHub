@@ -1,0 +1,39 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}{{ own_album.name }} · {{ site_title }}{% endblock %}
+{% block main %}
+<p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
+<h1>{{ own_album.name }}</h1>
+<p class="hint">Twój album: widzisz go tylko Ty. Zdjęcia dodajesz i zabierasz gwiazdką ☆ nad zdjęciem w podglądzie; w swoich albumach zostają bez zmian.</p>
+{% if photos %}
+<div class="gallery-actions">
+  <a class="button" href="{% url 'albums:own_album_download' own_album.pk %}">Pobierz cały album <span class="gallery-actions__size">(ZIP, {{ photos|length }} zdj., {{ album_size|filesizeformat }})</span></a>
+</div>
+<ul class="gallery-grid gallery-grid--captions" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="{{ own_album.name }}" data-csrf="{{ csrf_token }}">
+  {% for photo in photos %}
+  {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}
+  {% endfor %}
+</ul>
+<script src="{% static 'js/gallery.js' %}" defer></script>
+<script src="{% static 'js/people-picker.js' %}" defer></script>
+{% else %}
+<div class="empty-state">
+  <p>Ten album jest jeszcze pusty.</p>
+  <p>Otwórz dowolne zdjęcie i kliknij gwiazdkę ☆ na górze. Pojawi się lista Twoich albumów: zaznacz „{{ own_album.name }}”.</p>
+</div>
+{% endif %}
+<details class="own-settings"{% if form.errors %} open{% endif %}>
+  <summary>Zmień nazwę albo usuń album</summary>
+  <form method="post" novalidate class="own-settings__form">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" with form=form %}
+    <button type="submit" class="button">Zapisz nazwę</button>
+  </form>
+  <form method="post" class="own-settings__form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <p class="hint">Usunięcie albumu nie usuwa zdjęć: zostają w swoich albumach.</p>
+    <button type="submit" class="button button--danger">Usuń album „{{ own_album.name }}”</button>
+  </form>
+</details>
+{% endblock %}

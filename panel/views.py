@@ -12,6 +12,7 @@ from django.db.models import Count, Prefetch, Q, Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from accounts.models import FamilyGroup, InviteCode
@@ -47,6 +48,7 @@ from family.models import TreeChange
 
 from .codes import suggest_code
 from .forms import (
+    AlbumEditForm,
     AlbumForm,
     FamilyGroupForm,
     InviteCodeForm,
@@ -339,6 +341,30 @@ def album_detail(request, pk):
             "imports": album.imports.all()[:10],
             "disk_size": _folder_size(album.path),
         },
+    )
+
+
+@master_required
+@require_http_methods(["GET", "HEAD", "POST"])
+def album_edit(request, pk):
+    """Edycja albumu otwierana z archiwum: nazwa, opis, lata i okładka w jednym miejscu."""
+    album = get_object_or_404(Album, pk=pk)
+    form = AlbumEditForm(request.POST or None, instance=album)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        logger.info("Administrator %s zmienił album %s", request.user, album.folder)
+        messages.success(request, "Zapisano album.")
+        target = request.POST.get("next", "")
+        if not url_has_allowed_host_and_scheme(
+            target, {request.get_host()}, require_https=request.is_secure()
+        ):
+            target = reverse("albums:gallery", args=[album.pk])
+        return redirect(target)
+    photos = list(album.photos.filter(file_missing=False))
+    return render(
+        request,
+        "albums/album_edit.html",
+        {"album": album, "form": form, "photos": photos, "next": request.GET.get("next", "")},
     )
 
 

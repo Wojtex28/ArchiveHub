@@ -9,7 +9,7 @@
 <div class="gallery-actions">
   <a class="button" href="{% url 'albums:favorites_download' %}">Pobierz wszystkie ulubione <span class="gallery-actions__size">(ZIP, {{ photos|length }} zdj., {{ album_size|filesizeformat }})</span></a>
 </div>
-<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="Ulubione" data-csrf="{{ csrf_token }}">
+<ul class="gallery-grid gallery-grid--captions" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="Ulubione" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
   {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}
   {% endfor %}

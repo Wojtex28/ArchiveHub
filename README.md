@@ -48,6 +48,9 @@ w projekcie.
 | 47 | Miejsce ślubu, pochówek, zdjęcie przy zdarzeniu | **gotowe** |
 | 48 | Zdarzenia na osi czasu drzewa | **gotowe** |
 | 49 | Nowa lista albumów: czytelne nazwy, mozaiki, lata | **gotowe** |
+| 50 | Lista albumów: kafelki albo lista, kolumna „Twoje” | **gotowe** |
+| 51 | „Moje albumy” i wybór albumu przy gwiazdce | **gotowe** |
+| 52 | Edycja albumu: nazwa, opis, lata, okładka | **gotowe** |
 
 ## Technologie
 

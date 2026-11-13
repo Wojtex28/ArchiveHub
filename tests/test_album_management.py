@@ -115,7 +115,7 @@ def test_cover_defaults_to_first_photo_and_can_be_changed(master_client):
     album.refresh_from_db()
     assert album.cover_photo == third
     page = master_client.get(reverse("panel:album_detail", args=[album.pk])).content.decode()
-    assert "Wybrana okładka: 003" in page
+    assert "Okładka: 003" in page
 
 
 def test_cover_must_belong_to_album(master_client):

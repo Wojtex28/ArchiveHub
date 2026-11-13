@@ -147,3 +147,56 @@ class AlbumForm(forms.ModelForm):
         if url and not url.lower().startswith("https://"):
             raise forms.ValidationError("Link musi zaczynać się od https://")
         return url
+
+
+class AlbumEditForm(forms.ModelForm):
+    """Edycja albumu z poziomu archiwum (ETAP 52): nazwa, opis, lata i okładka."""
+
+    year_from = forms.IntegerField(label="Od roku", required=False, min_value=1800, max_value=2100)
+    year_to = forms.IntegerField(label="Do roku", required=False, min_value=1800, max_value=2100)
+
+    class Meta:
+        model = Album
+        fields = ["title", "description", "year_from", "year_to", "cover"]
+        labels = {"title": "Nazwa", "description": "Opis", "cover": "Okładka"}
+        help_texts = {
+            "description": "Pokazuje się pod nazwą na liście albumów i nad zdjęciami albumu.",
+        }
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+            "cover": forms.RadioSelect,
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        album = self.instance
+        self.fields["cover"].queryset = album.photos.filter(file_missing=False)
+        self.fields["cover"].required = False
+        self.fields["cover"].empty_label = None
+        if not self.is_bound:
+            label = album.label
+            # Nazwa z folderu trafia do pola już rozłożona na słowa; wystarczy poprawić polskie znaki.
+            self.initial["title"] = label.title
+            if album.year_from is None and label.years:
+                years = label.years.split("–")
+                self.initial["year_from"] = int(years[0])
+                self.initial["year_to"] = int(years[-1])
+            if not album.cover_id and album.cover_photo:
+                self.initial["cover"] = album.cover_photo.pk
+
+    def clean_title(self):
+        title = " ".join(self.cleaned_data["title"].split())
+        if not title:
+            raise forms.ValidationError("Wpisz nazwę albumu.")
+        return title
+
+    def clean(self):
+        data = super().clean()
+        start, end = data.get("year_from"), data.get("year_to")
+        if start is None and end is not None:
+            data["year_from"] = start = end
+        if end is None and start is not None:
+            data["year_to"] = end = start
+        if start is not None and end is not None and end < start:
+            self.add_error("year_to", "Rok końcowy nie może być wcześniejszy niż początkowy.")
+        return data

@@ -18,6 +18,7 @@ urlpatterns = [
     path("grupy/<int:pk>/", views.group_edit, name="group_edit"),
     path("albumy/", views.album_list, name="album_list"),
     path("albumy/<int:pk>/", views.album_detail, name="album_detail"),
+    path("albumy/<int:pk>/edycja/", views.album_edit, name="album_edit"),
     path("albumy/<int:pk>/przetworz/", views.album_reprocess, name="album_reprocess"),
     path("albumy/<int:pk>/okladka/<int:photo_pk>/", views.album_set_cover, name="album_set_cover"),
     path("albumy/<int:pk>/w-gore/", views.album_move, {"direction": "up"}, name="album_move_up"),

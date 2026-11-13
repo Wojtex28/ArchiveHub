@@ -420,8 +420,8 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
 .section-title__count { margin-left: 0.375rem; font: 400 0.9375rem/1 var(--sans); color: var(--ink-quiet); vertical-align: middle; }
 
 /* Lista albumów (ETAP 49): okładka-mozaika, numer, lata i liczba osób; nic nie wychodzi poza kartę. */
-.album-grid { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 1.25rem; }
-.album-card { min-width: 0; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.album-grid { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+.album-card { position: relative; min-width: 0; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
 .album-card:hover, .album-card:focus-within { transform: translateY(-2px); border-color: rgb(var(--shadow) / 0.18); box-shadow: 0 10px 24px -12px rgb(var(--shadow) / 0.45); }
 .album-card__link { display: flex; flex-direction: column; height: 100%; color: inherit; text-decoration: none; border-radius: inherit; }
 .album-card__link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -448,18 +448,91 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
 .album-card__meta { color: var(--ink-quiet); font-size: 0.875rem; }
 .album-card__meta > span { white-space: nowrap; }
 .album-card__description { margin-top: 0.25rem; font-size: 0.9375rem; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.album-card__edit { position: absolute; top: 0.875rem; right: 0.875rem; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; font-size: 1rem; color: #fff; background: rgb(20 17 14 / 0.62); text-decoration: none; opacity: 0; transition: opacity 0.15s ease; }
+.album-card:hover .album-card__edit, .album-card__edit:focus-visible { opacity: 1; }
+.album-card__edit:hover { background: rgb(20 17 14 / 0.85); }
+@media (hover: none) { .album-card__edit { opacity: 1; } }
+.album-card__hidden { right: auto; left: 3.25rem; }
 
-/* Ulubione: pasek nad albumami zamiast kafelka udającego album. */
-.favorites-strip { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0 0; padding: 0.75rem 1rem; border: 1px solid var(--rule); border-radius: 14px; background: var(--fav-bg); color: inherit; text-decoration: none; min-width: 0; }
-.favorites-strip:hover .favorites-strip__title { color: var(--accent); }
-.favorites-strip__head { display: flex; flex-direction: column; gap: 0.125rem; flex: none; }
-.favorites-strip--empty .favorites-strip__head { flex: 1 1 auto; }
-.favorites-strip__title { font: 400 1.1875rem/1.3 var(--serif); }
-.favorites-strip__star { color: #c89b2c; }
-.favorites-strip__meta { color: var(--ink-quiet); font-size: 0.875rem; }
-.favorites-strip__photos { display: flex; gap: 0.375rem; flex: 1 1 auto; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
-.favorites-strip__photos img { flex: none; width: 3.5rem; height: 3.5rem; object-fit: cover; border-radius: 8px; background: var(--placeholder); }
-.favorites-strip__more { flex: none; font-size: 0.9375rem; color: var(--accent); white-space: nowrap; }
+/* Strona archiwum (ETAP 50): „Twoje” z lewej, albumy obok; kafelki albo lista. */
+.app-main--archive { max-width: 82rem; }
+.archive-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; align-items: start; margin-top: 1.5rem; }
+.archive-side { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.archive-side__label { margin: 0.625rem 0 0.25rem; font-size: 0.8125rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-quiet); }
+.own-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.own-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); color: inherit; text-decoration: none; min-width: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.own-item:hover { border-color: rgb(var(--shadow) / 0.25); box-shadow: 0 6px 16px -10px rgb(var(--shadow) / 0.45); }
+.own-item:hover .own-item__name { color: var(--accent); }
+.own-item--favorites { background: var(--fav-bg); }
+.own-item__thumb { flex: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 8px; overflow: hidden; background: var(--placeholder); font: 400 1.25rem/1 var(--serif); color: var(--ink-quiet); }
+.own-item--favorites .own-item__thumb { color: #c89b2c; }
+.own-item__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.own-item__text { display: flex; flex-direction: column; min-width: 0; }
+.own-item__name { font: 400 1.0625rem/1.3 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.own-item__meta { font-size: 0.8125rem; color: var(--ink-quiet); }
+.own-new { border: 1px dashed var(--rule); border-radius: 12px; }
+.own-new__toggle { padding: 0.75rem 0.875rem; cursor: pointer; color: var(--accent); list-style: none; }
+.own-new__toggle::-webkit-details-marker { display: none; }
+.own-new__form { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 0.75rem 0.75rem; }
+.own-new__form input { width: 100%; padding: 0.5rem 0.625rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; font-size: 0.9375rem; }
+.own-new__form .button { align-self: flex-start; padding: 0.4rem 1.1rem; font-size: 0.9375rem; }
+.own-new__hint { margin: 0; padding: 0 0.875rem 0.875rem; font-size: 0.8125rem; color: var(--ink-quiet); }
+.archive-albums__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.archive-albums__head .section-title { margin: 0; }
+.view-switch { display: inline-flex; padding: 3px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); }
+.view-switch__button { display: inline-grid; place-items: center; width: 2.25rem; height: 2rem; border-radius: 7px; color: var(--ink-quiet); }
+.view-switch__button svg { width: 1.125rem; height: 1.125rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
+.view-switch__button[data-view="kafelki"] svg { fill: currentColor; stroke: none; }
+.view-switch__button:hover { color: var(--ink); }
+.view-switch__button[aria-current="true"] { color: var(--paper); background: var(--accent); }
+
+/* Kafelki: trzy w rzędzie, wyższe, z większą okładką. */
+.album-grid--kafelki .album-card__body { padding: 0.875rem 1rem 1.125rem; }
+.album-grid--kafelki .album-card__title { font-size: 1.3125rem; }
+
+/* Lista: każdy album w wierszu z dużą miniaturą i pełniejszym opisem. */
+.album-grid--lista { grid-template-columns: minmax(0, 1fr); gap: 0.875rem; }
+.album-grid--lista .album-card__link { flex-direction: row; align-items: stretch; }
+.album-grid--lista .album-card__cover { flex: none; width: 17rem; margin: 0.5rem 0 0.5rem 0.5rem; }
+.album-grid--lista .album-card__body { justify-content: center; padding: 1rem 1.5rem; gap: 0.375rem; }
+.album-grid--lista .album-card__title { font-size: 1.375rem; -webkit-line-clamp: 2; line-clamp: 2; }
+.album-grid--lista .album-card__description { -webkit-line-clamp: 4; line-clamp: 4; max-width: 46rem; }
+.album-grid--lista .album-card:hover { transform: none; }
+.album-grid--lista .album-card__body { padding-right: 3.75rem; }
+.album-grid--lista .album-card__edit { top: 50%; right: 1rem; translate: 0 -50%; }
+
+@media (max-width: 64rem) {
+  .album-grid--kafelki { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .archive-layout { grid-template-columns: 13rem minmax(0, 1fr); gap: 1.5rem; }
+}
+@media (max-width: 48rem) {
+  /* Wąski ekran: „Twoje” jako przewijany pasek nad albumami. */
+  .archive-layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .archive-side { position: static; }
+  .archive-side__label { display: none; }
+  .own-list { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 -1rem; padding: 0 1rem 0.25rem; }
+  .own-list::-webkit-scrollbar { display: none; }
+  .own-list > li { flex: none; max-width: 14rem; }
+  .own-item { padding: 0.375rem 0.75rem 0.375rem 0.375rem; }
+  .own-item__thumb { width: 2.5rem; height: 2.5rem; }
+  .album-grid--lista .album-card__cover { width: 40%; aspect-ratio: 1; margin: 0.4rem 0 0.4rem 0.4rem; border-radius: 9px; }
+  .album-grid--lista .album-card__cover--mosaic { grid-template-columns: 1fr; }
+  .album-grid--lista .album-card__cover--mosaic .album-card__side { display: none; }
+  .album-grid--lista .album-card__body { padding: 0.625rem 2.5rem 0.625rem 0.75rem; gap: 0.25rem; }
+  .album-grid--lista .album-card__edit { top: auto; bottom: 0.5rem; right: 0.5rem; translate: none; width: 1.75rem; height: 1.75rem; font-size: 0.875rem; }
+  .album-grid--lista .album-card__title { font-size: 1.0625rem; }
+  .album-grid--lista .album-card__description { font-size: 0.8125rem; -webkit-line-clamp: 2; line-clamp: 2; }
+}
+@media (max-width: 40rem) {
+  .album-grid--kafelki { gap: 0.625rem; }
+  .album-grid--kafelki .album-card__cover { margin: 0.375rem 0.375rem 0; }
+  .album-grid--kafelki .album-card__cover--mosaic { grid-template-columns: 1fr; }
+  .album-grid--kafelki .album-card__cover--mosaic .album-card__side { display: none; }
+  .album-grid--kafelki .album-card__body { padding: 0.5rem 0.625rem 0.75rem; }
+  .album-grid--kafelki .album-card__title { font-size: 1rem; }
+  .album-grid--kafelki .album-card__description { display: none; }
+}
+
 
 .table--matrix th[scope="row"] { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 1rem; color: var(--ink); }
 .table--matrix td { text-align: center; vertical-align: middle; }
@@ -735,18 +808,6 @@ a.polaroid:hover, a.polaroid:focus-visible { z-index: 10; rotate: 0deg; scale: 1
   .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
   .tabs::-webkit-scrollbar { display: none; }
   .tabs a { flex: none; white-space: nowrap; padding: 0.625rem 0.75rem; }
-  /* Albumy na telefonie: jedna kolumna szerokich kart, okładka z lewej. */
-  .album-grid { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
-  .album-card__link { flex-direction: row; align-items: stretch; }
-  .album-card__cover { flex: none; width: 42%; aspect-ratio: 1; margin: 0.4rem 0 0.4rem 0.4rem; border-radius: 9px; }
-  .album-card__cover--mosaic { grid-template-columns: 1fr; }
-  .album-card__cover--mosaic .album-card__side { display: none; }
-  .album-card__body { justify-content: center; padding: 0.625rem 0.75rem; }
-  .album-card__title { font-size: 1.0625rem; }
-  .album-card__description { font-size: 0.8125rem; -webkit-line-clamp: 2; line-clamp: 2; }
-  .favorites-strip { gap: 0.75rem; padding: 0.625rem 0.75rem; }
-  .favorites-strip__more { display: none; }
-  .favorites-strip__photos img { width: 2.75rem; height: 2.75rem; }
   .table--matrix th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 8.5rem; background: var(--card); box-shadow: 1px 0 0 var(--rule); }
   .thumb__actions .link-button { min-height: 2.25rem; padding: 0 0.25rem; }
 }
@@ -1416,3 +1477,39 @@ a.chip { color: inherit; text-decoration: none; }
 /* ETAP 48: zdarzenia z życia na pasku w widoku „Oś czasu” (ikonka nad paskiem, opis po najechaniu). */
 .tl-mark--event { top: 9px; display: inline-grid; place-items: center; width: 16px; height: 16px; font-size: 10px; line-height: 1; background: var(--card); border: 1px solid var(--rule-strong); box-shadow: 0 1px 2px rgb(var(--shadow) / 0.2); cursor: help; z-index: 1; }
 .tl-mark--event:hover { transform: translate(-50%, -50%) scale(1.4); z-index: 2; }
+
+/* „Moje albumy” (ETAP 51): okienko pod gwiazdką i strona własnego albumu. */
+.collect-menu { position: absolute; z-index: 30; width: min(18rem, calc(100vw - 1rem)); max-height: min(24rem, 70vh); overflow-y: auto; padding: 0.5rem; border: 1px solid rgb(255 255 255 / 0.16); border-radius: 12px; background: #221e19; color: #f4efe6; box-shadow: 0 14px 34px -10px rgb(0 0 0 / 0.6); font-size: 0.9375rem; }
+.collect-menu__title { margin: 0.25rem 0.5rem 0.375rem; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: #a99b8a; }
+.collect-menu__wait { margin: 0.5rem; color: #a99b8a; }
+.collect-menu__item { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem; border-radius: 8px; cursor: pointer; }
+.collect-menu__item:hover { background: rgb(255 255 255 / 0.08); }
+.collect-menu__item input { width: 1.125rem; height: 1.125rem; accent-color: #c89b2c; }
+.collect-menu__item span { min-width: 0; overflow-wrap: anywhere; }
+.collect-menu__item--favorites span { color: #f2c14e; }
+.collect-menu__new { display: flex; gap: 0.375rem; margin-top: 0.375rem; padding: 0.5rem 0.25rem 0.25rem; border-top: 1px solid rgb(255 255 255 / 0.12); }
+.collect-menu__new input { flex: 1; min-width: 0; padding: 0.375rem 0.5rem; border: 1px solid rgb(255 255 255 / 0.2); border-radius: 8px; background: rgb(255 255 255 / 0.06); color: inherit; font: inherit; }
+.collect-menu__new .button { padding: 0.375rem 0.75rem; }
+.own-settings { margin-top: 2.5rem; border-top: 1px solid var(--rule); padding-top: 1rem; }
+.own-settings summary { cursor: pointer; color: var(--ink-quiet); }
+.own-settings__form { margin-top: 1rem; max-width: 26rem; }
+
+/* Edycja albumu (ETAP 52). */
+.album-edit__cover { border: 1px solid var(--rule); margin: 0; }
+.album-edit__cover h2 { margin-top: 0; }
+.album-edit { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: 2rem; align-items: start; }
+.album-edit__years { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.cover-pick { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: 0.5rem; max-height: 34rem; overflow-y: auto; }
+.cover-pick label { position: relative; display: block; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--placeholder); }
+.cover-pick img { width: 100%; height: 100%; object-fit: cover; }
+.cover-pick input { position: absolute; opacity: 0; }
+.cover-pick input:checked + img { outline: 4px solid var(--accent); outline-offset: -4px; }
+.cover-pick input:focus-visible + img { outline: 3px dashed var(--accent); outline-offset: -3px; }
+.cover-pick label::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); pointer-events: none; }
+.cover-pick input:checked ~ .cover-pick__mark { display: grid; }
+.cover-pick__mark { position: absolute; top: 0.375rem; right: 0.375rem; display: none; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.8125rem; }
+@media (max-width: 48rem) {
+  .album-edit { grid-template-columns: minmax(0, 1fr); }
+}
+.gallery-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.gallery-head h1 { margin-bottom: 0.5rem; }

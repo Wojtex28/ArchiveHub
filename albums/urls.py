@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import comments, favorites, marks, metadata, search, views
+from . import collections, comments, favorites, marks, metadata, search, views
 
 app_name = "albums"
 
@@ -9,6 +9,10 @@ urlpatterns = [
     path("ulubione/", favorites.favorites_page, name="favorites"),
     path("ulubione/pobierz/", favorites.favorites_download, name="favorites_download"),
     path("zdjecia/<int:pk>/ulubione/", favorites.favorite_toggle, name="favorite"),
+    path("zdjecia/<int:pk>/moje-albumy/", collections.photo_collections, name="photo_collections"),
+    path("moje-albumy/nowy/", collections.album_create, name="own_album_create"),
+    path("moje-albumy/<int:pk>/", collections.album_page, name="own_album"),
+    path("moje-albumy/<int:pk>/pobierz/", collections.album_download, name="own_album_download"),
     path("archiwum/<int:pk>/", views.album_gallery, name="gallery"),
     path("archiwum/<int:album_pk>/<int:pk>/", views.photo_page, name="photo"),
     path(

@@ -117,7 +117,7 @@ def test_favorites_download_zip_in_album_folders(karolina, family, group):
 def test_archive_home_has_favorites_card(karolina, family):
     star(karolina, family["first"])
     page = karolina.get(reverse("archive")).content.decode()
-    assert "favorites-strip" in page and "1 zdjęcie · widzisz tylko Ty" in page
+    assert "own-item--favorites" in page and "1 zdj." in page
 
 
 def test_photo_page_star_button(karolina, family):

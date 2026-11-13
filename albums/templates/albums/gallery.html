@@ -3,7 +3,10 @@
 {% block title %}{{ album.display_title }} · {{ site_title }}{% endblock %}
 {% block main %}
 <p><a href="{% url 'archive' %}">← Wszystkie albumy</a></p>
-<h1>{{ album.display_title }}{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</h1>
+<div class="gallery-head">
+  <h1>{{ album.display_title }}{% if album.is_hidden %} <span class="badge badge--muted">ukryty</span>{% endif %}</h1>
+  {% if user.is_superuser %}<a class="button button--quiet" href="{% url 'panel:album_edit' album.pk %}">✎ Edytuj album</a>{% endif %}
+</div>
 {% if album.description %}<p class="lead album-description">{{ album.description|linebreaksbr }}</p>{% endif %}
 <p class="hint">{{ photos|length }} zdj. Kliknij zdjęcie, żeby obejrzeć je na całym ekranie. Zdjęcie leżące bokiem obrócisz przyciskami ↺ ↻, a powiększysz dwuklikiem, kółkiem myszy albo dwoma palcami. Pod 💬 dopiszesz, kiedy i gdzie zrobiono zdjęcie i kto na nim jest.</p>
 {% if photos %}
@@ -14,7 +17,7 @@
 </div>
 <form method="post" action="{% url 'albums:album_download' album.pk %}" class="gallery-form" data-select-form>
 {% csrf_token %}
-<ul class="gallery-grid" data-gallery data-album-title="{{ album.display_title }}" data-csrf="{{ csrf_token }}">
+<ul class="gallery-grid" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="{{ album.display_title }}" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
   {% include "albums/includes/photo_tile.html" with number=forloop.counter selectable=True %}
   {% endfor %}
