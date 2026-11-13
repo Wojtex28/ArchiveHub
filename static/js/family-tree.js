@@ -232,8 +232,65 @@
       });
       if (!changed) break;
     }
+    shortenLinks(data, gen);
     alignByBirth(data, gen);
     return gen;
+  }
+
+  // Poprawka po wstępnym przydziale rzędów: powyższe reguły stawiają wszystkie gałęzie jak najwyżej,
+  // więc najstarsi znani przodkowie każdej gałęzi lądują w górnym rzędzie, nawet gdy jedna gałąź
+  // sięga w przeszłość głębiej niż druga. Gdy takie gałęzie łączy małżeństwo, dziecko staje dwa
+  // rzędy pod rodzicami. Tu przesuwamy całe bloki (osoba z partnerami, rodzeństwem i dziećmi
+  // stojącymi tuż pod nią, albo z rodzicami tuż nad nią) o rząd w dół lub w górę, dopóki to skraca
+  // łączną długość linii rodzic → dziecko (ETAP 55).
+  function shortenLinks(data, gen) {
+    var rel = relativesIndex(data);
+    var links = data.parents.filter(function (l) { return gen[l[0]] !== undefined && gen[l[1]] !== undefined; });
+    function block(id, down) {
+      var inside = {}, queue = [id];
+      inside[id] = true;
+      while (queue.length) {
+        var x = queue.shift(), r = rel[x];
+        var next = r.partners.concat(r.siblings);
+        // W dół ciągniemy dzieci stojące tuż pod spodem, w górę rodziców stojących tuż nad.
+        (down ? r.children : r.parents).forEach(function (q) {
+          if (Math.abs(gen[q] - gen[x]) === 1) next.push(q);
+        });
+        next.forEach(function (q) {
+          if (!inside[q] && gen[q] !== undefined) { inside[q] = true; queue.push(q); }
+        });
+      }
+      return inside;
+    }
+    function gain(inside, down) {
+      var delta = 0;
+      links.forEach(function (l) {
+        var p = inside[l[0]], c = inside[l[1]];
+        if (p === c) return;
+        // Ruch w dół: linia do bloku się wydłuża, linia z bloku skraca (i odwrotnie w górę).
+        var span = gen[l[1]] - gen[l[0]];
+        if (down) delta += p ? -1 : 1;
+        else delta += c ? -1 : 1;
+        if (span + (down ? (p ? -1 : 1) : (c ? -1 : 1)) < 1) delta = Infinity;
+      });
+      return delta;
+    }
+    for (var round = 0; round < 40; round++) {
+      var moved = false;
+      data.people.forEach(function (p) {
+        [true, false].forEach(function (down) {
+          var inside = block(p.id, down);
+          if (gain(inside, down) < 0) {
+            Object.keys(inside).forEach(function (id) { gen[id] += down ? 1 : -1; });
+            moved = true;
+          }
+        });
+      });
+      if (!moved) break;
+    }
+    var low = Infinity;
+    data.people.forEach(function (p) { low = Math.min(low, gen[p.id]); });
+    if (low !== 0 && isFinite(low)) data.people.forEach(function (p) { gen[p.id] -= low; });
   }
 
   // Osobne gałęzie (jeszcze niepołączone z resztą drzewa) i pojedyncze osoby trafiają do rzędu
@@ -1601,8 +1658,8 @@
     var rows = [];
     rel.parents.forEach(function (id) { rows.push(["rodzic", id]); });
     partnersInOrder(person.id, index, couplesIndex(state.data)).forEach(function (id) { rows.push(["partner", id]); });
-    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     rel.children.forEach(function (id) { rows.push(["dziecko", id]); });
+    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     return rows;
   }
 
@@ -1621,7 +1678,12 @@
     return list;
   }
 
-  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko", rodzenstwo: "rodzeństwo" };
+  var GROUPS = {
+    rodzic: ["Rodzic", "Rodzice"],
+    partner: ["Partner / partnerka", "Partnerzy"],
+    dziecko: ["Dziecko", "Dzieci"],
+    rodzenstwo: ["Rodzeństwo", "Rodzeństwo"],
+  };
 
   // Opis związku w panelu bocznym: „1. związek · ślub 1950 · rozwód”.
   function coupleInfo(id, otherId) {
@@ -1717,43 +1779,8 @@
 
   // --- ETAP 55: sprawdzanie drzewa ------------------------------------------------------
 
-  // Uwagi o układzie: dziecko stoi dwa lub więcej rzędów pod rodzicami, bo jego partner(ka) jest
-  // z młodszego pokolenia. Linia do rodziców jest wtedy długa i przechodzi przez cudze rzędy.
-  function layoutIssues() {
-    var data = state.data, gen = state.layoutGen || {}, byId = state.byId;
-    var parentsOf = {}, partnersOf = {};
-    data.parents.forEach(function (link) { (parentsOf[link[1]] = parentsOf[link[1]] || []).push(link[0]); });
-    data.partners.forEach(function (pair) {
-      (partnersOf[pair[0]] = partnersOf[pair[0]] || []).push(pair[1]);
-      (partnersOf[pair[1]] = partnersOf[pair[1]] || []).push(pair[0]);
-    });
-    var out = [];
-    Object.keys(parentsOf).forEach(function (childId) {
-      var child = byId[childId];
-      if (!child) return;
-      var ps = parentsOf[childId].filter(function (id) { return byId[id]; });
-      var far = ps.filter(function (id) { return gen[childId] - gen[id] >= 2; });
-      if (!far.length) return;
-      var rows = gen[childId] - gen[far[0]];
-      var mates = (partnersOf[childId] || []).map(function (id) { return byId[id]; }).filter(Boolean);
-      var names = far.map(function (id) { return byId[id].name; }).join(" i ");
-      var text = child.name + " stoi " + rows + " rzędy pod rodzicami (" + names + ")"
-        + (mates.length ? ", bo w rzędzie partnera lub partnerki: " + mates.map(function (m) { return m.name; }).join(", ") : "")
-        + ". Linia do rodziców jest przez to długa. Jeśli rodzice są wpisani dobrze (a nie np. dziadkowie), wszystko w porządku.";
-      out.push({
-        key: ("uklad-" + childId + "-" + rows + "-" + far.slice().sort().join("-")).slice(0, 40),
-        kind: "uklad", level: "uwaga", text: text,
-        people: [child].concat(far.map(function (id) { return byId[id]; })).concat(mates)
-          .map(function (p) { return { id: p.id, name: p.name }; }),
-      });
-    });
-    return out;
-  }
-
   function updateChecks() {
-    var hidden = {};
-    (state.data.dismissed || []).forEach(function (key) { hidden[key] = true; });
-    state.issues = (state.data.issues || []).concat(layoutIssues().filter(function (i) { return !hidden[i.key]; }));
+    state.issues = state.data.issues || [];
     var button = root.querySelector("[data-tree-action=check]");
     if (!button) return;
     var errors = state.issues.filter(function (i) { return i.level === "blad"; }).length;
@@ -2269,15 +2296,21 @@
       var rows = relationRows(person);
       if (rows.length) {
         var list = el("ul", "tree-sheet__relatives");
+        var group = null;
         rows.forEach(function (row) {
           var other = state.byId[row[1]];
           if (!other) return;
+          // Krewni w grupach z nagłówkami, żeby rodzeństwo nie wyglądało jak dzieci.
+          if (row[0] !== group) {
+            group = row[0];
+            var count = rows.filter(function (r) { return r[0] === group; }).length;
+            list.appendChild(el("li", "tree-sheet__group", GROUPS[group][count > 1 ? 1 : 0]));
+          }
           var item = el("li");
           var link = el("button", "link-button", other.name);
           link.type = "button";
           link.addEventListener("click", function () { select(other.id, true); });
           item.appendChild(link);
-          item.appendChild(el("span", "hint", " " + LABELS[row[0]]));
           var info = row[0] === "partner" ? coupleInfo(person.id, other.id) : null;
           if (state.data.canEdit && (row[0] !== "rodzenstwo" || row[2])) {
             var remove = el("button", "icon-button icon-button--small", "×");

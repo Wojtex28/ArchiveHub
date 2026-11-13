@@ -3,8 +3,6 @@
 Każda uwaga to :class:`Issue` z osobami, których dotyczy. Część to prawie na pewno błąd (np. troje
 rodziców), część tylko „do sprawdzenia” (np. duża różnica wieku). Uwagę „to się zgadza” można
 schować (:class:`family.models.CheckDismissal`), a wraca, gdy zmienią się dane, których dotyczy.
-
-Uwagi o układzie (rodzeństwo w różnych rzędach drzewa) liczy kanwa, bo tylko ona zna rzędy.
 """
 
 import hashlib
