@@ -1601,8 +1601,8 @@
     var rows = [];
     rel.parents.forEach(function (id) { rows.push(["rodzic", id]); });
     partnersInOrder(person.id, index, couplesIndex(state.data)).forEach(function (id) { rows.push(["partner", id]); });
-    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     rel.children.forEach(function (id) { rows.push(["dziecko", id]); });
+    siblingsOf(person.id, index).forEach(function (sib) { rows.push(["rodzenstwo", sib.id, sib.linked]); });
     return rows;
   }
 
@@ -1621,7 +1621,12 @@
     return list;
   }
 
-  var LABELS = { rodzic: "rodzic", partner: "partner/ka", dziecko: "dziecko", rodzenstwo: "rodzeństwo" };
+  var GROUPS = {
+    rodzic: ["Rodzic", "Rodzice"],
+    partner: ["Partner / partnerka", "Partnerzy"],
+    dziecko: ["Dziecko", "Dzieci"],
+    rodzenstwo: ["Rodzeństwo", "Rodzeństwo"],
+  };
 
   // Opis związku w panelu bocznym: „1. związek · ślub 1950 · rozwód”.
   function coupleInfo(id, otherId) {
@@ -2269,15 +2274,21 @@
       var rows = relationRows(person);
       if (rows.length) {
         var list = el("ul", "tree-sheet__relatives");
+        var group = null;
         rows.forEach(function (row) {
           var other = state.byId[row[1]];
           if (!other) return;
+          // Krewni w grupach z nagłówkami, żeby rodzeństwo nie wyglądało jak dzieci.
+          if (row[0] !== group) {
+            group = row[0];
+            var count = rows.filter(function (r) { return r[0] === group; }).length;
+            list.appendChild(el("li", "tree-sheet__group", GROUPS[group][count > 1 ? 1 : 0]));
+          }
           var item = el("li");
           var link = el("button", "link-button", other.name);
           link.type = "button";
           link.addEventListener("click", function () { select(other.id, true); });
           item.appendChild(link);
-          item.appendChild(el("span", "hint", " " + LABELS[row[0]]));
           var info = row[0] === "partner" ? coupleInfo(person.id, other.id) : null;
           if (state.data.canEdit && (row[0] !== "rodzenstwo" || row[2])) {
             var remove = el("button", "icon-button icon-button--small", "×");

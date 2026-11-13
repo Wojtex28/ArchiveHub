@@ -15,6 +15,10 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.55.1 (2026-11-13) · poprawka: krewni w panelu drzewa w grupach
+
+- Lista krewnych w panelu bocznym drzewa ma nagłówki: Rodzice, Partner / partnerka, Dzieci, Rodzeństwo. Dzieci są przed rodzeństwem, więc rodzeństwo jednej osoby z pary nie wygląda już jak dzieci, których brakuje drugiej.
+
 ## 0.55.0 (2026-11-13) · ETAP 55: sprawdzanie drzewa, linie przez kilka pokoleń
 
 - **Ikonka sprawdzania** na pasku drzewa: ✓, gdy wszystko się zgadza, a „!” z liczbą uwag, gdy jest co sprawdzić (czerwone przy błędach). Po kliknięciu lista uwag w panelu bocznym: kogo dotyczy (kliknięcie pokazuje osobę) i co wygląda podejrzanie.
