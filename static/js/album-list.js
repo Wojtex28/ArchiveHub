@@ -37,8 +37,29 @@
     });
   }
 
+  // Przełącznik kafelki / lista (ETAP 50): od razu, bez przeładowania; wybór zostaje w ciasteczku.
+  function setupSwitch(box) {
+    var list = document.querySelector("[data-album-list]");
+    if (!list) return;
+    box.addEventListener("click", function (event) {
+      var link = event.target.closest("[data-view]");
+      if (!link) return;
+      event.preventDefault();
+      var view = link.getAttribute("data-view");
+      list.classList.remove("album-grid--lista", "album-grid--kafelki");
+      list.classList.add("album-grid--" + view);
+      Array.prototype.forEach.call(box.querySelectorAll("[data-view]"), function (other) {
+        if (other === link) other.setAttribute("aria-current", "true");
+        else other.removeAttribute("aria-current");
+      });
+      document.cookie = "albumy_widok=" + view + "; path=/; max-age=31536000; SameSite=Lax";
+    });
+  }
+
   function start() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-album-preview]"), setup);
+    var box = document.querySelector("[data-view-switch]");
+    if (box) setupSwitch(box);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();

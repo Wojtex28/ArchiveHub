@@ -65,6 +65,8 @@ def panel_context(request, photo, comment_form=None, metadata_form=None, people_
         "people_open": people_form is not None,
         "can_view_tree": request.user.can_view_tree,
         "is_favorite": photo.favorites.filter(user=request.user).exists(),
+        "is_collected": photo.favorites.filter(user=request.user).exists()
+        or photo.user_album_entries.filter(album__user=request.user).exists(),
         "photo_people": people,
         "photo_tags": tags,
         "has_metadata": bool(photo.date_text or photo.place or photo.description or tags),

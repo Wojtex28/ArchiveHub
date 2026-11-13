@@ -214,6 +214,122 @@
     }, { passive: false });
   }
 
+  // „Moje albumy” (ETAP 51): okienko pod gwiazdką z listą Ulubione + albumy konta. Każde zaznaczenie
+  // zapisuje się od razu; ``onState`` dostaje odpowiedź serwera (m.in. ``collected``: pełna gwiazdka).
+  var collectMenu = null;
+
+  function closeCollections() {
+    if (!collectMenu) return;
+    collectMenu.remove();
+    collectMenu = null;
+    document.removeEventListener("pointerdown", outsideCollections, true);
+  }
+
+  function outsideCollections(event) {
+    if (collectMenu && !collectMenu.contains(event.target) && !collectMenu.anchor.contains(event.target)) closeCollections();
+  }
+
+  function openCollections(anchor, url, csrf, onState) {
+    if (collectMenu && collectMenu.anchor === anchor) return closeCollections();
+    closeCollections();
+    var menu = document.createElement("div");
+    menu.className = "collect-menu";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Dodaj zdjęcie do albumu");
+    menu.anchor = anchor;
+    menu.innerHTML = "<p class=\"collect-menu__title\">Dodaj do albumu</p><p class=\"collect-menu__wait\">Wczytuję…</p>";
+    (anchor.closest(".viewer") || document.body).appendChild(menu);
+    var box = anchor.getBoundingClientRect();
+    var host = menu.parentNode.getBoundingClientRect();
+    menu.style.top = (box.bottom - host.top + 8) + "px";
+    menu.style.right = Math.max(8, host.right - box.right) + "px";
+    collectMenu = menu;
+    document.addEventListener("pointerdown", outsideCollections, true);
+
+    function send(data) {
+      var body = new FormData();
+      Object.keys(data).forEach(function (key) { body.append(key, data[key]); });
+      return fetch(url, {
+        method: "POST",
+        body: body,
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "fetch", "X-CSRFToken": csrf }
+      }).then(function (response) {
+        if (!response.ok) throw new Error(response.status);
+        return response.json();
+      });
+    }
+
+    function row(label, key, on, extraClass) {
+      var item = document.createElement("label");
+      item.className = "collect-menu__item" + (extraClass ? " " + extraClass : "");
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = on;
+      box.addEventListener("change", function () {
+        box.disabled = true;
+        send({ album: key, on: box.checked ? "1" : "0" })
+          .then(function (state) { onState(state); })
+          .catch(function () { box.checked = !box.checked; })
+          .then(function () { box.disabled = false; });
+      });
+      var text = document.createElement("span");
+      text.textContent = label;
+      item.append(box, text);
+      return item;
+    }
+
+    function render(state) {
+      if (collectMenu !== menu) return;
+      menu.replaceChildren();
+      var heading = document.createElement("p");
+      heading.className = "collect-menu__title";
+      heading.textContent = "Dodaj do albumu";
+      menu.appendChild(heading);
+      menu.appendChild(row("★ Ulubione", "ulubione", state.favorite, "collect-menu__item--favorites"));
+      state.albums.forEach(function (album) { menu.appendChild(row(album.name, String(album.id), album.on)); });
+      var form = document.createElement("form");
+      form.className = "collect-menu__new";
+      var input = document.createElement("input");
+      input.name = "nowy";
+      input.maxLength = 100;
+      input.placeholder = "Nowy album…";
+      input.setAttribute("aria-label", "Nazwa nowego albumu");
+      var add = document.createElement("button");
+      add.type = "submit";
+      add.className = "button";
+      add.textContent = "Dodaj";
+      form.append(input, add);
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!input.value.trim()) return input.focus();
+        add.disabled = true;
+        send({ nowy: input.value }).then(function (fresh) { onState(fresh); render(fresh); })
+          .catch(function () { add.disabled = false; });
+      });
+      menu.appendChild(form);
+    }
+
+    fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      .then(function (response) {
+        if (!response.ok) throw new Error(response.status);
+        return response.json();
+      })
+      .then(render)
+      .catch(function () {
+        if (collectMenu === menu) menu.querySelector(".collect-menu__wait").textContent = "Nie udało się wczytać. Spróbuj ponownie.";
+      });
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && collectMenu) {
+      event.stopImmediatePropagation();
+      var anchor = collectMenu.anchor;
+      closeCollections();
+      anchor.focus();
+    }
+  }, true);
+
   // Przyciski „−” i „+” na pasku (na komputerze): pomniejszają też poniżej rozmiaru ekranu.
   function zoomButtons(currentImg) {
     var box = document.createElement("span");
@@ -502,6 +618,18 @@
     }, function () { return pageStage.gesture || view(pageImg).scale > 1; });
     enableZoom(pageStage, pageImg);
     var rotateBox = page.querySelector("[data-rotate-url]");
+    var starForm = page.querySelector("form[data-collections-url]");
+    if (starForm) {
+      starForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var star = starForm.querySelector(".viewer__favorite");
+        openCollections(star, starForm.getAttribute("data-collections-url"), rotateBox.getAttribute("data-csrf"), function (state) {
+          star.classList.toggle("is-on", state.collected);
+          star.setAttribute("aria-pressed", String(state.collected));
+          star.firstChild.textContent = state.collected ? "★" : "☆";
+        });
+      });
+    }
     rotateBox.parentNode.insertBefore(zoomButtons(function () { return pageImg; }), rotateBox);
     var refit = function (keepZoom) { fitRotation(pageImg, Number(pageImg.getAttribute("data-rotation")), keepZoom); };
     refit();
@@ -691,12 +819,23 @@
     favoriteButton.textContent = on ? "★" : "☆";
     favoriteButton.classList.toggle("is-on", on);
     favoriteButton.setAttribute("aria-pressed", String(on));
+    if (grid.hasAttribute("data-own-albums")) {
+      favoriteButton.setAttribute("aria-label", "Dodaj do albumu");
+      favoriteButton.title = on ? "W Twoich albumach (kliknij, żeby zmienić)" : "Dodaj do Ulubionych albo swojego albumu";
+      return;
+    }
     favoriteButton.setAttribute("aria-label", on ? "Usuń z ulubionych" : "Dodaj do ulubionych");
     favoriteButton.title = on ? "W ulubionych (kliknij, żeby usunąć)" : "Dodaj do ulubionych";
   }
 
   function toggleFavorite() {
     var tile = tiles[current];
+    if (grid.hasAttribute("data-own-albums")) {
+      openCollections(favoriteButton, tile.getAttribute("data-collections-url"), csrf, function (state) {
+        setFavorite(tile, state.collected);
+      });
+      return;
+    }
     var on = !isFavorite(tile);
     setFavorite(tile, on);
     var body = new FormData();
@@ -838,6 +977,7 @@
   }
 
   function show(index, onReverse) {
+    closeCollections();
     var tile = tiles[index];
     if (!tile) return;
     onReverse = onReverse && tile.hasAttribute("data-reverse-preview");
@@ -898,6 +1038,7 @@
 
   // Zamknięcie cofa historię, więc przycisk „wstecz” na telefonie też zamyka podgląd.
   function close() {
+    closeCollections();
     if (pushed) history.back();
     else hide();
   }

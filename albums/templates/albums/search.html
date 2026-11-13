@@ -36,7 +36,7 @@
 </div>
 {% if page.object_list %}
 <p class="hint">Od najstarszych; zdjęcia bez daty są na końcu. Kliknij zdjęcie, żeby je obejrzeć.</p>
-<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="" data-csrf="{{ csrf_token }}">
+<ul class="gallery-grid gallery-grid--captions" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="" data-csrf="{{ csrf_token }}">
   {% for photo in page.object_list %}
   {% include "albums/includes/photo_tile.html" with number=forloop.counter|add:offset show_caption=True %}
   {% endfor %}

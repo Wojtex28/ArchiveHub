@@ -1,0 +1,46 @@
+{% extends "app_base.html" %}
+{% block title %}Edycja: {{ album.display_title }} · {{ site_title }}{% endblock %}
+{% block main %}
+<p><a href="{% url 'albums:gallery' album.pk %}">← {{ album.display_title }}</a></p>
+<h1>Edytuj album</h1>
+<p class="hint">Folder: {{ album.folder }} · {{ album.photo_count }} zdj. · Kto widzi album, ukrywanie i link do oryginałów: <a href="{% url 'panel:album_detail' album.pk %}">Panel → Albumy</a>.</p>
+<form method="post" novalidate class="album-edit">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="card card--form">
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+    {% with field=form.title %}<div class="field{% if field.errors %} field--error{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+      {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      <p class="hint">Nazwa z folderu jest już rozłożona na słowa; popraw polskie znaki i resztę po swojemu.</p>
+    </div>{% endwith %}
+    <div class="album-edit__years">
+      {% for field in form %}{% if field.name == "year_from" or field.name == "year_to" %}
+      <div class="field{% if field.errors %} field--error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+        {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+    <p class="hint">Lata pokazują się na liście albumów. Puste: lata z nazwy folderu albo z dat zdjęć.</p>
+    {% with field=form.description %}<div class="field{% if field.errors %} field--error{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+      <p class="hint">{{ field.help_text }}</p>
+    </div>{% endwith %}
+    <button type="submit" class="button">Zapisz</button>
+    <a class="button button--quiet" href="{% if next %}{{ next }}{% else %}{% url 'albums:gallery' album.pk %}{% endif %}">Anuluj</a>
+  </div>
+  <fieldset class="card album-edit__cover">
+    <h2 class="section-title">Okładka</h2>
+    {% if photos %}
+    <p class="hint">Kliknij zdjęcie, które ma być okładką. Na liście albumów obok okładki pokażą się kolejne zdjęcia albumu.</p>
+    {% if form.cover.errors %}<p class="field__error">{{ form.cover.errors.0 }}</p>{% endif %}
+    <ul class="cover-pick">
+      {% for photo in photos %}
+      <li><label title="{{ photo.name }}"><input type="radio" name="cover" value="{{ photo.pk }}"{% if form.cover.value|stringformat:"s" == photo.pk|stringformat:"s" %} checked{% endif %}><img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {{ forloop.counter }}" loading="lazy"><span class="cover-pick__mark" aria-hidden="true">✓</span></label></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="hint">Okładkę wybierzesz po imporcie zdjęć.</p>{% endif %}
+  </fieldset>
+</form>
+{% endblock %}

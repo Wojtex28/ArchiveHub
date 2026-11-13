@@ -87,7 +87,7 @@
 <h2>Zdjęcia{% if photo_total %} ({{ photo_total }}){% endif %}</h2>
 {% if photos %}
 <p class="hint">Od najnowszych do najstarszych, według daty z opisu zdjęcia. Kliknij zdjęcie, żeby je obejrzeć.</p>
-<ul class="gallery-grid gallery-grid--captions" data-gallery data-album-title="" data-csrf="{{ csrf_token }}">
+<ul class="gallery-grid gallery-grid--captions" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="" data-csrf="{{ csrf_token }}">
   {% for photo in photos %}
   {% ifchanged photo.period %}<li class="gallery-grid__period">{{ photo.period }}</li>{% endifchanged %}
   {% include "albums/includes/photo_tile.html" with number=forloop.counter show_caption=True %}

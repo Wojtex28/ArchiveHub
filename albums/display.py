@@ -11,11 +11,25 @@ from dataclasses import dataclass
 from .sync import title_from_folder
 
 # Końcówki folderów, które mówią o stanie skanów, a nie o albumie.
-TECHNICAL_WORDS = {"pocięte", "pociete", "skany", "scan", "scany", "gotowe", "nowe", "kopia"}
+TECHNICAL_WORDS = {
+    "pocięte",
+    "pociete",
+    "pocięty",
+    "pociety",
+    "pocięta",
+    "pocieta",
+    "skany",
+    "scan",
+    "scany",
+    "gotowe",
+    "nowe",
+    "kopia",
+}
 # Krótkie słowa, które w środku nazwy piszemy małą literą.
 SMALL_WORDS = {"i", "a", "w", "we", "z", "ze", "na", "do", "od", "po", "za", "o", "u", "nad", "pod", "dla"}
 
-YEAR_RANGE = re.compile(r"(?<!\d)(\d{2}|\d{4})\s*[-–]\s*(\d{2}|\d{4})(?!\d)")
+# „97-04”, „1962-1968”, a także „95-96-97” (pierwszy i ostatni rok).
+YEAR_RANGE = re.compile(r"(?<!\d)(\d{2}|\d{4})((?:\s*[-–]\s*(?:\d{2}|\d{4}))+)(?!\d)")
 YEAR_ONE = re.compile(r"(?<!\d)(1[89]\d{2}|20\d{2})(?!\d)")
 CAMEL = re.compile(r"[a-ząćęłńóśźż][A-ZĄĆĘŁŃÓŚŹŻ]|[^\W\d_]\d|\d[^\W\d_]")
 NUMBER = re.compile(r"^(\d{1,3})(?:\s+|$)")
@@ -54,9 +68,22 @@ def _split_words(text):
 
 
 def album_label(album):
-    """Numer, nazwa i lata albumu do pokazania na liście."""
+    """Numer, nazwa i lata albumu do pokazania na liście. Lata wpisane w edycji albumu wygrywają."""
+    label = _label_from_title(album)
+    # Numer zawsze z folderu, także gdy nazwę wpisano ręcznie.
+    match = NUMBER.match(title_from_folder(album.folder))
+    number = match.group(1) if match and match.end() < len(title_from_folder(album.folder)) else ""
+    years = label.years
+    start, end = getattr(album, "year_from", None), getattr(album, "year_to", None)
+    if start:
+        years = f"{start}–{end}" if end and end != start else str(start)
+    return AlbumLabel(number=number, title=label.title, years=years)
+
+
+def _label_from_title(album):
     title = album.title.strip()
-    if title != title_from_folder(album.folder) and not CAMEL.search(title):
+    folder_like = CAMEL.search(title) or title.split()[-1].lower() in TECHNICAL_WORDS if title else False
+    if title != title_from_folder(album.folder) and not folder_like:
         # Nazwa wpisana ręcznie w panelu (bez sklejonych słów jak w folderach): bez zmian.
         return AlbumLabel(number="", title=title, years="")
     number = ""
@@ -67,7 +94,9 @@ def album_label(album):
     match = YEAR_RANGE.search(title)
     if match:
         start = _full_year(match.group(1))
-        end = _full_year(match.group(2), after=start)
+        end = start
+        for part in re.findall(r"\d+", match.group(2)):
+            end = _full_year(part, after=end)
         if 1800 <= start <= end <= 2100:
             years = f"{start}–{end}" if end != start else str(start)
             title = title[: match.start()] + " " + title[match.end() :]
@@ -78,7 +107,8 @@ def album_label(album):
             title = title[: match.start()] + " " + title[match.end() :]
     words = _split_words(title)
     if not words:
-        return AlbumLabel(number="", title=album.title.strip(), years=years)
+        # Folder bez nazwy, np. „49 95-96-97 Pociete”: zostaje numer.
+        return AlbumLabel(number="", title=f"Album {number}" if number else album.title.strip(), years=years)
     words[0] = words[0][:1].upper() + words[0][1:]
     return AlbumLabel(number=number, title=" ".join(words), years=years)
 

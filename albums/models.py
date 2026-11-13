@@ -57,6 +57,9 @@ class Album(models.Model):
         verbose_name="okładka",
     )
     folder_missing = models.BooleanField("brak folderu", default=False)
+    # Lata, z których pochodzi album (ETAP 52); puste: lata z nazwy folderu albo z dat zdjęć.
+    year_from = models.PositiveSmallIntegerField("od roku", null=True, blank=True)
+    year_to = models.PositiveSmallIntegerField("do roku", null=True, blank=True)
     photo_count = models.PositiveIntegerField("liczba zdjęć", default=0)
     # Ustawiane w panelu; worker importu przetwarza wtedy album jeszcze raz ze skanów w udziale.
     reprocess_requested = models.BooleanField("do ponownego przetworzenia", default=False)
@@ -577,6 +580,41 @@ class Favorite(models.Model):
         return f"{self.user} ★ {self.photo}"
 
 
+class UserAlbum(models.Model):
+    """„Mój album” (ETAP 51): prywatny zbiór zdjęć jednego konta, obok Ulubionych.
+
+    Zdjęcia zostają w swoich albumach; tu jest tylko lista odnośników. Widzi go tylko właściciel.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="own_albums")
+    name = models.CharField("nazwa", max_length=100)
+    photos = models.ManyToManyField(Photo, through="UserAlbumPhoto", related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "mój album"
+        verbose_name_plural = "moje albumy"
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        return f"{self.user}: {self.name}"
+
+
+class UserAlbumPhoto(models.Model):
+    album = models.ForeignKey(UserAlbum, on_delete=models.CASCADE, related_name="entries")
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name="user_album_entries")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-added_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["album", "photo"], name="moj_album_zdjecie_raz")]
+
+    def __str__(self):
+        return f"{self.album} ← {self.photo}"
+
+
 def favorite_ids(user):
-    """Numery ulubionych zdjęć konta, do zaznaczenia gwiazdek w galerii."""
-    return set(Favorite.objects.filter(user=user).values_list("photo_id", flat=True))
+    """Zdjęcia z pełną gwiazdką ★ w galerii: w Ulubionych albo w którymś z „Moich albumów”."""
+    ids = set(Favorite.objects.filter(user=user).values_list("photo_id", flat=True))
+    ids.update(UserAlbumPhoto.objects.filter(album__user=user).values_list("photo_id", flat=True))
+    return ids

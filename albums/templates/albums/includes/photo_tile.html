@@ -8,6 +8,7 @@
        data-comments-url="{% url 'albums:comments' photo.pk %}"
        data-comments="{{ photo.comment_count }}"
        data-favorite-url="{% url 'albums:favorite' photo.pk %}"
+       data-collections-url="{% url 'albums:photo_collections' photo.pk %}"
        data-favorite="{% if photo.pk in favorite_ids %}1{% else %}0{% endif %}"
        data-caption="{{ photo.caption }}"
        data-album-title="{{ photo.album.display_title }}"

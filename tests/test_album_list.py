@@ -28,6 +28,8 @@ def label(folder, title=None):
         ("09_MałyNiebieskiPRL", "09", "Mały Niebieski PRL", ""),
         ("Luzne", "", "Luzne", ""),
         ("12", "", "12", ""),
+        ("49_95-96-97_Pociete", "49", "Album 49", "1995–1997"),
+        ("54_SzaryAlbumWDzbanki_Pociety", "54", "Szary Album w Dzbanki", ""),
     ],
 )
 def test_label_from_folder_name(folder, number, title, years):
@@ -38,7 +40,7 @@ def test_label_from_folder_name(folder, number, title, years):
 def test_title_typed_in_panel_stays_as_is():
     typed = "Brązowy album ze złotą obwódką, 1997–2004"
     result = label("01_BrązowyZeZlotaObramowka97-04_Pocięte", typed)
-    assert (result.number, result.title, result.years) == ("", typed, "")
+    assert (result.number, result.title, result.years) == ("01", typed, "")
 
 
 def test_polish_plurals():

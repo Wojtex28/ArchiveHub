@@ -9,14 +9,13 @@ from django.urls import reverse
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_safe
 
-from albums.display import album_cards, photo_count_text
+from albums.collections import own_album_cards
+from albums.display import album_cards
 from albums.favorites import favorite_photos
 from albums.models import Album, Photo
 
 from . import status
 from .models import LoginPhoto
-
-FAVORITES_SHOWN = 8  # miniatury na pasku Ulubionych nad albumami
 
 logger = logging.getLogger(__name__)
 
@@ -81,22 +80,36 @@ def landing(request):
     return render(request, "core/landing.html", context)
 
 
+VIEW_COOKIE = "albumy_widok"
+VIEWS = ("kafelki", "lista")
+
+
 @require_safe
 @login_required
 def archive_home(request):
     albums = Album.objects.visible_to(request.user)
     if request.user.is_superuser:
         albums = albums.filter(folder_missing=False)
+    # Kafelki albo lista (ETAP 50). Wybór zapamiętuje ciasteczko; bez JavaScriptu działa link ?widok=.
+    chosen = request.GET.get("widok")
+    layout = chosen if chosen in VIEWS else request.COOKIES.get(VIEW_COOKIE)
+    if layout not in VIEWS:
+        layout = VIEWS[0]
     favorites = favorite_photos(request.user)
-    return render(
+    response = render(
         request,
         "core/archive_home.html",
         {
             "cards": album_cards(albums, request.user),
-            "favorite_count": photo_count_text(favorites.count()),
-            "favorite_photos": list(favorites[:FAVORITES_SHOWN]),
+            "layout": layout,
+            "favorite_count": favorites.count(),
+            "favorite_cover": favorites.first(),
+            "own_albums": own_album_cards(request.user),
         },
     )
+    if chosen in VIEWS:
+        response.set_cookie(VIEW_COOKIE, chosen, max_age=365 * 24 * 3600, samesite="Lax")
+    return response
 
 
 @require_safe
