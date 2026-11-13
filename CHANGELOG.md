@@ -17,7 +17,7 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ## 0.55.0 (2026-11-13) · ETAP 55: sprawdzanie drzewa, linie przez kilka pokoleń
 
-- **„⚠ Do sprawdzenia”** na pasku drzewa (widać tylko, gdy jest co sprawdzić; czerwone przy błędach). Lista uwag w panelu bocznym: kogo dotyczy (kliknięcie pokazuje osobę) i co wygląda podejrzanie.
+- **Ikonka sprawdzania** na pasku drzewa: ✓, gdy wszystko się zgadza, a „!” z liczbą uwag, gdy jest co sprawdzić (czerwone przy błędach). Po kliknięciu lista uwag w panelu bocznym: kogo dotyczy (kliknięcie pokazuje osobę) i co wygląda podejrzanie.
 - Drzewo samo wyłapuje: śmierć przed urodzeniem, więcej niż dwoje rodziców, dziadka zapisanego też jako rodzica, rodzica młodszego od dziecka albo poniżej 14 lat, bardzo późne rodzicielstwo, dziecko urodzone po śmierci matki (lub ponad rok po śmierci ojca), parę bliskich krewnych, dużą różnicę wieku w parze i prawdopodobnie zdublowane osoby.
 - Uwaga o układzie: osoba, której rodzice są dwa pokolenia wyżej (np. ślub z kimś z innego pokolenia), dostaje dłuższą linię. Lista to mówi i podpowiada, co sprawdzić.
 - **„To się zgadza”** chowa uwagę dla wszystkich. Wraca sama, gdy zmienią się dane, których dotyczy.

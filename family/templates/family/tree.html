@@ -16,7 +16,7 @@
         <button type="button" class="tree-mode" data-tree-mode="os" aria-pressed="false">Oś czasu</button>
       </span>
       {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>{% endif %}
-      <button type="button" class="button button--quiet tree-check" data-tree-action="check" hidden>⚠ Do sprawdzenia <span class="tree-check__count"></span></button>
+      <button type="button" class="icon-button tree-check" data-tree-action="check" aria-label="Sprawdzanie drzewa" title="Sprawdzanie drzewa"><span class="tree-check__icon" aria-hidden="true">✓</span><span class="tree-check__count"></span></button>
       <span class="tree-toolbar__zoom">
         <button type="button" class="icon-button" data-tree-action="zoom-out" aria-label="Pomniejsz" title="Pomniejsz">−</button>
         <button type="button" class="icon-button" data-tree-action="fit" aria-label="Pokaż całe drzewo" title="Pokaż całe drzewo">⤢</button>

@@ -1757,11 +1757,15 @@
     var button = root.querySelector("[data-tree-action=check]");
     if (!button) return;
     var errors = state.issues.filter(function (i) { return i.level === "blad"; }).length;
-    button.hidden = !state.issues.length;
+    var count = state.issues.length;
+    button.classList.toggle("has-issues", count > 0);
     button.classList.toggle("has-errors", errors > 0);
-    button.querySelector(".tree-check__count").textContent = state.issues.length;
+    button.querySelector(".tree-check__icon").textContent = count ? "!" : "✓";
+    button.querySelector(".tree-check__count").textContent = count || "";
+    var label = count ? "Do sprawdzenia: " + count : "Drzewo bez uwag";
+    button.setAttribute("aria-label", label);
+    button.title = label;
     button.setAttribute("aria-pressed", state.checks ? "true" : "false");
-    if (!state.issues.length) state.checks = false;
   }
 
   function checksPanel() {
@@ -1771,7 +1775,11 @@
     close.setAttribute("aria-label", "Zamknij");
     close.addEventListener("click", function () { state.checks = false; renderSheet(); });
     box.appendChild(close);
-    box.appendChild(el("h2", "", "Do sprawdzenia"));
+    box.appendChild(el("h2", "", state.issues.length ? "Do sprawdzenia" : "Wszystko się zgadza"));
+    if (!state.issues.length) {
+      box.appendChild(el("p", "hint", "Drzewo nie ma żadnych uwag: daty, rodzice i pary wyglądają poprawnie."));
+      return box;
+    }
     box.appendChild(el("p", "hint", "Rzeczy, które wyglądają na pomyłkę w drzewie. Kliknij osobę, żeby ją poprawić. Jeśli dane są dobre, kliknij „To się zgadza”, a uwaga zniknie (wróci, gdy dane się zmienią)."));
     var list = el("ul", "tree-checks__list");
     state.issues.forEach(function (issue) {
