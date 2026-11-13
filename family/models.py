@@ -42,6 +42,12 @@ class Partnership(models.Model):
     since = models.CharField("rok ślubu", max_length=60, blank=True)
     since_year = models.SmallIntegerField(null=True, blank=True, editable=False)
     ended = models.BooleanField("rozwód lub rozstanie", default=False)
+    # ETAP 57: związek zakończony śmiercią męża lub żony (wdowa, wdowiec). Wyklucza rozwód.
+    widowed = models.BooleanField("owdowienie", default=False)
+    # ETAP 57: który to związek dla każdej z osób (1, 2, …), ustawione ręcznie. Puste: kolejność
+    # wynika z roku ślubu, a bez niego z roku śmierci partnera (pierwszy mąż zmarł wcześniej).
+    order1 = models.PositiveSmallIntegerField("kolejność dla osoby 1", null=True, blank=True)
+    order2 = models.PositiveSmallIntegerField("kolejność dla osoby 2", null=True, blank=True)
     # ETAP 47: miejsce ślubu (parafia, urząd, miejscowość).
     place = models.CharField("miejsce ślubu", max_length=200, blank=True)
 
@@ -57,6 +63,12 @@ class Partnership(models.Model):
 
     def __str__(self):
         return f"{self.person1} + {self.person2}"
+
+    def order_for(self, person_id):
+        return self.order1 if person_id == self.person1_id else self.order2
+
+    def other_id(self, person_id):
+        return self.person2_id if person_id == self.person1_id else self.person1_id
 
 
 class Sibling(models.Model):

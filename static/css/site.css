@@ -982,6 +982,9 @@ a.chip { color: inherit; text-decoration: none; }
 .couple-edit { margin: 0.25rem 0 0.5rem; }
 .couple-edit summary { cursor: pointer; color: var(--ink-quiet); font-size: 0.875rem; }
 .couple-edit form { display: grid; gap: 0.5rem; padding-top: 0.5rem; max-width: 18rem; }
+.couple-end { border: 0; padding: 0; margin: 0; display: grid; gap: 0.25rem; }
+.couple-order { display: inline-flex; gap: 0.25rem; }
+.couple-order form { display: inline; }
 .tree-couple { display: grid; gap: 0.375rem; padding: 0.5rem 0 0.625rem; }
 .tree-couple input[type="text"] { max-width: 9rem; min-height: 40px; padding: 0.375rem 0.625rem; font: inherit; color: var(--ink); border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--field); }
 .tree-line--draft { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 4; }
