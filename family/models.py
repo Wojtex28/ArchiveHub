@@ -195,3 +195,22 @@ class LifeEvent(models.Model):
         if self.date and self.until:
             return f"{self.date} – {self.until}"
         return self.date or (f"do {self.until}" if self.until else "")
+
+
+class CheckDismissal(models.Model):
+    """Uwaga ze sprawdzania drzewa (ETAP 55) oznaczona jako „to się zgadza”.
+
+    ``key`` zależy od rodzaju uwagi, osób i danych (np. lat), więc po zmianie danych uwaga wraca.
+    """
+
+    key = models.CharField(max_length=40, unique=True)
+    text = models.CharField(max_length=300, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "sprawdzona uwaga o drzewie"
+        verbose_name_plural = "sprawdzone uwagi o drzewie"
+
+    def __str__(self):
+        return self.text or self.key

@@ -43,6 +43,7 @@ from config import __version__
 from core import backup, status
 from core.login_photos import delete_login_photo, save_login_photo
 from core.models import Event, LoginPhoto
+from family import checks as family_checks
 from family import tree as family_tree
 from family.models import TreeChange
 
@@ -773,6 +774,7 @@ def tree_history(request):
             "filters": filters,
             "filter_query": _tree_query(filters),
             "kinds": dict(TreeChange.KINDS),
+            "issues": family_checks.issues_for(request.user),
             # ETAP 47: osoby z drzewa, przy których płci nie dało się podpowiedzieć z imienia.
             "genderless": Person.objects.filter(in_tree=True, gender="").order_by("key"),
         },

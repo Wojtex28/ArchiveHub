@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.55.0 (2026-11-13) · ETAP 55: sprawdzanie drzewa, linie przez kilka pokoleń
+
+- **Ikonka sprawdzania** na pasku drzewa: ✓, gdy wszystko się zgadza, a „!” z liczbą uwag, gdy jest co sprawdzić (czerwone przy błędach). Po kliknięciu lista uwag w panelu bocznym: kogo dotyczy (kliknięcie pokazuje osobę) i co wygląda podejrzanie.
+- Drzewo samo wyłapuje: śmierć przed urodzeniem, więcej niż dwoje rodziców, dziadka zapisanego też jako rodzica, rodzica młodszego od dziecka albo poniżej 14 lat, bardzo późne rodzicielstwo, dziecko urodzone po śmierci matki (lub ponad rok po śmierci ojca), parę bliskich krewnych, dużą różnicę wieku w parze i prawdopodobnie zdublowane osoby.
+- Uwaga o układzie: osoba, której rodzice są dwa pokolenia wyżej (np. ślub z kimś z innego pokolenia), dostaje dłuższą linię. Lista to mówi i podpowiada, co sprawdzić.
+- **„To się zgadza”** chowa uwagę dla wszystkich. Wraca sama, gdy zmienią się dane, których dotyczy.
+- Linie przez kilka rzędów idą teraz osobnym przejściem między kafelkami, zamiast przecinać inne rodziny.
+- Lista uwag jest też w Panelu → Drzewo.
+
 ## 0.54.0 (2026-11-13) · ETAP 54: zdarzenia pod osią czasu, dodawanie z drzewa
 
 - **„Gdzie pokazać”** w każdym zdarzeniu z życia: na osi czasu (według daty, z ikonką) albo pod osią jako zwykły tekst, np. „Miejsce zamieszkania: Boreczek 70 · 1950 – 1986”. Miejsce zamieszkania trafia domyślnie pod oś, także te wpisane wcześniej. Zmienisz to w „Popraw”.
