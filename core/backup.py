@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 NAME_RE = re.compile(r"^archivehub-(\d{4}-\d{2}-\d{2})_(\d{4})\.sqlite3$")
 LOGIN_PHOTOS_SUBDIR = "tlo-logowania"
+PERSON_PHOTOS_SUBDIR = "zdjecia-osob"
 STATUS_FILE = "kopia-bazy.json"
 # Tyle godzin bez nowej kopii i panel pokazuje ostrzeżenie.
 STALE_HOURS = 36
@@ -116,8 +117,14 @@ def _copy_database(source, destination):
 
 
 def _mirror_login_photos(directory):
-    source = Path(settings.ARCHIVEHUB_LOGIN_PHOTOS_DIR)
-    target = directory / LOGIN_PHOTOS_SUBDIR
+    _mirror(settings.ARCHIVEHUB_LOGIN_PHOTOS_DIR, directory / LOGIN_PHOTOS_SUBDIR, prune=True)
+    # ETAP 56: zdjęcia wgrane do osób są tylko na serwerze, więc idą do kopii. Usuniętych nie kasujemy
+    # z kopii: przypadkiem usunięte zdjęcie grobu da się jeszcze odzyskać.
+    _mirror(settings.ARCHIVEHUB_PERSON_PHOTOS_DIR, directory / PERSON_PHOTOS_SUBDIR, prune=False)
+
+
+def _mirror(source, target, prune):
+    source = Path(source)
     if not source.is_dir():
         return
     target.mkdir(exist_ok=True)
@@ -125,9 +132,10 @@ def _mirror_login_photos(directory):
     for name in wanted:
         if not (target / name).exists():
             shutil.copy2(source / name, target / name)
-    for path in target.iterdir():
-        if path.is_file() and path.name not in wanted:
-            path.unlink()
+    if prune:
+        for path in target.iterdir():
+            if path.is_file() and path.name not in wanted:
+                path.unlink()
 
 
 def prune(directory, daily=None, monthly=None):
