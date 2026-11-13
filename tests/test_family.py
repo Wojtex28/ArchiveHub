@@ -194,7 +194,7 @@ def test_person_page_shows_only_visible_photos(client, make_user, group, importe
     page = client.get(reverse("family:person", args=[zofia.pk])).content.decode()
     assert reverse("albums:thumb", args=[bereza.pk]) in page
     assert reverse("albums:thumb", args=[inny.pk]) not in page  # ani zdjęcie, ani portret z cudzego albumu
-    assert "Zdjęcia (1)" in page
+    assert "Zdjęcia z albumów (1)" in page
 
 
 def test_remove_relation_and_person_views(client, make_user, family):
