@@ -606,12 +606,18 @@ EVENT_LABELS = {
     "place": "miejsce",
     "note": "notatka",
     "photo": "zdjęcie",
+    "on_timeline": "na osi czasu",
 }
-EVENT_TEXT = [field for field in EVENT_LABELS if field != "photo"]
+EVENT_TEXT = [field for field in EVENT_LABELS if field not in ("photo", "on_timeline")]
 
 
 def event_data(event):
-    return {"id": event.pk, **{field: getattr(event, field) for field in EVENT_TEXT}, "photo": event.photo_id}
+    return {
+        "id": event.pk,
+        **{field: getattr(event, field) for field in EVENT_TEXT},
+        "photo": event.photo_id,
+        "on_timeline": event.on_timeline,
+    }
 
 
 @transaction.atomic
@@ -621,12 +627,18 @@ def save_event(user, person, values, event=None, reverts=None):
     event = event or LifeEvent(person=person)
     for field in EVENT_TEXT:
         setattr(event, field, values.get(field, "") or "")
+    # ETAP 54: historia sprzed tej wersji nie zna miejsca na osi, więc zostaje dotychczasowe
+    # (a nowe zdarzenie dostaje domyślne dla swojego rodzaju).
+    if values.get("on_timeline") is not None:
+        event.on_timeline = bool(values["on_timeline"])
+    elif event.pk is None:
+        event.on_timeline = event.kind not in LifeEvent.OFF_TIMELINE
     photo = values.get("photo")
     photo_id = getattr(photo, "pk", photo) or None
     # Zdjęcie usunięte z archiwum po zapisaniu historii: zdarzenie wraca bez niego.
     event.photo_id = photo_id if photo_id and Photo.objects.filter(pk=photo_id).exists() else None
     event.year = sort_year(event.date) or sort_year(event.until)
-    after = {**before, **{field: getattr(event, field) for field in EVENT_TEXT}, "photo": event.photo_id}
+    after = {**before, **event_data(event), "id": before.get("id")}
     if before == after:
         return None
     event.save()
@@ -829,6 +841,8 @@ def edit_rows(change):
                 return kinds.get(data.get(f), "")
             if f == "photo":
                 return f"zdjęcie nr {data[f]}" if data.get(f) else ""
+            if f == "on_timeline":
+                return {True: "tak", False: "nie, pod osią"}.get(data.get(f), "")
             return data.get(f) or ""
 
         return [

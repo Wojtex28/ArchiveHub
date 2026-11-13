@@ -186,6 +186,65 @@ def test_tree_data_lists_dated_events_for_timeline(master_client, jan):
     tree.save_event(None, jan, {"kind": "praca", "date": "1955", "place": "Rzeszów"})
     tree.save_event(None, jan, {"kind": "inne", "title": "Bez daty"})
     data = master_client.get(reverse("family:data")).json()
-    assert data["events"] == [
-        {"person": jan.pk, "year": 1955, "icon": "💼", "text": "Praca / zawód (1955), Rzeszów"}
+    # ETAP 54: lista ma wszystkie zdarzenia (panel boczny); oś bierze te z rokiem i „na osi”.
+    dated = [e for e in data["events"] if e["year"] is not None and e["onTimeline"]]
+    assert [(e["person"], e["year"], e["icon"], e["text"]) for e in dated] == [
+        (jan.pk, 1955, "💼", "Praca / zawód (1955), Rzeszów")
     ]
+    assert sorted(e["heading"] for e in data["events"]) == ["Bez daty", "Praca / zawód"]
+
+
+def test_residence_goes_below_timeline_as_text(master_client, jan):
+    """ETAP 54: miejsce zamieszkania domyślnie pod osią czasu, jako tekst bez ikonki."""
+    add = reverse("family:event_add", args=[jan.pk])
+    master_client.post(
+        add, {"kind": "mieszkanie", "title": "Boreczek 70", "place": "Boreczek 70", "date": "1950"}
+    )
+    event = LifeEvent.objects.get()
+    assert event.on_timeline is False
+    page = master_client.get(reverse("family:person", args=[jan.pk])).content.decode()
+    notes = page.split('class="life-notes"')[1]
+    assert "Miejsce zamieszkania" in notes and notes.split("Popraw")[0].count("Boreczek 70") == 1
+    assert "chronology__item--own" not in page
+    # W edycji można je przenieść na oś, a historia zapisuje zmianę.
+    edit = reverse("family:event_edit", args=[event.pk])
+    master_client.post(
+        edit, {"kind": "mieszkanie", "title": "Boreczek 70", "date": "1950", "on_timeline": "1"}
+    )
+    event.refresh_from_db()
+    assert event.on_timeline is True
+    change = TreeChange.objects.filter(kind=TreeChange.EVENT_CHANGED).first()
+    assert ("na osi czasu", "nie, pod osią", "tak") in tree.edit_rows(change)
+    page = master_client.get(reverse("family:person", args=[jan.pk])).content.decode()
+    assert "chronology__item--own" in page and 'class="life-notes"' not in page
+
+
+def test_other_kinds_stay_on_timeline_unless_chosen(master_client, jan):
+    add = reverse("family:event_add", args=[jan.pk])
+    master_client.post(add, {"kind": "praca", "place": "Rzeszów", "date": "1955"})
+    master_client.post(add, {"kind": "nauka", "place": "Liceum", "date": "1950", "on_timeline": "0"})
+    assert dict(LifeEvent.objects.values_list("kind", "on_timeline")) == {"praca": True, "nauka": False}
+
+
+def test_tree_sheet_adds_event(master_client, jan):
+    """ETAP 54: „+ Dodaj zdarzenie” w panelu bocznym drzewa."""
+    url = reverse("family:api_event")
+    body = {"person": jan.pk, "kind": "mieszkanie", "title": "Boreczek 70", "date": "lata 50."}
+    data = master_client.post(url, body, content_type="application/json").json()
+    event = LifeEvent.objects.get()
+    assert (event.title, event.date, event.on_timeline) == ("Boreczek 70", "lata 50.", False)
+    assert data["events"][0]["onTimeline"] is False
+    bad = master_client.post(url, {"person": jan.pk, "kind": "inne"}, content_type="application/json")
+    assert bad.status_code == 400 and bad.json()["errors"]["title"]
+    on = {"person": jan.pk, "kind": "mieszkanie", "place": "Kraczkowa", "onTimeline": True}
+    master_client.post(url, on, content_type="application/json")
+    assert LifeEvent.objects.get(place="Kraczkowa").on_timeline is True
+
+
+def test_tree_sheet_event_needs_edit_right(client, jan, django_user_model):
+    user = django_user_model.objects.create_user("gosc", password="x", tree_access="view")
+    client.force_login(user)
+    url = reverse("family:api_event")
+    response = client.post(url, {"person": jan.pk, "kind": "praca"}, content_type="application/json")
+    assert response.status_code in (403, 404)
+    assert not LifeEvent.objects.exists()

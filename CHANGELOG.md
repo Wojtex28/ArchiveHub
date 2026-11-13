@@ -15,6 +15,13 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.54.0 (2026-11-13) · ETAP 54: zdarzenia pod osią czasu, dodawanie z drzewa
+
+- **„Gdzie pokazać”** w każdym zdarzeniu z życia: na osi czasu (według daty, z ikonką) albo pod osią jako zwykły tekst, np. „Miejsce zamieszkania: Boreczek 70 · 1950 – 1986”. Miejsce zamieszkania trafia domyślnie pod oś, także te wpisane wcześniej. Zmienisz to w „Popraw”.
+- Zdarzenia pod osią i bez daty nie mają znaczka na pasku życia w widoku „Oś czasu” drzewa.
+- **Zdarzenia w panelu bocznym drzewa**: lista zdarzeń osoby i „+ Dodaj zdarzenie” z tymi samymi polami co na karcie osoby (bez zdjęcia, które dodasz w „Popraw” na karcie).
+- Miejsce, które powtarza tytuł zdarzenia, nie wyświetla się drugi raz.
+
 ## 0.52.1 (2026-11-13) · poprawka: dyskretne kropki osób na zdjęciu
 
 - Kropki osób na zdjęciu są domyślnie ledwo widoczne i szare (10%), więc nie zasłaniają zdjęcia. Wyraźnieją płynnie, gdy kursor się do nich zbliża.
