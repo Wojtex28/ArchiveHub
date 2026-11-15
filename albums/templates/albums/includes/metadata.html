@@ -25,6 +25,8 @@
       <button type="submit" class="button">Zapisz opis</button>
     </form>
   </details>
+  {# 0.58.1: nazwa pliku skanu sprzed importu, małym drukiem na końcu sekcji. #}
+  {% if photo.source_name %}<p class="metadata__file">Plik: <span class="metadata__file-name" title="Folder i plik skanu sprzed importu">{{ photo.album.folder }}/{{ photo.source_name }}</span></p>{% endif %}
   <datalist id="tagi-podpowiedzi">{% for name in suggestions.tags %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   <datalist id="miejsca-podpowiedzi">{% for name in suggestions.places %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 </section>

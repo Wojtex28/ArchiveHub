@@ -1,0 +1,30 @@
+{% if anniversaries or next_anniversary %}
+<section class="anniv" aria-labelledby="rocznice-tytul">
+  <div class="anniv__head">
+    <h2 class="anniv__title" id="rocznice-tytul">Rocznice</h2>
+    <span class="anniv__date">{{ today|date:"l, j E" }}</span>
+  </div>
+  {% if anniversaries %}
+  <ul class="anniv__list">
+    {% for item in anniversaries %}
+    <li class="anniv-card anniv-card--{{ item.kind }}{% if item.offset == 0 %} anniv-card--today{% endif %}">
+      <span class="anniv-card__day">{{ item.day_label }}</span>
+      <span class="anniv-card__faces">
+        {% for person in item.people %}{% include "family/includes/avatar.html" with photo=person.visible_portrait person=person %}{% endfor %}
+        <span class="anniv-card__icon" aria-hidden="true">{{ item.icon }}</span>
+      </span>
+      <span class="anniv-card__body">
+        <span class="anniv-card__names">{% for person in item.people %}<a href="{% url 'family:person' person.pk %}">{{ person.name }}</a>{% if not forloop.last %} i {% endif %}{% endfor %}</span>
+        <span class="anniv-card__text">{{ item.text }}</span>
+        {% if item.is_round %}<span class="anniv-card__round">okrągła rocznica</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  {% with item=next_anniversary %}
+  <p class="anniv__next"><span class="anniv__next-icon" aria-hidden="true">{{ item.icon }}</span> Najbliższa: <strong>{{ item.day_label }}</strong> · {% for person in item.people %}<a href="{% url 'family:person' person.pk %}">{{ person.name }}</a>{% if not forloop.last %} i {% endif %}{% endfor %} {{ item.text }}</p>
+  {% endwith %}
+  {% endif %}
+</section>
+{% endif %}

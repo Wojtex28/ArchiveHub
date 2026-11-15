@@ -7,6 +7,7 @@
 {% with groups=user.family_groups.all %}
 {% if groups %}<p class="lead">Twoje grupy: {% for g in groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 {% endwith %}
+{% include "core/includes/anniversaries.html" %}
 <div class="archive-layout">
   <aside class="archive-side" aria-label="Twoje albumy">
     <p class="archive-side__label">Twoje</p>
@@ -81,4 +82,5 @@
   </section>
 </div>
 <script src="{% static 'js/album-list.js' %}" defer></script>
+{% if anniversaries or next_anniversary %}<script src="{% static 'js/portrait.js' %}" defer></script>{% endif %}
 {% endblock %}

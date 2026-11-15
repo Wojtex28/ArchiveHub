@@ -6,6 +6,7 @@ from django.db import connection
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_safe
 
@@ -13,6 +14,7 @@ from albums.collections import own_album_cards
 from albums.display import album_cards
 from albums.favorites import favorite_photos
 from albums.models import Album, Photo
+from family.anniversaries import anniversaries, next_anniversary
 
 from . import status
 from .models import LoginPhoto
@@ -105,11 +107,27 @@ def archive_home(request):
             "favorite_count": favorites.count(),
             "favorite_cover": favorites.first(),
             "own_albums": own_album_cards(request.user),
+            **_anniversaries(request.user),
         },
     )
     if chosen in VIEWS:
         response.set_cookie(VIEW_COOKIE, chosen, max_age=365 * 24 * 3600, samesite="Lax")
     return response
+
+
+def _anniversaries(user):
+    """Rocznice nad albumami (ETAP 58), dla osób, które widzą drzewo."""
+    if not user.can_view_tree:
+        return {}
+    found = anniversaries()
+    upcoming = None if found else next_anniversary()
+    shown = found + ([upcoming] if upcoming else [])
+    portraits = {p.portrait_id for a in shown for p in a.people if p.portrait_id}
+    visible = set(Photo.objects.visible_to(user).filter(pk__in=portraits).values_list("pk", flat=True))
+    for item in shown:
+        for person in item.people:
+            person.visible_portrait = person.portrait if person.portrait_id in visible else None
+    return {"anniversaries": found, "next_anniversary": upcoming, "today": timezone.localdate()}
 
 
 @require_safe

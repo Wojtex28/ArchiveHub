@@ -459,6 +459,37 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
 
 /* Strona archiwum (ETAP 50): „Twoje” z lewej, albumy obok; kafelki albo lista. */
 .app-main--archive { max-width: 82rem; }
+/* Rocznice nad albumami (ETAP 58): wczoraj, dziś, jutro. Dzisiejsze wyróżnione. */
+.anniv { margin-top: 1.25rem; padding: 1rem 1.125rem 1.125rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--card); }
+.anniv__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+.anniv__title { margin: 0; font: 400 1.25rem/1.2 var(--serif); }
+.anniv__date { color: var(--ink-quiet); font-size: 0.875rem; }
+.anniv__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem 0.625rem; margin: 0; padding: 0.5rem 0 0; list-style: none; }
+.anniv-card { position: relative; display: flex; align-items: center; gap: 0.875rem; min-width: 0; padding: 0.75rem 0.875rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); }
+.anniv-card--today { border-color: var(--accent); background: var(--selected-bg); box-shadow: 0 6px 18px -12px rgb(var(--shadow) / 0.6); }
+.anniv-card__day { position: absolute; top: -0.5625rem; left: 0.75rem; padding: 0 0.5rem; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); color: var(--ink-quiet); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.1rem; }
+.anniv-card--today .anniv-card__day { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.anniv-card__faces { position: relative; flex: none; display: flex; padding-right: 0.375rem; }
+.anniv-card__faces .tree-avatar { width: 2.75rem; height: 2.75rem; box-shadow: 0 0 0 2px var(--paper); overflow: hidden; }
+.anniv-card--today .anniv-card__faces .tree-avatar { box-shadow: 0 0 0 2px var(--selected-bg); }
+.anniv-card__faces .tree-avatar + .tree-avatar { margin-left: -0.875rem; }
+.anniv-card__faces .tree-avatar--empty { background: var(--card); outline: 1px solid var(--rule-strong); outline-offset: -1px; }
+.anniv-card__icon { position: absolute; right: -0.25rem; bottom: -0.25rem; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--card); box-shadow: 0 1px 4px rgb(var(--shadow) / 0.25); font-size: 0.875rem; line-height: 1; }
+.anniv-card__body { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.anniv-card__names { font-weight: 600; line-height: 1.3; }
+.anniv-card__names a { color: var(--ink); text-decoration: none; }
+.anniv-card__names a:hover { color: var(--accent); text-decoration: underline; }
+.anniv-card__text { color: var(--ink-quiet); font-size: 0.875rem; }
+.anniv-card__round { align-self: flex-start; margin-top: 0.25rem; padding: 0 0.5rem; border-radius: 999px; background: var(--fav-bg); color: var(--ink); font-size: 0.75rem; line-height: 1.25rem; }
+.anniv__next { margin: 0; color: var(--ink-quiet); }
+.anniv__next strong { color: var(--ink); }
+.anniv__next-icon { margin-right: 0.25rem; }
+@media (max-width: 40rem) {
+  .anniv { padding: 0.875rem 0.875rem 1rem; }
+  .anniv__list { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0.625rem 0 0.25rem; margin-top: -0.5rem; }
+  .anniv-card { flex: 0 0 82%; scroll-snap-align: start; }
+}
+
 .archive-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; align-items: start; margin-top: 1.5rem; }
 .archive-side { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .archive-side__label { margin: 0.625rem 0 0.25rem; font-size: 0.8125rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-quiet); }
@@ -729,6 +760,8 @@ details summary { cursor: pointer; color: var(--ink-quiet); }
 .metadata__row { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.75rem; align-items: baseline; }
 .metadata__row dt { font-size: 0.8125rem; color: #c9bca8; }
 .metadata__row dd { margin: 0; overflow-wrap: anywhere; }
+.metadata__file { margin: 1rem 0 0; font-size: 0.75rem; color: #a99c89; overflow-wrap: anywhere; }
+.metadata__file-name { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; user-select: all; }
 .metadata__description { margin: 0 0 0.75rem; line-height: 1.5; overflow-wrap: anywhere; }
 .metadata__meta { margin: 0 0 0.75rem; font-size: 0.8125rem; color: #a99c89; }
 .metadata__empty { margin: 0 0 0.75rem; color: #c9bca8; }
