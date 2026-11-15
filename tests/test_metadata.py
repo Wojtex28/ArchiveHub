@@ -237,3 +237,10 @@ def test_untagging_keeps_tree_people(karolina, family):
     tree.remove_from_tree(None, ewa)  # poza drzewem, ale z historią do przywrócenia
     describe(karolina, family["photo"], people="")
     assert set(Person.objects.values_list("name", flat=True)) == {"Anna Bereza", "Ewa Bereza"}
+
+
+def test_panel_shows_source_file_name(karolina, family):
+    photo = family["photo"]
+    url = reverse("albums:photo", args=[photo.album_id, photo.pk])
+    page = karolina.get(url + "?komentarze=1").content.decode()
+    assert "01_Brazowy/img_1.png" in page

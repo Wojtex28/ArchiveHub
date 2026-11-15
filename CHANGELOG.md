@@ -15,6 +15,10 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.58.1 (2026-11-15) · nazwa pliku sprzed importu
+
+- W panelu zdjęcia (💬, sekcja „Kiedy, gdzie i opis”) jest wiersz **Plik**: folder albumu i nazwa skanu sprzed importu, np. `01_BrązowyZeZlotaObramowka97-04/img20250216_14475559_1.png`. Kliknięcie zaznacza cały tekst do skopiowania.
+
 ## 0.58.0 (2026-11-15) · ETAP 58: rocznice na stronie archiwum
 
 - **Sekcja „Rocznice”** pod „Witaj” na stronie archiwum, dla osób, które widzą drzewo. Pokazuje wczoraj, dziś i jutro:
