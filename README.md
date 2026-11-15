@@ -55,6 +55,7 @@ w projekcie.
 | 55 | Sprawdzanie drzewa, linie przez kilka pokoleń | **gotowe** |
 | 56 | Zdjęcia dodane do osoby (np. grób co roku) | **gotowe** |
 | 57 | Kolejność związków, wdowa / wdowiec | **gotowe** |
+| 58 | Rocznice na stronie archiwum | **gotowe** |
 
 ## Technologie
 

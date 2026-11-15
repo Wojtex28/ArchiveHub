@@ -15,6 +15,17 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.58.0 (2026-11-15) · ETAP 58: rocznice na stronie archiwum
+
+- **Sekcja „Rocznice”** pod „Witaj” na stronie archiwum, dla osób, które widzą drzewo. Pokazuje wczoraj, dziś i jutro:
+  - urodziny: 🎂 „kończy 64 lata” (wczoraj: „skończył 28 lat”);
+  - urodziny osób zmarłych: 🕯️ „urodziła się 124 lata temu”;
+  - rocznice śmierci: 🕊️ „70. rocznica śmierci”;
+  - rocznice ślubu: 💍 „40. rocznica ślubu”, a gdy ktoś z pary nie żyje, „ślub 106 lat temu” (bez par po rozwodzie).
+- Dzisiejsze kartki są wyróżnione, a okrągłe rocznice (co 10 i 25 lat) mają znaczek. Na telefonie kartki przewija się w bok.
+- Gdy w te trzy dni nic nie wypada, sekcja pokazuje jedną najbliższą rocznicę z kolejnych 60 dni. Bez żadnych pełnych dat sekcji nie ma.
+- Liczą się tylko pełne daty (dzień, miesiąc, rok, np. 12.06.1921) z drzewa. 29 lutego obchodzimy 28 lutego w latach nieprzestępnych.
+
 ## 0.57.0 (2026-11-13) · ETAP 57: kolejność związków, wdowa i wdowiec
 
 - **Jak się skończył związek**: przy partnerze zamiast samego „rozwód” są trzy możliwości: trwa (albo trwał do końca życia obojga), rozwód lub rozstanie, śmierć męża lub żony. Ta ostatnia pokazuje „wdowa od 1925” / „wdowiec od 1956” (wg płci osoby, rok z daty śmierci partnera), a u osoby, która zmarła pierwsza, „do śmierci (1925)”.
