@@ -105,7 +105,63 @@
 </form>
 {% endif %}
 
-<h2>Zdjęcia{% if photo_total %} ({{ photo_total }}){% endif %}</h2>
+{% if own_photos or can_edit %}
+<h2 id="zdjecia-osoby">Zdjęcia dodane do osoby{% if own_photos %} ({{ own_photos|length }}){% endif %}</h2>
+{% if own_photos %}
+<ul class="own-photos">
+  {% for photo in own_photos %}
+  {% ifchanged photo.period %}<li class="own-photos__period">{{ photo.period }}</li>{% endifchanged %}
+  <li class="own-photos__item" id="zdjecie-{{ photo.pk }}">
+    <a class="own-photos__link" href="{% url 'family:person_photo_file' photo.key 'duze' %}" target="_blank" rel="noopener">
+      <img src="{% url 'family:person_photo_file' photo.key 'm' %}" alt="{{ photo.caption|default:person.name }}{% if photo.date %}, {{ photo.date }}{% endif %}" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}">
+    </a>
+    <p class="own-photos__caption">{% if photo.caption %}{{ photo.caption }}<br>{% endif %}<span class="hint">{{ photo.date|default:"bez daty" }}{% if photo.added_by %} · dodał(a) {{ photo.added_by.username }}{% endif %}</span></p>
+    {% if can_edit %}
+    <details class="own-photos__edit">
+      <summary>Popraw</summary>
+      <form method="post" action="{% url 'family:person_photo_edit' photo.pk %}">
+        {% csrf_token %}
+        <label for="kiedy-{{ photo.pk }}">Kiedy zrobione</label>
+        <input id="kiedy-{{ photo.pk }}" type="text" name="date" value="{{ photo.date }}" maxlength="60">
+        <label for="opis-{{ photo.pk }}">Opis</label>
+        <input id="opis-{{ photo.pk }}" type="text" name="caption" value="{{ photo.caption }}" maxlength="200">
+        <button type="submit" class="button button--quiet">Zapisz</button>
+      </form>
+      {% if photo.removable %}
+      <form method="post" action="{% url 'family:person_photo_remove' photo.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="link-button danger-link" data-confirm="Usunąć to zdjęcie? Tego nie da się cofnąć.">Usuń zdjęcie</button>
+      </form>
+      {% endif %}
+    </details>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="hint">Tu trafiają zdjęcia spoza albumów, np. aktualne zdjęcie grobu co roku albo zdjęcie z telefonu.</p>
+{% endif %}
+{% if can_edit %}
+<details class="event-add"{% if photo_form_open %} open{% endif %}>
+  <summary class="button button--quiet">+ Dodaj zdjęcia</summary>
+  <form method="post" action="{% url 'family:person_photos_add' person.pk %}" enctype="multipart/form-data" class="card card--form">
+    {% csrf_token %}
+    {% if photo_form.non_field_errors %}<div class="form-error">{{ photo_form.non_field_errors }}</div>{% endif %}
+    {% for field in photo_form %}
+    <div class="field{% if field.errors %} field--error{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="button">Dodaj</button>
+  </form>
+</details>
+{% endif %}
+{% endif %}
+
+<h2>Zdjęcia z albumów{% if photo_total %} ({{ photo_total }}){% endif %}</h2>
 {% if photos %}
 <p class="hint">Od najnowszych do najstarszych, według daty z opisu zdjęcia. Kliknij zdjęcie, żeby je obejrzeć.</p>
 <ul class="gallery-grid gallery-grid--captions" data-gallery{% if has_own_albums %} data-own-albums{% endif %} data-album-title="" data-csrf="{{ csrf_token }}">

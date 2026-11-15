@@ -53,6 +53,7 @@ w projekcie.
 | 52 | Edycja albumu: nazwa, opis, lata, okładka | **gotowe** |
 | 54 | Zdarzenia pod osią czasu, dodawanie z panelu drzewa | **gotowe** |
 | 55 | Sprawdzanie drzewa, linie przez kilka pokoleń | **gotowe** |
+| 56 | Zdjęcia dodane do osoby (np. grób co roku) | **gotowe** |
 
 ## Technologie
 
@@ -316,6 +317,7 @@ Co chroni co:
 | --- | --- | --- |
 | Baza (konta, grupy, kody, opisy, komentarze, uprawnienia) | wolumen `data`, `/data/db` | worker codziennie po 3:00 → folder `kopie/` obok `compose.yaml`; snapshoty ZFS i Google Drive (niżej) |
 | Zdjęcia tła logowania | `/data/tlo-logowania` | razem z kopią bazy, w `kopie/tlo-logowania/` |
+| Zdjęcia dodane do osób (np. grób) | `/data/zdjecia-osob` | razem z kopią bazy, w `kopie/zdjecia-osob/` (usunięte zostają w kopii) |
 | Kod i `.env` | katalog aplikacji (dataset `ArchiveHub`) | snapshoty ZFS; kod jest też na GitHubie |
 | Biblioteka albumów (JPEG, podglądy, miniatury) | `/data/albumy`: wolumen `data` albo dataset `ArchiveData` ([niżej](#dane-na-osobnym-datasecie-truenas)) | na datasecie: snapshoty ZFS. Po utracie dysku odtwarza się ją importem ze skanów PNG z Google Drive |
 

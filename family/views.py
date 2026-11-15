@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import Http404
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
@@ -14,9 +14,16 @@ from albums.models import Person, Photo
 from albums.search import refresh_search_text
 from core.middleware import CONTENT_SECURITY_POLICY
 
-from . import chronology, tree
-from .forms import LifeEventForm, NewPersonForm, PersonForm, RelationForm
-from .models import LifeEvent
+from . import chronology, person_photos, tree
+from .forms import (
+    LifeEventForm,
+    NewPersonForm,
+    PersonForm,
+    PersonPhotoForm,
+    PersonPhotoUploadForm,
+    RelationForm,
+)
+from .models import LifeEvent, PersonPhoto
 
 PHOTOS_SHOWN = 60
 
@@ -160,7 +167,9 @@ def photos_by_date(photos):
     return ordered
 
 
-def _person_page(request, person, relation_form=None, namesakes=None, embedded=False, event_form=None):
+def _person_page(
+    request, person, relation_form=None, namesakes=None, embedded=False, event_form=None, photo_form=None
+):
     photos = visible_photos(request.user, person)
     portrait = person.portrait if person.portrait and photos.filter(pk=person.portrait_id).exists() else None
     return render(
@@ -186,8 +195,89 @@ def _person_page(request, person, relation_form=None, namesakes=None, embedded=F
             "namesakes": namesakes,
             "suggestions": _suggestions(),
             "can_edit": request.user.can_edit_tree and not embedded,
+            "own_photos": _own_photos(request.user, person),
+            "photo_form": photo_form or PersonPhotoUploadForm(),
+            "photo_form_open": photo_form is not None,
         },
     )
+
+
+def _own_photos(user, person):
+    """Zdjęcia wgrane do osoby, od najnowszych, z nagłówkiem roku nad każdą grupą (ETAP 56)."""
+    photos = list(person.own_photos.select_related("added_by"))
+    for photo in photos:
+        photo.period = str(photo.year) if photo.year else "Bez daty"
+        photo.removable = person_photos.can_remove(user, photo)
+    return photos
+
+
+@tree_access(edit=True)
+@require_POST
+def person_photos_add(request, pk):
+    """„Dodaj zdjęcia” na karcie osoby (ETAP 56): kilka plików naraz, wspólna data i opis."""
+    person = get_object_or_404(Person, pk=pk)
+    form = PersonPhotoUploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return _person_page(request, person, photo_form=form)
+    added, errors = 0, []
+    for uploaded in form.cleaned_data["photos"]:
+        try:
+            person_photos.save_person_photo(
+                person, uploaded, request.user, form.cleaned_data["date"], form.cleaned_data["caption"]
+            )
+            added += 1
+        except ValidationError as exc:
+            errors.extend(exc.messages)
+    for error in errors:
+        messages.error(request, error)
+    if added:
+        messages.success(request, "Dodano zdjęcie." if added == 1 else f"Dodano zdjęcia: {added}.")
+    return redirect(reverse("family:person", args=[person.pk]) + "#zdjecia-osoby")
+
+
+@tree_access()
+@require_safe
+def person_photo_file(request, key, size):
+    if size not in ("m", "duze"):
+        raise Http404
+    photo = get_object_or_404(PersonPhoto, key=key)
+    path = photo.thumb_path if size == "m" else photo.path
+    try:
+        handle = path.open("rb")
+    except FileNotFoundError:
+        raise Http404 from None
+    response = FileResponse(handle, content_type="image/jpeg")
+    response["Cache-Control"] = "private, max-age=86400"
+    return response
+
+
+@tree_access(edit=True)
+@require_POST
+def person_photo_edit(request, pk):
+    photo = get_object_or_404(PersonPhoto.objects.select_related("person"), pk=pk)
+    form = PersonPhotoForm(request.POST, instance=photo)
+    if form.is_valid():
+        photo = form.save(commit=False)
+        photo.year = person_photos.year_of(photo.date)
+        photo.save(update_fields=["date", "year", "caption"])
+        messages.success(request, "Zapisano opis zdjęcia.")
+    else:
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
+    return redirect(reverse("family:person", args=[photo.person_id]) + f"#zdjecie-{photo.pk}")
+
+
+@tree_access(edit=True)
+@require_POST
+def person_photo_remove(request, pk):
+    photo = get_object_or_404(PersonPhoto, pk=pk)
+    if not person_photos.can_remove(request.user, photo):
+        raise Http404
+    person_id = photo.person_id
+    person_photos.delete_person_photo(photo)
+    messages.success(request, "Usunięto zdjęcie.")
+    return redirect(reverse("family:person", args=[person_id]) + "#zdjecia-osoby")
 
 
 @tree_access(edit=True)

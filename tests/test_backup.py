@@ -27,6 +27,7 @@ def live_db(tmp_path, monkeypatch, settings):
     settings.DATA_DIR.mkdir()
     settings.ARCHIVEHUB_BACKUP_DIR = tmp_path / "kopie"
     settings.ARCHIVEHUB_LOGIN_PHOTOS_DIR = tmp_path / "data" / "tlo-logowania"
+    settings.ARCHIVEHUB_PERSON_PHOTOS_DIR = tmp_path / "data" / "zdjecia-osob"
     return path
 
 
@@ -59,6 +60,17 @@ def test_backup_mirrors_login_photos(live_db, settings):
     backup.make_backup(local(2026, 10, 27, 3, 0))
     mirrored = settings.ARCHIVEHUB_BACKUP_DIR / "tlo-logowania"
     assert sorted(p.name for p in mirrored.iterdir()) == ["1.jpg"]
+
+
+def test_backup_keeps_person_photos_even_after_delete(live_db, settings):
+    photos = settings.ARCHIVEHUB_PERSON_PHOTOS_DIR
+    photos.mkdir(parents=True)
+    (photos / "grob.jpg").write_bytes(b"a")
+    backup.make_backup(local(2026, 11, 1, 3, 0))
+    (photos / "grob.jpg").unlink()
+    backup.make_backup(local(2026, 11, 2, 3, 0))
+    mirrored = settings.ARCHIVEHUB_BACKUP_DIR / "zdjecia-osob"
+    assert [p.name for p in mirrored.iterdir()] == ["grob.jpg"]
 
 
 def test_rotation_keeps_days_and_months(tmp_path):

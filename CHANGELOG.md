@@ -15,6 +15,14 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.56.0 (2026-11-13) · ETAP 56: zdjęcia dodane do osoby
+
+- **„Zdjęcia dodane do osoby”** na karcie osoby: zdjęcia spoza albumów, np. aktualne zdjęcie grobu co roku albo zdjęcie z telefonu. „+ Dodaj zdjęcia” przyjmuje kilka plików naraz, ze wspólną datą i opisem.
+- Bez wpisanej daty zdjęcie dostaje datę z aparatu albo telefonu, a gdy jej nie ma, dzisiejszą. Zdjęcia stoją od najnowszych, z rokiem nad każdą grupą. Kliknięcie otwiera zdjęcie w pełnym rozmiarze.
+- Pliki są zmniejszane (do 2560 px) i bez danych z aparatu (np. GPS). Widzi je każdy, kto widzi drzewo; dodaje i opisuje każdy z prawem edycji drzewa, a usunąć może tylko ten, kto zdjęcie dodał, albo master.
+- Zdjęcia osób trafiają do codziennej kopii razem z bazą (`kopie/zdjecia-osob/`); usunięte zostają w kopii.
+- Zdjęcia z albumów na karcie osoby mają teraz nagłówek „Zdjęcia z albumów”.
+
 ## 0.55.1 (2026-11-13) · poprawka: pokolenia według rodzin, krewni w grupach
 
 - **Pokolenia nie są już wyrównywane do góry.** Do tej pory najstarsi znani przodkowie każdej gałęzi stali w górnym rzędzie, nawet gdy jedna gałąź sięga w przeszłość głębiej niż druga (np. Stefania Bereza ur. 1902 rząd wyżej niż Jan Przydział ur. 1906). Gdy takie gałęzie łączył ślub, dziecko lądowało dwa rzędy pod rodzicami. Teraz drzewo przesuwa całe gałęzie w dół lub w górę tak, żeby linie rodzic → dziecko były jak najkrótsze. Na Twoim drzewie nie ma już żadnej linii przez kilka rzędów, a roczniki w rzędach się zgadzają.

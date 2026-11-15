@@ -3,8 +3,12 @@
 Węzłem drzewa jest ``albums.Person``: ta sama osoba, którą rodzina oznacza na zdjęciach.
 """
 
+import uuid
+
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 from albums.models import Person
@@ -214,3 +218,50 @@ class CheckDismissal(models.Model):
 
     def __str__(self):
         return self.text or self.key
+
+
+class PersonPhoto(models.Model):
+    """Zdjęcie wgrane wprost do osoby (ETAP 56), np. aktualne zdjęcie grobu co roku.
+
+    Nie należy do żadnego albumu: widzi je każdy, kto widzi drzewo. Plik leży w
+    ``ARCHIVEHUB_PERSON_PHOTOS_DIR`` w dwóch rozmiarach: do oglądania i miniatura.
+    """
+
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="own_photos")
+    key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    date = models.CharField("kiedy", max_length=60, blank=True)
+    year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    caption = models.CharField("opis", max_length=200, blank=True)
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = [models.F("year").desc(nulls_last=True), "-created_at", "-pk"]
+        verbose_name = "zdjęcie osoby"
+        verbose_name_plural = "zdjęcia osób"
+
+    def __str__(self):
+        return self.caption or f"{self.key}.jpg"
+
+    @property
+    def path(self):
+        return settings.ARCHIVEHUB_PERSON_PHOTOS_DIR / f"{self.key}.jpg"
+
+    @property
+    def thumb_path(self):
+        return settings.ARCHIVEHUB_PERSON_PHOTOS_DIR / f"{self.key}_m.jpg"
+
+
+@receiver(post_delete, sender=PersonPhoto)
+def _remove_person_photo_files(sender, instance, **kwargs):
+    """Pliki znikają razem z wpisem (także gdy znika cała osoba), dopiero po zapisie w bazie."""
+
+    def unlink():
+        instance.path.unlink(missing_ok=True)
+        instance.thumb_path.unlink(missing_ok=True)
+
+    transaction.on_commit(unlink)

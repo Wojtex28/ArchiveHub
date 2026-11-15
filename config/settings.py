@@ -64,6 +64,8 @@ ARCHIVEHUB_PREVIEW_MAX_SIDE = int(env("ARCHIVEHUB_PREVIEW_MAX_SIDE", "2560"))
 ARCHIVEHUB_THUMB_MAX_SIDE = 640
 # Zdjęcia w tle strony logowania. Wgrywane w panelu, nigdy nie trafiają do repozytorium.
 ARCHIVEHUB_LOGIN_PHOTOS_DIR = DATA_DIR / "tlo-logowania"
+# Zdjęcia wgrane wprost do osoby w drzewie (ETAP 56), np. grób co roku. Poza albumami.
+ARCHIVEHUB_PERSON_PHOTOS_DIR = DATA_DIR / "zdjecia-osob"
 
 INSTALLED_APPS = [
     "django.contrib.admin",

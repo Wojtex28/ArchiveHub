@@ -3,7 +3,7 @@ from django import forms
 from albums.dates import DateError, parse_date
 from albums.models import NamedModel, Person, Photo
 
-from .models import LifeEvent
+from .models import LifeEvent, PersonPhoto
 from .tree import RELATION_KINDS
 
 
@@ -206,3 +206,59 @@ class LifeEventForm(forms.ModelForm):
         ):
             raise forms.ValidationError("Wpisz przynajmniej datę, miejsce albo notatkę.")
         return data
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleImageField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        files = [f for f in (data if isinstance(data, (list, tuple)) else [data]) if f]
+        if not files:
+            raise forms.ValidationError("Wybierz co najmniej jedno zdjęcie.", code="required")
+        return [super(MultipleImageField, self).clean(f, initial) for f in files]
+
+
+class PersonPhotoForm(forms.ModelForm):
+    """Opis i data zdjęcia osoby (ETAP 56)."""
+
+    class Meta:
+        model = PersonPhoto
+        fields = ["date", "caption"]
+        labels = {"date": "Kiedy zrobione", "caption": "Opis (opcjonalnie)"}
+        help_texts = {
+            "date": "Np. 01.11.2025, listopad 2025 albo 2025. Puste: data z aparatu albo dzisiejsza.",
+            "caption": "Np. „Grób na cmentarzu w Kraczkowej, Wszystkich Świętych”.",
+        }
+
+    def clean_date(self):
+        text = " ".join(self.cleaned_data.get("date", "").split())
+        try:
+            parse_date(text)
+        except DateError as exc:
+            raise forms.ValidationError(str(exc)) from None
+        return text
+
+
+class PersonPhotoUploadForm(PersonPhotoForm):
+    photos = MultipleImageField(
+        label="Zdjęcia",
+        help_text=(
+            "Możesz zaznaczyć kilka plików naraz (najwyżej 20). Dane z aparatu, np. GPS, zostaną usunięte."
+        ),
+    )
+    photos.widget.attrs.update(accept="image/*")
+
+    class Meta(PersonPhotoForm.Meta):
+        fields = ["photos", "date", "caption"]
+
+    def clean_photos(self):
+        from .person_photos import MAX_FILES
+
+        files = self.cleaned_data["photos"]
+        if len(files) > MAX_FILES:
+            raise forms.ValidationError(f"Naraz najwyżej {MAX_FILES} zdjęć.")
+        return files
