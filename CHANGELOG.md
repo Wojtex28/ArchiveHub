@@ -15,6 +15,13 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.57.0 (2026-11-13) · ETAP 57: kolejność związków, wdowa i wdowiec
+
+- **Jak się skończył związek**: przy partnerze zamiast samego „rozwód” są trzy możliwości: trwa (albo trwał do końca życia obojga), rozwód lub rozstanie, śmierć męża lub żony. Ta ostatnia pokazuje „wdowa od 1925” / „wdowiec od 1956” (wg płci osoby, rok z daty śmierci partnera), a u osoby, która zmarła pierwsza, „do śmierci (1925)”.
+- **Kolejność związków**: strzałki ↑/↓ przy partnerach w panelu drzewa i na karcie osoby ustawiają, który związek był pierwszy. Bez ręcznej kolejności liczy się rok ślubu, a bez roku ślubu rok śmierci partnera (pierwszy mąż, który zmarł wcześniej, jest „1.”).
+- Zmiany kolejności i końca związku trafiają do historii drzewa i da się je cofnąć.
+- Migracja dopisuje tylko nowe pola (`widowed`, `order1`, `order2`).
+
 ## 0.56.0 (2026-11-13) · ETAP 56: zdjęcia dodane do osoby
 
 - **„Zdjęcia dodane do osoby”** na karcie osoby: zdjęcia spoza albumów, np. aktualne zdjęcie grobu co roku albo zdjęcie z telefonu. „+ Dodaj zdjęcia” przyjmuje kilka plików naraz, ze wspólną datą i opisem.

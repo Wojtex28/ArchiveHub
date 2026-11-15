@@ -368,6 +368,23 @@ def person_remove(request, pk):
 
 @tree_access(edit=True)
 @require_POST
+def partner_order(request, pk, other_pk):
+    """Strzałka przy partnerze na karcie osoby (ETAP 57): ten związek o jedno miejsce wcześniej/później."""
+    person = get_object_or_404(Person, pk=pk)
+    ids = [other.pk for other in tree.partners_in_order(person)]
+    if other_pk not in ids:
+        raise Http404
+    at = ids.index(other_pk)
+    to = at - 1 if request.POST.get("kierunek") == "wczesniej" else at + 1
+    if 0 <= to < len(ids):
+        ids[at], ids[to] = ids[to], ids[at]
+        tree.set_partner_order(request.user, person, ids)
+        messages.success(request, "Zmieniono kolejność związków.")
+    return redirect(reverse("family:person", args=[person.pk]) + "#rodzina")
+
+
+@tree_access(edit=True)
+@require_POST
 def couple_edit(request, pk, other_pk):
     """Rok ślubu i rozwód pary (formularz pod partnerem na karcie osoby)."""
     person = get_object_or_404(Person, pk=pk)
@@ -378,8 +395,9 @@ def couple_edit(request, pk, other_pk):
             person,
             other,
             request.POST.get("since", ""),
-            request.POST.get("ended") == "on",
+            request.POST.get("koniec") == "rozwod" or request.POST.get("ended") == "on",
             place=request.POST.get("place"),
+            widowed=request.POST.get("koniec") == "smierc" if "koniec" in request.POST else None,
         )
     except ValidationError as exc:
         messages.error(request, exc.messages[0])

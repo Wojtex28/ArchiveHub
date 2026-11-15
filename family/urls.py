@@ -17,6 +17,7 @@ urlpatterns = [
         name="relation_remove",
     ),
     path("drzewo/osoba/<int:pk>/para/<int:other_pk>/", views.couple_edit, name="couple_edit"),
+    path("drzewo/osoba/<int:pk>/para/<int:other_pk>/kolejnosc/", views.partner_order, name="partner_order"),
     path("drzewo/osoba/<int:pk>/zdarzenie/", views.event_add, name="event_add"),
     path("drzewo/zdarzenie/<int:pk>/", views.event_edit, name="event_edit"),
     path("drzewo/osoba/<int:pk>/zdjecia/", views.person_photos_add, name="person_photos_add"),

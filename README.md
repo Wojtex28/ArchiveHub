@@ -54,6 +54,7 @@ w projekcie.
 | 54 | Zdarzenia pod osią czasu, dodawanie z panelu drzewa | **gotowe** |
 | 55 | Sprawdzanie drzewa, linie przez kilka pokoleń | **gotowe** |
 | 56 | Zdjęcia dodane do osoby (np. grób co roku) | **gotowe** |
+| 57 | Kolejność związków, wdowa / wdowiec | **gotowe** |
 
 ## Technologie
 

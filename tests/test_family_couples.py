@@ -71,7 +71,17 @@ def test_api_couple(editor, jan):
         editor, "family:api_couple", {"person": jan.pk, "other": maria.pk, "since": "1960", "ended": True}
     ).json()
     assert data["couples"] == [
-        {"a": jan.pk, "b": maria.pk, "since": "1960", "year": 1960, "ended": True, "place": ""}
+        {
+            "a": jan.pk,
+            "b": maria.pk,
+            "since": "1960",
+            "year": 1960,
+            "ended": True,
+            "place": "",
+            "widowed": False,
+            "oa": None,
+            "ob": None,
+        }
     ]
     response = post(editor, "family:api_couple", {"person": anna.pk, "other": maria.pk, "since": ""})
     assert response.status_code == 400
@@ -94,7 +104,74 @@ def test_person_page_shows_and_edits_couples(editor, jan):
     page = editor.get(reverse("family:person", args=[jan.pk])).content.decode()
     assert page.index("Anna Kowalska") < page.index("Maria Nowak")
     assert "1. ślub 1950" in page and "2. ślub 1960 · rozwód" in page
-    assert "Zmień ślub, rozwód" in page
+    assert "Zmień ślub, koniec związku" in page
 
     editor.post(url, {"since": "kiedyś"})  # zła data: nic się nie zmienia
     assert Partnership.objects.get(person2=anna).since == "1950"
+
+
+@pytest.fixture
+def stefania(db):
+    """Jak u Stefanii Berezy: dwóch mężów bez dat ślubu, pierwszy zmarł wcześniej."""
+    stefania = tree.add_person(None, "Stefania Bereza")
+    jozef = tree.add_person(None, "Józef Bereza")
+    jan = tree.add_person(None, "Jan Szyndlar")
+    for person, died in ((stefania, "1997"), (jozef, "1956"), (jan, "1925")):
+        person.death_date, person.death_year = died, int(died)
+        person.save()
+    tree.add_relation(None, stefania, jozef, tree.PARTNER)  # dodany pierwszy, ale to drugi mąż
+    tree.add_relation(None, stefania, jan, tree.PARTNER)
+    return stefania, jozef, jan
+
+
+def test_partners_without_wedding_year_ordered_by_partner_death(stefania):
+    stefania, jozef, jan = stefania
+    assert [p.name for p in tree.partners_in_order(stefania)] == ["Jan Szyndlar", "Józef Bereza"]
+
+
+def test_widowed_text(stefania):
+    stefania, jozef, jan = stefania
+    tree.edit_couple(None, stefania, jan, "1920", False, widowed=True)
+    tree.edit_couple(None, stefania, jozef, "", False, widowed=True)
+    first, second = tree.partners_in_order(stefania)
+    assert first.couple_text == "ślub 1920 · wdowa od 1925"
+    assert second.couple_text == "wdowa od 1956"
+    # z perspektywy męża, który zmarł pierwszy
+    [wife] = tree.partners_in_order(jan)
+    assert wife.couple_text == "ślub 1920 · do śmierci (1925)"
+    # rozwód wyklucza owdowienie
+    tree.edit_couple(None, stefania, jan, "1920", True)
+    assert Partnership.objects.get(person2=jan).widowed is False
+
+
+def test_manual_partner_order_and_undo(stefania, master):
+    stefania, jozef, jan = stefania
+    changes = tree.set_partner_order(None, stefania, [jozef.pk, jan.pk])
+    assert [p.name for p in tree.partners_in_order(stefania)] == ["Józef Bereza", "Jan Szyndlar"]
+    assert changes and all(c.kind == TreeChange.COUPLE_EDITED for c in changes)
+    with pytest.raises(tree.ValidationError):
+        tree.set_partner_order(None, stefania, [jozef.pk])
+    for change in reversed(changes):
+        tree.undo(master, change)
+    assert [p.name for p in tree.partners_in_order(stefania)] == ["Jan Szyndlar", "Józef Bereza"]
+
+
+def test_partner_order_view_and_end_radio(editor, stefania):
+    stefania, jozef, jan = stefania
+    url = reverse("family:partner_order", args=[stefania.pk, jozef.pk])
+    assert editor.post(url, {"kierunek": "wczesniej"}).status_code == 302
+    assert [p.name for p in tree.partners_in_order(stefania)] == ["Józef Bereza", "Jan Szyndlar"]
+    editor.post(reverse("family:couple_edit", args=[stefania.pk, jan.pk]), {"since": "", "koniec": "smierc"})
+    assert Partnership.objects.get(person2=jan).widowed is True
+    page = editor.get(reverse("family:person", args=[stefania.pk])).content.decode()
+    assert "wdowa od 1925" in page and "Śmierć męża lub żony" in page
+
+
+def test_api_partner_order(editor, stefania):
+    stefania, jozef, jan = stefania
+    data = post(editor, "family:api_couple", {"person": stefania.pk, "order": [jozef.pk, jan.pk]}).json()
+    orders = {(c["a"], c["b"]): (c["oa"], c["ob"]) for c in data["couples"]}
+    assert orders[(stefania.pk, jozef.pk)] == (1, None)
+    assert orders[(stefania.pk, jan.pk)] == (2, None)
+    bad = post(editor, "family:api_couple", {"person": stefania.pk, "order": [jan.pk]})
+    assert bad.status_code == 400

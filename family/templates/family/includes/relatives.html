@@ -6,14 +6,25 @@
     <li>
       <a class="person-row" href="{% url 'family:person' other.pk %}{% if embedded %}?okno=1{% endif %}"><span><strong>{{ other.name }}</strong>{% if other.life %} <span class="hint">{{ other.life }}</span>{% endif %}{% if other.couple_text %}<br><span class="hint couple-text">{% if relatives|length > 1 %}{{ forloop.counter }}. {% endif %}{{ other.couple_text }}</span>{% elif relatives|length > 1 and kind == "partner" %}<br><span class="hint couple-text">{{ forloop.counter }}. związek</span>{% endif %}</span></a>
       {% if can_edit and kind != "rodzenstwo" or can_edit and other.linked %}<form method="post" action="{% url 'family:relation_remove' person.pk other.pk kind %}">{% csrf_token %}<button type="submit" class="icon-button" data-confirm="Usunąć połączenie z: {{ other.name }}?" aria-label="Usuń połączenie z: {{ other.name }}" title="Usuń połączenie">×</button></form>{% endif %}
+      {% if can_edit and kind == "partner" and relatives|length > 1 %}
+      <span class="couple-order">
+        {% if not forloop.first %}<form method="post" action="{% url 'family:partner_order' person.pk other.pk %}">{% csrf_token %}<input type="hidden" name="kierunek" value="wczesniej"><button type="submit" class="icon-button icon-button--small" aria-label="{{ other.name }}: wcześniejszy związek" title="Wcześniejszy związek">↑</button></form>{% endif %}
+        {% if not forloop.last %}<form method="post" action="{% url 'family:partner_order' person.pk other.pk %}">{% csrf_token %}<input type="hidden" name="kierunek" value="pozniej"><button type="submit" class="icon-button icon-button--small" aria-label="{{ other.name }}: późniejszy związek" title="Późniejszy związek">↓</button></form>{% endif %}
+      </span>
+      {% endif %}
       {% if can_edit and kind == "partner" %}
       <details class="couple-edit">
-        <summary>{% if other.couple.since or other.couple.place %}Zmień ślub, rozwód{% else %}+ Data ślubu{% endif %}</summary>
+        <summary>{% if other.couple.since or other.couple.place or other.couple.ended or other.couple.widowed %}Zmień ślub, koniec związku{% else %}+ Data ślubu{% endif %}</summary>
         <form method="post" action="{% url 'family:couple_edit' person.pk other.pk %}">
           {% csrf_token %}
           <div class="field"><label for="slub-{{ other.pk }}">Rok ślubu</label><input id="slub-{{ other.pk }}" name="since" value="{{ other.couple.since }}" placeholder="np. 1950" maxlength="60"></div>
           <div class="field"><label for="slub-miejsce-{{ other.pk }}">Miejsce ślubu</label><input id="slub-miejsce-{{ other.pk }}" name="place" value="{{ other.couple.place }}" placeholder="np. parafia w Kraczkowej" maxlength="200"></div>
-          <label class="check check--switch"><input type="checkbox" name="ended"{% if other.couple.ended %} checked{% endif %}> Rozwód lub rozstanie</label>
+          <fieldset class="field couple-end">
+            <legend class="field__label">Jak się skończył</legend>
+            <label class="check"><input type="radio" name="koniec" value=""{% if not other.couple.ended and not other.couple.widowed %} checked{% endif %}> Trwa albo trwał do końca życia obojga</label>
+            <label class="check"><input type="radio" name="koniec" value="rozwod"{% if other.couple.ended %} checked{% endif %}> Rozwód lub rozstanie</label>
+            <label class="check"><input type="radio" name="koniec" value="smierc"{% if other.couple.widowed %} checked{% endif %}> Śmierć męża lub żony (wdowa, wdowiec)</label>
+          </fieldset>
           <button type="submit" class="button button--quiet">Zapisz</button>
         </form>
       </details>

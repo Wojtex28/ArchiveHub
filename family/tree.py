@@ -443,7 +443,14 @@ def remove_relation(user, person, other, kind, reverts=None):
 
 # --- Związki (ETAP 31) ----------------------------------------------------------------------------
 
-COUPLE_LABELS = {"since": "rok ślubu", "place": "miejsce ślubu", "ended": "rozwód"}
+COUPLE_LABELS = {
+    "since": "rok ślubu",
+    "place": "miejsce ślubu",
+    "ended": "rozwód",
+    "widowed": "owdowienie",
+    "order1": "kolejność związków",
+    "order2": "kolejność związków",
+}
 
 
 def couple(person, other):
@@ -452,41 +459,58 @@ def couple(person, other):
 
 
 def _couple_data(couple):
-    return {"since": couple.since, "place": couple.place, "ended": couple.ended}
+    return {field: getattr(couple, field) for field in COUPLE_LABELS}
 
 
 def partners_in_order(person):
-    """Partnerzy osoby od pierwszego związku: wg roku ślubu, bez roku na końcu w kolejności dodania.
+    """Partnerzy osoby od pierwszego związku. Każdy ma atrybut ``couple`` i ``couple_text``.
 
-    Każdy ma atrybut ``couple`` (Partnership) i ``couple_text``.
+    Kolejność (ETAP 57): ustawiona ręcznie, a bez niej według roku ślubu; bez roku ślubu według
+    roku śmierci partnera (pierwszy mąż, który zmarł, był wcześniej); na końcu w kolejności dodania.
     """
-    couples = Partnership.objects.filter(models.Q(person1=person) | models.Q(person2=person))
-    couples = sorted(couples, key=lambda c: (c.since_year is None, c.since_year or 0, c.pk))
+    couples = list(Partnership.objects.filter(models.Q(person1=person) | models.Q(person2=person)))
+    people = Person.objects.in_bulk([c.other_id(person.pk) for c in couples])
 
-    def other_id(c):
-        return c.person2_id if c.person1_id == person.pk else c.person1_id
+    def key(c):
+        order = c.order_for(person.pk)
+        year = c.since_year if c.since_year is not None else people[c.other_id(person.pk)].death_year
+        return (order is None, order or 0, year is None, year or 0, c.pk)
 
-    people = Person.objects.in_bulk([other_id(c) for c in couples])
     result = []
-    for c in couples:
-        other = people[other_id(c)]
-        other.couple, other.couple_text = c, couple_text(c)
+    for c in sorted(couples, key=key):
+        other = people[c.other_id(person.pk)]
+        other.couple, other.couple_text = c, couple_text(c, person, other)
         result.append(other)
     return result
 
 
-def couple_text(couple):
-    """„ślub 1950 · rozwód” do list i karty osoby."""
+def widow_word(person):
+    return {"K": "wdowa", "M": "wdowiec"}.get(getattr(person, "gender", ""), "owdowienie")
+
+
+def couple_text(couple, person=None, other=None):
+    """„ślub 1950 · rozwód” albo „ślub 1920 · wdowa od 1925” do list i karty osoby."""
     wedding = " ".join(filter(None, ["ślub", couple.since, f"({couple.place})" if couple.place else ""]))
-    parts = [wedding if couple.since or couple.place else "", "rozwód" if couple.ended else ""]
+    end = ""
+    if couple.ended:
+        end = "rozwód"
+    elif couple.widowed:
+        died, own = getattr(other, "death_year", None), getattr(person, "death_year", None)
+        if died is None and own is not None:
+            end = f"do śmierci ({own})"
+        elif died is not None and own is not None and own < died:
+            end = f"do śmierci ({own})"
+        else:
+            end = widow_word(person) + (f" od {died}" if died else "")
+    parts = [wedding if couple.since or couple.place else "", end]
     return " · ".join(part for part in parts if part)
 
 
-@transaction.atomic
-def edit_couple(user, person, other, since, ended, reverts=None, place=None):
-    """Rok i miejsce ślubu, rozwód pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło.
+def edit_couple(user, person, other, since, ended, reverts=None, place=None, widowed=None, **orders):
+    """Ślub, koniec związku i kolejność pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło.
 
-    ``place=None`` zostawia miejsce ślubu bez zmian (strona otwarta przed ETAP 47 go nie wysyła).
+    ``place=None`` i ``widowed=None`` zostawiają te pola bez zmian (strona otwarta przed zmianą ich
+    nie wysyła). ``orders`` to ``order1``/``order2`` (który to związek dla osoby 1 i 2).
     """
     pair = couple(person, other)
     if pair is None:
@@ -499,15 +523,22 @@ def edit_couple(user, person, other, since, ended, reverts=None, place=None):
     pair.since = date.text if date else ""
     pair.since_year = (date.year_from + date.year_to) // 2 if date else None
     pair.ended = bool(ended)
+    if widowed is not None:
+        pair.widowed = bool(widowed)
+    if pair.ended:
+        pair.widowed = False
     if place is not None:
         pair.place = " ".join(str(place).split())[:200]
+    for field in ("order1", "order2"):
+        if field in orders:
+            setattr(pair, field, orders[field])
     after = _couple_data(pair)
     changed = [field for field in COUPLE_LABELS if before[field] != after[field]]
     if not changed:
         return None
     pair.save()
     ids = {"kind": PARTNER, "person1": pair.person1_id, "person2": pair.person2_id}
-    labels = ", ".join(COUPLE_LABELS[field] for field in changed)
+    labels = ", ".join(dict.fromkeys(COUPLE_LABELS[field] for field in changed))
     return _record(
         user,
         TreeChange.COUPLE_EDITED,
@@ -517,6 +548,25 @@ def edit_couple(user, person, other, since, ended, reverts=None, place=None):
         {**ids, **{field: after[field] for field in changed}},
         reverts,
     )
+
+
+@transaction.atomic
+def set_partner_order(user, person, partner_ids):
+    """Ręczna kolejność związków osoby (ETAP 57): ``partner_ids`` od pierwszego związku."""
+    current = {other.pk: other.couple for other in partners_in_order(person)}
+    if sorted(partner_ids) != sorted(current):
+        raise ValidationError("Lista partnerów się nie zgadza. Odśwież stronę.")
+    changes = []
+    for number, other_id in enumerate(partner_ids, start=1):
+        pair = current[other_id]
+        field = "order1" if pair.person1_id == person.pk else "order2"
+        other = Person.objects.get(pk=other_id)
+        change = edit_couple(
+            user, person, other, pair.since, pair.ended, place=None, widowed=None, **{field: number}
+        )
+        if change:
+            changes.append(change)
+    return changes
 
 
 @transaction.atomic
@@ -784,7 +834,16 @@ def undo(user, change):
             raise ValidationError("Tej pary już nie ma w drzewie.")
         values = {**_couple_data(pair), **{f: change.before[f] for f in COUPLE_LABELS if f in change.before}}
         result = edit_couple(
-            user, person, other, values["since"], values["ended"], reverts=change, place=values["place"]
+            user,
+            person,
+            other,
+            values["since"],
+            values["ended"],
+            reverts=change,
+            place=values["place"],
+            widowed=values["widowed"],
+            order1=values["order1"],
+            order2=values["order2"],
         )
         if result is None:
             raise ValidationError("Ta para już jest taka jak przed zmianą.")
@@ -820,8 +879,10 @@ def _show(field, value):
 
 
 def _show_couple(field, value):
-    if field == "ended":
+    if field in ("ended", "widowed"):
         return "tak" if value else "nie"
+    if field in ("order1", "order2"):
+        return f"{value}. związek" if value else "według dat"
     return value or ""
 
 
