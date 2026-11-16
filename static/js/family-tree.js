@@ -15,7 +15,7 @@
   var ROW_H = 180;
   var LANE_STEP = 16; // px między torami szyn w jednym odstępie (ETAP 59)
   var LANE_LOW = 24; // najniższa szyna tyle nad kafelkami dzieci
-  var LANE_HIGH = 44; // najwyższa szyna co najmniej tyle pod kafelkami rodziców
+  var LANE_HIGH = 36; // najwyższa szyna co najmniej tyle pod kafelkami rodziców
   // ETAP 55: linia rodzic → dziecko przez kilka rzędów idzie „korytarzem” zarezerwowanym w każdym
   // rzędzie pośrodku (punkt pośredni o tej szerokości, z małym odstępem z obu stron).
   var DUMMY_W = 24;
@@ -1704,7 +1704,9 @@
       var gapH = Math.max(ROW_H - NODE_H, LANE_LOW + (count - 1) * LANE_STEP + LANE_HIGH);
       rowTop[d] = rowTop[d - 1] + NODE_H + gapH;
       var topBus = rowTop[d] - LANE_LOW - (count - 1) * LANE_STEP;
-      state.bandEdge[rowTop[d]] = Math.max(rowTop[d - 1] + NODE_H + 12, topBus - 22);
+      // Domyślnie granica w połowie przerwy, jak dotąd. Wyżej tylko wtedy, gdy szyny sięgają połowy.
+      var mid = (rowTop[d - 1] + NODE_H + rowTop[d]) / 2;
+      state.bandEdge[rowTop[d]] = Math.max(rowTop[d - 1] + NODE_H + 12, Math.min(mid, topBus - 16));
     }
     function moved(y) { return rowTop[Math.round(y / ROW_H)]; }
     data.people.forEach(function (p) { if (p.y !== null) p.y = moved(p.y); });
