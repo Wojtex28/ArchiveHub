@@ -15,6 +15,12 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.59.0 (2026-11-16) · ETAP 59: pasy pokoleń rosną z liczbą linii
+
+- **Odstęp między pokoleniami nie jest już stały.** Gdy w jednym odstępie biegnie dużo linii rodzin (duże drzewo, wielu teściów), rząd dzieci odsuwa się niżej, aż wszystkie szyny zmieszczą się osobno, co 16 px. Wcześniej przy dużym drzewie szyny zbijały się w jedną, wchodziły na kafelki rodziców i na granice pasów.
+- **Granica pasa idzie nad najwyższą szyną**, więc linie do dzieci leżą w pasie dzieci, a nie na kresce między pasami.
+- Sprawdzone na losowych drzewach do 260 osób: żadna szyna nie przechodzi przez kafelek i żadne dwie nie leżą na sobie.
+
 ## 0.58.1 (2026-11-15) · nazwa pliku sprzed importu
 
 - W panelu zdjęcia (💬, sekcja „Kiedy, gdzie i opis”) na samym końcu, małym drukiem, jest **Plik**: folder albumu i nazwa skanu sprzed importu, np. `01_BrązowyZeZlotaObramowka97-04/img20250216_14475559_1.png`. Kliknięcie zaznacza cały tekst do skopiowania.

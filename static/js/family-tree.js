@@ -13,6 +13,9 @@
   var SNAP_X = 48; // px: linia dziecka do 48 px od środka kafelka zamiast krótkiego uskoku (ETAP 39)
   var GAP_FAMILY = 112; // przerwa między różnymi rodzinami w rzędzie (ETAP 38)
   var ROW_H = 180;
+  var LANE_STEP = 16; // px między torami szyn w jednym odstępie (ETAP 59)
+  var LANE_LOW = 24; // najniższa szyna tyle nad kafelkami dzieci
+  var LANE_HIGH = 44; // najwyższa szyna co najmniej tyle pod kafelkami rodziców
   // ETAP 55: linia rodzic → dziecko przez kilka rzędów idzie „korytarzem” zarezerwowanym w każdym
   // rzędzie pośrodku (punkt pośredni o tej szerokości, z małym odstępem z obu stron).
   var DUMMY_W = 24;
@@ -1127,22 +1130,13 @@
     }
   }
 
-  function drawLines() {
-    lines.textContent = "";
-    var byId = state.byId;
-    var partnerOf = {};
-    var couples = couplesIndex(state.shown);
-    var rel = relativesIndex(state.shown);
-    state.shown.partners.forEach(function (pair) {
-      var a = byId[pair[0]], b = byId[pair[1]];
-      if (!a || !b) return;
-      partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
-      drawCouple(a, b, couples[coupleKey(a.id, b.id)] || {}, rel, couples);
-    });
+  // Rodziny i ich tory (ETAP 59): wspólne dla układania (ile torów ma każdy odstęp między rzędami,
+  // żeby rząd odsunąć niżej) i dla rysowania linii.
+  function familyGeometry(byId, partnerOf) {
     // Rodzina = rodzice (para albo jedna osoba) i ich dzieci w jednym rzędzie. Każda rodzina ma własną
     // poziomą „szynę” od rodziców nad dzieci; szyny różnych rodzin w tym samym odstępie między rzędami
     // leżą na różnych wysokościach, żeby się nie zlewały i było widać, czyje jest które dziecko.
-    var parentsOf = {};
+    var parentsOf = {}, strays = [], throughs = [];
     // ETAP 55: linie przez kilka rzędów rysujemy osobno, przez przejścia z układu (state.chains).
     var far = {};
     (state.chains || []).forEach(function (c) { c.parents.forEach(function (p) { far[p + ">" + c.child] = true; }); });
@@ -1169,7 +1163,7 @@
         if (!i) addFamily(src.key + "|" + Math.round(pt[1]), src, stop);
         else addFamily("przejscie|" + c.child + "|" + i, { x: prev[0], y: prev[1] + NODE_H }, stop);
         // Przez rząd: prosto w dół korytarzem między kafelkami.
-        path("M" + pt[0] + "," + pt[1] + " V" + (pt[1] + NODE_H), "tree-line");
+        throughs.push(pt);
         prev = pt;
       });
       addFamily("przejscie|" + c.child + "|koniec", { x: prev[0], y: prev[1] + NODE_H }, child);
@@ -1182,7 +1176,7 @@
       var sources = [];
       if (ps.length === 2) {
         if (!partnerOf[ps[0].id + "-" + ps[1].id]) {
-          path("M" + (ps[0].x + NODE_W / 2) + "," + (ps[0].y + NODE_H / 2) + " L" + (ps[1].x + NODE_W / 2) + "," + (ps[1].y + NODE_H / 2), "tree-line tree-line--partner");
+          strays.push(ps);
         }
         sources.push({ key: [ps[0].id, ps[1].id].sort().join("+"), x: (ps[0].x + ps[1].x) / 2 + NODE_W / 2, y: (ps[0].y + ps[1].y) / 2 + NODE_H / 2 });
       } else {
@@ -1210,7 +1204,7 @@
       f.r = Math.max.apply(null, xs.concat([f.x]));
       f.left = f.l;
       f.right = f.r;
-      f.gap = Math.round(f.top / 20);
+      f.gap = Math.round(f.top);
       return f;
     }).sort(function (a, b) { return a.l - b.l || a.r - b.r; });
     var lanes = {};
@@ -1232,17 +1226,38 @@
       });
       lanes[gap] = { length: count };
     });
+    return { list: list, lanes: lanes, strays: strays, throughs: throughs };
+  }
+
+  function drawLines() {
+    lines.textContent = "";
+    var byId = state.byId;
+    var partnerOf = {};
+    var couples = couplesIndex(state.shown);
+    var rel = relativesIndex(state.shown);
+    state.shown.partners.forEach(function (pair) {
+      var a = byId[pair[0]], b = byId[pair[1]];
+      if (!a || !b) return;
+      partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true;
+      drawCouple(a, b, couples[coupleKey(a.id, b.id)] || {}, rel, couples);
+    });
+    var geo = familyGeometry(byId, partnerOf);
+    geo.strays.forEach(function (ps) {
+      path("M" + (ps[0].x + NODE_W / 2) + "," + (ps[0].y + NODE_H / 2) + " L" + (ps[1].x + NODE_W / 2) + "," + (ps[1].y + NODE_H / 2), "tree-line tree-line--partner");
+    });
+    // Przez rząd: prosto w dół korytarzem między kafelkami.
+    geo.throughs.forEach(function (pt) { path("M" + pt[0] + "," + pt[1] + " V" + (pt[1] + NODE_H), "tree-line"); });
+    var list = geo.list, lanes = geo.lanes;
     list.forEach(function (f) {
-      var count = lanes[f.gap].length;
       // Wszystkie linie rodzin w jednym kolorze (ETAP 37). Zachodzące rodziny rozróżniają osobne
       // tory (wysokości szyn) i kropki w miejscach odejścia dzieci.
       var cls = "tree-line";
       var room = f.top - f.y;
       var bus;
       if (room > 40) {
-        // Tory od dołu odstępu w górę, co 14 px, ale zawsze poniżej rodziców.
-        var spacing = Math.min(22, (room - 30) / Math.max(count, 1));
-        bus = Math.max(f.y + 12, f.top - 24 - f.lane * spacing);
+        // Tory od dołu odstępu w górę, co LANE_STEP. Odstęp między rzędami rośnie z liczbą torów
+        // (ETAP 59, zob. layout), więc szyny nie wchodzą na kafelki ani na siebie.
+        bus = Math.max(f.y + 12, f.top - LANE_LOW - f.lane * LANE_STEP);
       } else {
         bus = (f.y + f.top) / 2;
       }
@@ -1370,8 +1385,9 @@
       var prev = list[i - 1], next = list[i + 1];
       // Granica między pasami: w połowie przerwy między rzędami (albo między ich środkami, gdy
       // ktoś przestawił kafelki tak, że rzędy na siebie zachodzą).
-      var top = !prev ? r.top - BAND_PAD : (prev.bottom <= r.top ? (prev.bottom + r.top) / 2 : (prev.center + r.center) / 2);
-      var bottom = !next ? r.bottom + BAND_PAD : (r.bottom <= next.top ? (r.bottom + next.top) / 2 : (r.center + next.center) / 2);
+      var edges = state.bandEdge || {};
+      var top = !prev ? r.top - BAND_PAD : (edges[r.top] !== undefined ? edges[r.top] : prev.bottom <= r.top ? (prev.bottom + r.top) / 2 : (prev.center + r.center) / 2);
+      var bottom = !next ? r.bottom + BAND_PAD : (edges[next.top] !== undefined ? edges[next.top] : r.bottom <= next.top ? (r.bottom + next.top) / 2 : (r.center + next.center) / 2);
       var band = el("div", "tree-band " + genClass(r.gen) + (i % 2 ? " tree-band--odd" : ""));
       var text = el("span", "tree-band__label " + genClass(r.gen));
       text.appendChild(el("span", "tree-band__dot"));
@@ -1663,6 +1679,36 @@
       p.x = at ? at[0] : null;
       p.y = at ? at[1] : null;
     });
+    spreadRows(data);
+  }
+
+  // Pasy pokoleń rosną z liczbą linii (ETAP 59). Układ daje rzędy co ROW_H; tu liczymy, ile torów
+  // (osobnych wysokości szyn) potrzebuje każdy odstęp między rzędami, i odsuwamy niższe rzędy tak,
+  // żeby wszystkie tory zmieściły się między kafelkami. Granica pasów idzie nad najwyższą szyną,
+  // więc linie dzieci leżą w pasie dzieci, a nie na granicy.
+  function spreadRows(data) {
+    state.bandEdge = {};
+    var byId = {}, partnerOf = {};
+    data.people.forEach(function (p) { if (p.x !== null) byId[p.id] = p; });
+    data.partners.forEach(function (pair) { partnerOf[pair[0] + "-" + pair[1]] = partnerOf[pair[1] + "-" + pair[0]] = true; });
+    var geo = familyGeometry(byId, partnerOf);
+    var depth = 0, need = {};
+    data.people.forEach(function (p) { if (p.y !== null) depth = Math.max(depth, Math.round(p.y / ROW_H)); });
+    Object.keys(geo.lanes).forEach(function (gap) {
+      var d = Math.round(gap / ROW_H);
+      need[d] = Math.max(need[d] || 0, geo.lanes[gap].length);
+    });
+    var rowTop = [0];
+    for (var d = 1; d <= depth; d++) {
+      var count = need[d] || 1;
+      var gapH = Math.max(ROW_H - NODE_H, LANE_LOW + (count - 1) * LANE_STEP + LANE_HIGH);
+      rowTop[d] = rowTop[d - 1] + NODE_H + gapH;
+      var topBus = rowTop[d] - LANE_LOW - (count - 1) * LANE_STEP;
+      state.bandEdge[rowTop[d]] = Math.max(rowTop[d - 1] + NODE_H + 12, topBus - 22);
+    }
+    function moved(y) { return rowTop[Math.round(y / ROW_H)]; }
+    data.people.forEach(function (p) { if (p.y !== null) p.y = moved(p.y); });
+    state.chains.forEach(function (c) { c.points.forEach(function (pt) { pt[1] = moved(pt[1]); }); });
   }
 
 
