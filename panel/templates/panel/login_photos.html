@@ -1,26 +1,68 @@
 {% extends "panel/panel_base.html" %}
+{% load static %}
 {% block panel %}
 <h1>Tło logowania</h1>
-<p class="hint">Te zdjęcia pływają pod siatką kropek na stronie logowania i można je przesuwać myszką. To tylko dekoracja: nie trafiają do żadnego albumu.</p>
+<p class="hint">Te zdjęcia pływają pod siatką kropek na stronie logowania i można je przesuwać myszką. To tylko dekoracja: zdjęcie w tle jest osobną, zmniejszoną kopią.</p>
 <p class="notice"><strong>Uwaga:</strong> strona logowania jest publiczna. Te zdjęcia zobaczy każdy, kto zna adres archiwum, także bez konta. Wybieraj takie, które możesz pokazać obcym.</p>
-<form method="post" enctype="multipart/form-data" novalidate class="card card--form">
-  {% csrf_token %}
-  <h2>Dodaj zdjęcia</h2>
-  {% include "includes/form_fields.html" %}
-  <button type="submit" class="button">Wgraj</button>
-</form>
-<h2 class="section-title">Zdjęcia w tle ({{ photos|length }})</h2>
-<ul class="thumb-grid">
-  {% for photo in photos %}
-  <li class="thumb{% if not photo.is_active %} thumb--off{% endif %}">
-    <img src="{% url 'panel:login_photo_preview' photo.pk %}" alt="" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy">
-    <div class="thumb__actions">
-      <form method="post" action="{% url 'panel:login_photo_toggle' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button">{% if photo.is_active %}Ukryj{% else %}Pokazuj{% endif %}</button></form>
-      <form method="post" action="{% url 'panel:login_photo_delete' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button is-danger">Usuń</button></form>
-    </div>
-  </li>
-  {% empty %}
-  <li class="hint">Nie ma jeszcze zdjęć. Strona logowania pokazuje wtedy samą siatkę kropek.</li>
-  {% endfor %}
-</ul>
+
+<section class="bg-current" aria-labelledby="w-tle">
+  <h2 class="section-title" id="w-tle">Teraz w tle <span class="section-title__count">{{ photos|length }}</span></h2>
+  <ul class="thumb-grid">
+    {% for photo in photos %}
+    <li class="thumb{% if not photo.is_active %} thumb--off{% endif %}">
+      <img src="{% url 'panel:login_photo_preview' photo.pk %}" alt="" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy">
+      {% if photo.source_photo %}<span class="thumb__source" title="{{ photo.source_photo.album.display_title }}">z albumu</span>{% endif %}
+      <div class="thumb__actions">
+        <form method="post" action="{% url 'panel:login_photo_toggle' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button">{% if photo.is_active %}Ukryj{% else %}Pokazuj{% endif %}</button></form>
+        <form method="post" action="{% url 'panel:login_photo_delete' photo.pk %}">{% csrf_token %}<button type="submit" class="link-button is-danger">Usuń</button></form>
+      </div>
+    </li>
+    {% empty %}
+    <li class="hint">Nie ma jeszcze zdjęć. Strona logowania pokazuje wtedy samą siatkę kropek.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<div class="bg-add">
+  <section class="card bg-add__albums" id="z-albumow" aria-labelledby="z-albumow-tytul">
+    <h2 id="z-albumow-tytul">Wybierz z albumów</h2>
+    <form method="get" action="#z-albumow" class="bg-add__choose">
+      <label for="album-tla" class="visually-hidden">Album</label>
+      <select id="album-tla" name="album" data-autosubmit>
+        <option value="">Wybierz album…</option>
+        {% for album in albums %}<option value="{{ album.pk }}"{% if album == chosen_album %} selected{% endif %}>{{ album.display_title }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="button button--quiet">Pokaż</button>
+    </form>
+    {% if chosen_album %}
+    <form method="post" action="{% url 'panel:login_photo_pick' %}" class="bg-pick">
+      {% csrf_token %}
+      <input type="hidden" name="album" value="{{ chosen_album.pk }}">
+      <p class="hint">Zaznacz zdjęcia i kliknij „Dodaj do tła”. Te z ✓ już są w tle.</p>
+      <ul class="bg-pick__grid">
+        {% for photo in album_photos %}
+        <li>
+          <label class="bg-pick__item{% if photo.pk in used %} is-used{% endif %}">
+            <input type="checkbox" name="zdjecia" value="{{ photo.pk }}"{% if photo.pk in used %} checked disabled{% endif %}>
+            <img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="Zdjęcie {{ forloop.counter }}" loading="lazy">
+            <span class="bg-pick__mark" aria-hidden="true">✓</span>
+          </label>
+        </li>
+        {% empty %}
+        <li class="hint">Ten album nie ma zdjęć.</li>
+        {% endfor %}
+      </ul>
+      <div class="bg-pick__bar"><button type="submit" class="button">Dodaj do tła</button></div>
+    </form>
+    {% endif %}
+  </section>
+
+  <form method="post" enctype="multipart/form-data" novalidate class="card card--form bg-add__upload">
+    {% csrf_token %}
+    <h2>Albo wgraj z dysku</h2>
+    {% include "includes/form_fields.html" %}
+    <button type="submit" class="button">Wgraj</button>
+  </form>
+</div>
+<script src="{% static 'js/autosubmit.js' %}" defer></script>
 {% endblock %}

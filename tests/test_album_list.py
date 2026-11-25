@@ -118,3 +118,44 @@ def test_gallery_uses_readable_title(client, albums):
     client.force_login(albums["user"])
     page = client.get(reverse("albums:gallery", args=[albums["album"].pk])).content.decode()
     assert "<h1>Brązowy ze Zlota Obramowka, 1997–2004" in page
+
+
+def _titles(page):
+    import re
+
+    return re.findall(r'class="album-card__title">([^<]+)<', page)
+
+
+def test_archive_sorting(client, albums, group):
+    """0.61.0: kolejność domyślna, chronologiczna i według grup (album w kilku grupach w każdej)."""
+    from accounts.models import FamilyGroup
+
+    client.force_login(albums["user"])
+    old = Album.objects.create(folder="04_Stary", title="Stary album", year_from=1930)
+    old.groups.add(group)
+    make_photo(old, "s")
+    page = client.get(reverse("archive")).content.decode()
+    assert _titles(page) == ["Brązowy ze Zlota Obramowka", "Zielony album", "Stary album"]
+    page = client.get(reverse("archive") + "?sort=lata").content.decode()
+    assert _titles(page) == ["Stary album", "Zielony album", "Brązowy ze Zlota Obramowka"]
+    assert client.cookies["albumy_kolejnosc"].value == "lata"
+    # bez parametru pamięta wybór z ciasteczka
+    assert _titles(client.get(reverse("archive")).content.decode())[0] == "Stary album"
+
+    bereza = FamilyGroup.objects.create(name="Albumy Ani")
+    albums["user"].family_groups.add(bereza)
+    old.groups.add(bereza)
+    secret = FamilyGroup.objects.create(name="Tajna")
+    albums["dated"].groups.add(secret)
+    page = client.get(reverse("archive") + "?sort=grupy").content.decode()
+    assert "Tajna" not in page  # obca grupa nie ma swojej sekcji
+    assert page.index(">Albumy Ani <") < page.index(f">{group.name} <")
+    assert _titles(page).count("Stary album") == 2
+
+
+def test_archive_sorting_master_sees_all_groups(master_client, albums, group):
+    from accounts.models import FamilyGroup
+
+    albums["dated"].groups.add(FamilyGroup.objects.create(name="Tajna"))
+    page = master_client.get(reverse("archive") + "?sort=grupy").content.decode()
+    assert ">Tajna <" in page and ">Pozostałe <" in page  # 03_Obcy nie ma grupy

@@ -1,0 +1,19 @@
+{% with album=card.album label=card.label %}
+      <li class="album-card">
+        <a class="album-card__link" href="{% url 'albums:gallery' album.pk %}" title="{{ album.display_title }}">
+          <span class="album-card__cover{% if card.mosaic|length == 2 %} album-card__cover--mosaic{% endif %}"{% if card.photos|length > 1 %} data-album-preview{% endif %}>
+            <span class="album-card__main">{% for photo in card.photos %}<img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="" loading="lazy"{% if not forloop.first %} hidden{% endif %}>{% empty %}<span class="album-card__blank" aria-hidden="true">{{ label.title|slice:":1" }}</span>{% endfor %}</span>
+            {% if card.mosaic|length == 2 %}<span class="album-card__side" aria-hidden="true">{% for photo in card.mosaic %}<img class="rot-{{ photo.pending_front }}" src="{% url 'albums:thumb' photo.pk %}?v={{ photo.version_front }}" alt="" loading="lazy">{% endfor %}</span>{% endif %}
+            {% if label.number %}<span class="album-card__number">{{ label.number }}</span>{% endif %}
+            {% if album.is_hidden %}<span class="album-card__hidden">ukryty</span>{% endif %}
+            {% if card.photos|length > 1 %}<span class="album-card__dots" aria-hidden="true">{% for photo in card.photos %}<span{% if forloop.first %} class="is-on"{% endif %}></span>{% endfor %}</span>{% endif %}
+          </span>
+          <span class="album-card__body">
+            <span class="album-card__title">{{ label.title }}</span>
+            <span class="album-card__meta">{% for part in card.meta %}<span>{{ part }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+            {% if album.description %}<span class="album-card__description">{{ album.description|truncatewords:40 }}</span>{% endif %}
+          </span>
+        </a>
+        {% if user.is_superuser %}<a class="album-card__edit" href="{% url 'panel:album_edit' album.pk %}?next={{ request.path|urlencode }}" title="Edytuj album" aria-label="Edytuj album {{ label.title }}">✎</a>{% endif %}
+      </li>
+{% endwith %}

@@ -16,6 +16,10 @@ class LoginPhoto(models.Model):
     height = models.PositiveIntegerField()
     is_active = models.BooleanField("pokazuj", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # 0.61.0: zdjęcie wybrane z albumu (kopia w tle zostaje, nawet gdy album zniknie).
+    source_photo = models.ForeignKey(
+        "albums.Photo", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         ordering = ["created_at", "pk"]

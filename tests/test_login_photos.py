@@ -98,3 +98,33 @@ def test_login_page_works_without_photos(client, db):
     response = client.get(reverse("login"))
     assert response.status_code == 200
     assert 'id="login-photos"' in response.content.decode()
+
+
+def test_pick_photos_from_album(master_client, photos_dir, settings, tmp_path):
+    """0.61.0: zdjęcia do tła wybrane z albumu, z obrotem; drugi raz to samo się nie dodaje."""
+    from albums.models import Album
+    from tests.test_downloads import make_photo
+
+    settings.ARCHIVEHUB_ALBUMS_DIR = tmp_path / "albumy"
+    album = Album.objects.create(folder="01_Album", title="Album")
+    photo = make_photo(album, "a", size=(400, 200))
+    photo.rotation = 90
+    photo.save()
+    other = make_photo(album, "b")
+    page = master_client.get(reverse("panel:login_photos") + f"?album={album.pk}").content.decode()
+    assert "Wybierz z albumów" in page and f'value="{photo.pk}"' in page
+    url = reverse("panel:login_photo_pick")
+    response = master_client.post(url, {"album": album.pk, "zdjecia": [photo.pk]})
+    assert response.status_code == 302 and response["Location"].endswith(f"?album={album.pk}#z-albumow")
+    added = LoginPhoto.objects.get()
+    assert added.source_photo == photo and (added.width, added.height) == (200, 400)
+    assert added.path.is_file()
+    master_client.post(url, {"album": album.pk, "zdjecia": [photo.pk, other.pk]})
+    assert LoginPhoto.objects.count() == 2
+    page = master_client.get(reverse("panel:login_photos") + f"?album={album.pk}").content.decode()
+    assert "z albumu" in page and "checked disabled" in page
+
+
+def test_regular_user_cannot_pick(client, make_user):
+    client.force_login(make_user("Ola"))
+    assert client.post(reverse("panel:login_photo_pick"), {"zdjecia": [1]}).status_code in (302, 403, 404)

@@ -1,4 +1,5 @@
 import logging
+import re
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -85,6 +86,52 @@ def landing(request):
 
 VIEW_COOKIE = "albumy_widok"
 VIEWS = ("kafelki", "lista")
+# 0.61.0: kolejność albumów na stronie archiwum (jak w Panelu, według lat albo w grupach).
+SORT_COOKIE = "albumy_kolejnosc"
+SORTS = {"domyslnie": "Domyślnie", "lata": "Chronologicznie", "grupy": "Według grup"}
+NO_GROUP = "Pozostałe"
+
+
+def _first_year(card):
+    if card.album.year_from:
+        return card.album.year_from
+    match = re.search(r"\d{4}", card.years or "")
+    return int(match[0]) if match else None
+
+
+def _by_years(cards):
+    """Od najstarszych; albumy bez lat na końcu, w kolejności z Panelu."""
+    return sorted(cards, key=lambda c: (_first_year(c) is None, _first_year(c) or 0))
+
+
+def _by_groups(cards, user):
+    """Sekcje według grup (kodów rodzinnych). Album w kilku grupach jest w każdej z nich.
+
+    Zwykła osoba widzi sekcje tylko swoich grup; administrator i grupy „widzi wszystkie albumy”
+    widzą wszystkie grupy.
+    """
+    shown = None
+    if not user.is_superuser and not user.family_groups.filter(sees_all_albums=True).exists():
+        shown = set(user.family_groups.values_list("pk", flat=True))
+    links = Album.groups.through.objects.filter(album_id__in=[c.album.pk for c in cards]).select_related(
+        "familygroup"
+    )
+    groups_of = {}
+    for link in links:
+        if shown is None or link.familygroup_id in shown:
+            groups_of.setdefault(link.album_id, []).append(link.familygroup)
+    sections = {}
+    rest = []
+    for card in cards:
+        groups = groups_of.get(card.album.pk)
+        if not groups:
+            rest.append(card)
+        for group in groups or []:
+            sections.setdefault(group.name, []).append(card)
+    result = [{"title": name, "cards": sections[name]} for name in sorted(sections, key=str.lower)]
+    if rest:
+        result.append({"title": NO_GROUP, "cards": rest})
+    return result
 
 
 @require_safe
@@ -98,12 +145,23 @@ def archive_home(request):
     layout = chosen if chosen in VIEWS else request.COOKIES.get(VIEW_COOKIE)
     if layout not in VIEWS:
         layout = VIEWS[0]
+    sort_chosen = request.GET.get("sort")
+    sort = sort_chosen if sort_chosen in SORTS else request.COOKIES.get(SORT_COOKIE)
+    if sort not in SORTS:
+        sort = "domyslnie"
+    cards = album_cards(albums, request.user)
+    if sort == "lata":
+        cards = _by_years(cards)
+    sections = _by_groups(cards, request.user) if sort == "grupy" else [{"title": "", "cards": cards}]
     favorites = favorite_photos(request.user)
     response = render(
         request,
         "core/archive_home.html",
         {
-            "cards": album_cards(albums, request.user),
+            "cards": cards,
+            "sections": sections,
+            "sort": sort,
+            "sorts": SORTS,
             "layout": layout,
             "favorite_count": favorites.count(),
             "favorite_cover": favorites.first(),
@@ -113,6 +171,8 @@ def archive_home(request):
     )
     if chosen in VIEWS:
         response.set_cookie(VIEW_COOKIE, chosen, max_age=365 * 24 * 3600, samesite="Lax")
+    if sort_chosen in SORTS:
+        response.set_cookie(SORT_COOKIE, sort_chosen, max_age=365 * 24 * 3600, samesite="Lax")
     return response
 
 
