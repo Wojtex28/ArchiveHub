@@ -10,4 +10,5 @@ urlpatterns = [
     path("healthz/pelny", views.healthz_full, name="healthz_full"),
     path("motyw/", theme.set_theme, name="set_theme"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
+    path("favicon.ico", views.favicon, name="favicon"),
 ]

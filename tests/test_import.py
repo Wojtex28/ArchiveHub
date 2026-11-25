@@ -67,6 +67,22 @@ def test_folder_waits_until_stable(dirs):
     assert Album.objects.get().photo_count == 2
 
 
+def test_renamed_folder_does_not_hang_in_queue(dirs):
+    """0.60.0: zmiana nazwy folderu przed importem nie zostawia wiszącego „czeka na koniec kopiowania”."""
+    old = dirs.ARCHIVEHUB_IMPORT_DIR / "Miszmasz_Pociete"
+    scan(old, "001.jpg")
+    start = timezone.now()
+    scan_import_dir(now=start)
+    old.rename(dirs.ARCHIVEHUB_IMPORT_DIR / "39_Miszmasz_Pociete")
+    scan_import_dir(now=start + timedelta(minutes=1))
+    assert list(ImportJob.objects.values_list("folder", "status")) == [
+        ("39_Miszmasz_Pociete", ImportJob.WAITING)
+    ]
+    finished = scan_import_dir(now=start + timedelta(minutes=12))
+    assert [j.folder for j in finished] == ["39_Miszmasz_Pociete"]
+    assert ImportJob.objects.count() == 1
+
+
 def test_empty_folders_and_other_files_are_ignored(dirs):
     (dirs.ARCHIVEHUB_IMPORT_DIR / "Pusty").mkdir()
     (dirs.ARCHIVEHUB_IMPORT_DIR / "Notatki").mkdir()

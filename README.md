@@ -56,6 +56,8 @@ w projekcie.
 | 56 | Zdjęcia dodane do osoby (np. grób co roku) | **gotowe** |
 | 57 | Kolejność związków, wdowa / wdowiec | **gotowe** |
 | 58 | Rocznice na stronie archiwum | **gotowe** |
+| 59 | Pasy pokoleń rosną z liczbą linii | **gotowe** |
+| 60 | Menu panelu z boku, favicon, import po zmianie nazwy | **gotowe** |
 
 ## Technologie
 

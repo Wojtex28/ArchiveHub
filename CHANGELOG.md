@@ -15,6 +15,12 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.60.0 (2026-11-25) · ETAP 60: menu panelu, favicon, import po zmianie nazwy
+
+- **Menu Panelu** jest teraz z boku, w trzech grupach z ikonami: Przegląd, Zdjęcia, Ludzie i dostęp. Bieżąca zakładka ma wypełnione tło. Na telefonie menu to jeden przewijany w bok pasek, bez łamania na dwa wiersze.
+- **Favicon**: pikselowa ikonka w stylu lat 90, stos trzech neonowych albumów ze zdjęciem z zachodem słońca. Działa też jako ikonka na ekranie iPhone'a; `/favicon.ico` odsyła do pliku.
+- **Import**: gdy folder w udziale zmieni nazwę (albo zniknie) zanim się zaimportuje, wpis „czeka na koniec kopiowania” pod starą nazwą sam znika z Synchronizacji. Wiszący wpis zniknie po aktualizacji przy pierwszym przejściu workera.
+
 ## 0.59.0 (2026-11-16) · ETAP 59: pasy pokoleń rosną z liczbą linii
 
 - **Odstęp między pokoleniami nie jest już stały.** Gdy w jednym odstępie biegnie dużo linii rodzin (duże drzewo, wielu teściów), rząd dzieci odsuwa się niżej, aż wszystkie szyny zmieszczą się osobno, co 16 px. Wcześniej przy dużym drzewie szyny zbijały się w jedną, wchodziły na kafelki rodziców i na granice pasów.

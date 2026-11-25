@@ -177,9 +177,11 @@ def scan_import_dir(now=None):
         return []
     stable_for = timedelta(minutes=settings.ARCHIVEHUB_IMPORT_STABLE_MINUTES)
     finished = _run_reprocess_requests(root)
+    present = set()
     for folder in sorted(root.iterdir(), key=lambda p: natural_key(p.name)):
         if not folder.is_dir() or folder.name.startswith("."):
             continue
+        present.add(folder.name)
         try:
             files = _scan_files(folder)
             if not files:
@@ -201,7 +203,20 @@ def scan_import_dir(now=None):
                 job.save(update_fields=["signature", "stable_since", "note"])
             elif now - job.stable_since >= stable_for and not finished and _has_room(job, files):
                 finished.append(run_import(job, folder))
+    _forget_vanished(present)
     return finished
+
+
+def _forget_vanished(present):
+    """0.60.0: folder zniknął z udziału przed importem (np. zmiana nazwy w trakcie czekania).
+
+    Wpis „czeka na koniec kopiowania” nie ma już czego zaimportować, więc znika z kolejki. Folder
+    pod nową nazwą jest osobnym wpisem i importuje się normalnie.
+    """
+    gone = ImportJob.objects.filter(status=ImportJob.WAITING, is_reprocess=False).exclude(folder__in=present)
+    for job in gone:
+        logger.info("Import: folder %s zniknął z udziału przed importem, usuwam go z kolejki", job.folder)
+    gone.delete()
 
 
 def free_space():

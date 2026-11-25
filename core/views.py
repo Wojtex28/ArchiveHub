@@ -3,8 +3,9 @@ import logging
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import connection
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
@@ -176,5 +177,11 @@ def healthz_full(request):
 
 
 @require_safe
+@require_safe
+def favicon(request):
+    """Przeglądarki pytają o /favicon.ico same z siebie (0.60.0): odsyłamy do pliku ze static."""
+    return HttpResponsePermanentRedirect(static("img/favicon.ico"))
+
+
 def robots_txt(request):
     return HttpResponse("User-agent: *\nDisallow: /\n", content_type="text/plain")
