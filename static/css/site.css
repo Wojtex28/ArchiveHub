@@ -318,7 +318,8 @@ button.button--quiet { border: 1px solid var(--rule-strong); }
   border-bottom: 1px solid var(--rule);
 }
 
-.app-header__title { font: 400 1.25rem/1.2 var(--serif); color: var(--ink); text-decoration: none; }
+.app-header__title { display: inline-flex; align-items: center; gap: 0.625rem; font: 400 1.25rem/1.2 var(--serif); color: var(--ink); text-decoration: none; }
+.app-header__logo { flex: none; width: 2rem; height: 2rem; image-rendering: pixelated; }
 .app-header__nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; }
 .app-header__nav a, .app-header__nav .link-button { color: var(--ink); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
 .app-header__nav a:hover, .app-header__nav .link-button:hover { text-decoration: underline; }

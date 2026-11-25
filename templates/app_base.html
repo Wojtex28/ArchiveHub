@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% load static %}
 {% block body_class %}page-app{% endblock %}
 {% block content %}
 <header class="app-header">
-  <a class="app-header__title" href="{% url 'archive' %}">{{ site_title }}</a>
+  <a class="app-header__title" href="{% url 'archive' %}"><img class="app-header__logo" src="{% static 'img/logo.svg' %}" alt="" width="32" height="32">{{ site_title }}</a>
   <nav class="app-header__nav" aria-label="Menu">
     <a href="{% url 'archive' %}">Archiwum</a>
     <a href="{% url 'albums:favorites' %}">Ulubione</a>

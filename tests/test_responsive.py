@@ -34,3 +34,8 @@ def test_favicon(client, db):
     assert "img/favicon.ico" in page and "img/apple-touch-icon.png" in page
     response = client.get("/favicon.ico")
     assert response.status_code == 301 and response["Location"].endswith("img/favicon.ico")
+
+
+def test_logo_in_header(master_client):
+    page = master_client.get(reverse("panel:dashboard")).content.decode()
+    assert 'class="app-header__logo"' in page and "img/logo.svg" in page
