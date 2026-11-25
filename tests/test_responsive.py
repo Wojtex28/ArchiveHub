@@ -19,3 +19,23 @@ def test_gallery_hint_mentions_zoom(client, make_user, group, db):
     client.force_login(user)
     page = client.get(reverse("albums:gallery", args=[album.pk])).content.decode()
     assert "powiększysz dwuklikiem, kółkiem myszy albo dwoma palcami" in page
+
+
+def test_panel_menu_is_grouped(master_client):
+    """0.60.0: menu panelu w grupach, bieżąca zakładka zaznaczona."""
+    page = master_client.get(reverse("panel:sync")).content.decode()
+    assert 'class="panel-nav"' in page
+    assert page.index("Przegląd") < page.index("Zdjęcia") < page.index("Ludzie i dostęp")
+    assert page.count('aria-current="page"') == 1
+
+
+def test_favicon(client, db):
+    page = client.get(reverse("landing")).content.decode()
+    assert "img/favicon.ico" in page and "img/apple-touch-icon.png" in page
+    response = client.get("/favicon.ico")
+    assert response.status_code == 301 and response["Location"].endswith("img/favicon.ico")
+
+
+def test_logo_in_header(master_client):
+    page = master_client.get(reverse("panel:dashboard")).content.decode()
+    assert 'class="app-header__logo"' in page and "img/logo.svg" in page
