@@ -15,6 +15,13 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.61.0 (2026-11-25) · ETAP 61: kolejność albumów, mniejsze kafelki, tło logowania z albumów
+
+- **Kolejność albumów** na stronie archiwum, obok przełącznika kafelki/lista: **Domyślnie** (jak w Panelu), **Chronologicznie** (od najstarszych; albumy bez lat na końcu), **Według grup** (sekcja na każdą grupę, czyli kod rodzinny; album w kilku grupach jest w każdej z nich, a albumy bez grupy w „Pozostałe”). Zwykła osoba widzi sekcje tylko swoich grup. Wybór zostaje zapamiętany.
+- **Mniejsze albumy**: wiersze listy są niższe (mniejsza okładka, mniejsze odstępy), kafelki odrobinę mniejsze i mieści się ich 4 w rzędzie na szerokim ekranie (3 na węższym).
+- **Tło logowania**: nowa sekcja „Wybierz z albumów”. Wybierasz album, zaznaczasz miniatury i „Dodaj do tła”. Zdjęcia już dodane mają ✓, a w tle mają znaczek „z albumu”. Obrót ustawiony w archiwum jest uwzględniony. Wgrywanie z dysku zostaje obok.
+- Migracja dodaje tylko pole `source_photo` przy zdjęciu w tle.
+
 ## 0.60.0 (2026-11-25) · ETAP 60: menu panelu, favicon, import po zmianie nazwy
 
 - **Menu Panelu** jest teraz z boku, w trzech grupach z ikonami: Przegląd, Zdjęcia, Ludzie i dostęp. Bieżąca zakładka ma wypełnione tło. Na telefonie menu to jeden przewijany w bok pasek, bez łamania na dwa wiersze.

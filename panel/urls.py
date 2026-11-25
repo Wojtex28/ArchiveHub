@@ -35,6 +35,7 @@ urlpatterns = [
     path("synchronizacja/", views.sync, name="sync"),
     path("stan/", views.server_status, name="server_status"),
     path("tlo-logowania/", views.login_photos, name="login_photos"),
+    path("tlo-logowania/z-albumu/", views.login_photo_pick, name="login_photo_pick"),
     path("tlo-logowania/<int:pk>.jpg", views.login_photo_preview, name="login_photo_preview"),
     path("tlo-logowania/<int:pk>/pokazuj/", views.login_photo_toggle, name="login_photo_toggle"),
     path("tlo-logowania/<int:pk>/usun/", views.login_photo_delete, name="login_photo_delete"),

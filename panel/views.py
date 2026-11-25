@@ -31,6 +31,7 @@ from albums.models import (
     Comment,
     ImportJob,
     Person,
+    Photo,
     PhotoChange,
     SyncReport,
     Tag,
@@ -41,7 +42,7 @@ from albums.search import refresh_search_text
 from albums.sync import albums_dir, sync_albums
 from config import __version__
 from core import backup, status
-from core.login_photos import delete_login_photo, save_login_photo
+from core.login_photos import delete_login_photo, save_login_photo, save_login_photo_from_album
 from core.models import Event, LoginPhoto
 from family import checks as family_checks
 from family import tree as family_tree
@@ -523,7 +524,47 @@ def login_photos(request):
         for error in errors:
             messages.error(request, error)
         return redirect("panel:login_photos")
-    return render(request, "panel/login_photos.html", {"form": form, "photos": LoginPhoto.objects.all()})
+    # 0.61.0: wybór z albumów. Album z listy (?album=), a w nim miniatury do zaznaczenia.
+    albums = list(Album.objects.filter(folder_missing=False))
+    chosen_album = None
+    if album_id := request.GET.get("album"):
+        chosen_album = next((a for a in albums if str(a.pk) == album_id), None)
+    used = set(LoginPhoto.objects.exclude(source_photo=None).values_list("source_photo_id", flat=True))
+    return render(
+        request,
+        "panel/login_photos.html",
+        {
+            "form": form,
+            "photos": LoginPhoto.objects.all(),
+            "albums": albums,
+            "chosen_album": chosen_album,
+            "album_photos": list(chosen_album.photos.all()) if chosen_album else [],
+            "used": used,
+        },
+    )
+
+
+@master_required
+@require_POST
+def login_photo_pick(request):
+    """Dodaje do tła zaznaczone zdjęcia z albumu (0.61.0)."""
+    ids = [int(pk) for pk in request.POST.getlist("zdjecia") if pk.isdigit()]
+    used = set(LoginPhoto.objects.exclude(source_photo=None).values_list("source_photo_id", flat=True))
+    added, errors = 0, []
+    for photo in Photo.objects.filter(pk__in=ids).exclude(pk__in=used).select_related("album"):
+        try:
+            save_login_photo_from_album(photo)
+            added += 1
+        except ValidationError as exc:
+            errors.extend(exc.messages)
+    if added:
+        messages.success(request, f"Dodano do tła zdjęcia z albumu: {added}.")
+    elif not errors:
+        messages.info(request, "Nie zaznaczono żadnego nowego zdjęcia.")
+    for error in errors:
+        messages.error(request, error)
+    album = request.POST.get("album", "")
+    return redirect(reverse("panel:login_photos") + (f"?album={album}#z-albumow" if album.isdigit() else ""))
 
 
 @master_required

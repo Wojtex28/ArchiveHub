@@ -27,8 +27,26 @@ def save_login_photo(uploaded):
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise ValidationError(f"{uploaded.name}: to nie jest obsługiwany plik zdjęcia.") from exc
 
+    return _store(image)
+
+
+def save_login_photo_from_album(source):
+    """0.61.0: kopia zdjęcia z albumu (wersja do oglądania, z obrotem, którego nie ma jeszcze w pliku)."""
+    path = source.preview_path() if source.preview_path().is_file() else source.legacy_path()
+    try:
+        with Image.open(path) as opened:
+            opened.draft("RGB", (MAX_SIDE * 2, MAX_SIDE * 2))
+            image = opened.convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ValidationError(f"{source}: brak pliku zdjęcia na dysku.") from exc
+    if source.pending_front:
+        image = image.rotate(-source.pending_front, expand=True)  # CSS obraca w prawo, Pillow w lewo
+    return _store(image, source_photo=source)
+
+
+def _store(image, source_photo=None):
     image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-    photo = LoginPhoto(key=uuid.uuid4(), width=image.width, height=image.height)
+    photo = LoginPhoto(key=uuid.uuid4(), width=image.width, height=image.height, source_photo=source_photo)
     settings.ARCHIVEHUB_LOGIN_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
     # Pillow zapisuje EXIF tylko na wyraźne żądanie, więc plik nie niesie danych z aparatu (np. GPS).
     image.save(photo.path, "JPEG", quality=82, optimize=True, progressive=True)
