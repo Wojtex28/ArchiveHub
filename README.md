@@ -59,6 +59,7 @@ w projekcie.
 | 59 | Pasy pokoleń rosną z liczbą linii | **gotowe** |
 | 60 | Menu panelu z boku, favicon, import po zmianie nazwy | **gotowe** |
 | 61 | Kolejność albumów, mniejsze kafelki, tło logowania z albumów | **gotowe** |
+| 62 | Oś lat w albumach, rok śmierci na osi czasu | w PR |
 
 ## Technologie
 

@@ -15,6 +15,15 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.62.0 (2026-11-26) · ETAP 62: oś lat w albumach, rok śmierci na osi czasu
+
+- „Chronologicznie” na stronie archiwum pokazuje albumy na pionowej osi lat: przy każdym roku
+  (roku, od którego album się zaczyna) kropka, liczba albumów i same albumy. Rok zostaje u góry
+  ekranu, dopóki widać jego albumy. Albumy bez dat są na końcu, w sekcji „Bez dat”.
+- Naprawa: osoba z datą śmierci mogła nie mieć zapisanego roku śmierci, więc na osi czasu drzewa
+  jej pasek wygasał jak przy nieznanej dacie, a pod nazwiskiem było „1922 – †”. Rok liczy się teraz
+  z daty przy każdym zapisie osoby, a migracja przelicza lata wszystkim osobom (bez zmian w tabelach).
+
 ## 0.61.0 (2026-11-25) · ETAP 61: kolejność albumów, mniejsze kafelki, tło logowania z albumów
 
 - **Kolejność albumów** na stronie archiwum, obok przełącznika kafelki/lista: **Domyślnie** (jak w Panelu), **Chronologicznie** (od najstarszych; albumy bez lat na końcu), **Według grup** (sekcja na każdą grupę, czyli kod rodzinny; album w kilku grupach jest w każdej z nich, a albumy bez grupy w „Pozostałe”). Zwykła osoba widzi sekcje tylko swoich grup. Wybór zostaje zapamiętany.
