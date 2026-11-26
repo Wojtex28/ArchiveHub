@@ -1682,3 +1682,22 @@ a.chip { color: inherit; text-decoration: none; }
 }
 .gallery-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .gallery-head h1 { margin-bottom: 0.5rem; }
+
+/* ETAP 62: „Chronologicznie” jako oś lat. Pionowa linia z lewej, przy niej rok, od którego
+   zaczynają się albumy; rok zostaje przyklejony u góry, dopóki widać jego albumy. */
+.album-years { position: relative; margin: 0; padding: 0; list-style: none; }
+.album-years::before { content: ""; position: absolute; top: 0.75rem; bottom: 0.75rem; left: 0.4375rem; width: 2px; border-radius: 1px; background: var(--rule-strong); }
+.album-year { position: relative; padding: 0 0 1.75rem 2rem; }
+.album-year:last-child { padding-bottom: 0; }
+.album-year__label { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 0.625rem; margin: 0 0 0.625rem -2rem; padding: 0.375rem 0 0.375rem 2rem; background: var(--paper); font: 400 1.5rem/1.2 var(--serif); }
+.album-year__label::before { content: ""; position: absolute; left: 0; top: 50%; width: 16px; height: 16px; margin-top: -8px; border: 3px solid var(--paper); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.album-year__year { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.album-year__count { color: var(--ink-quiet); font: 400 0.8125rem/1 var(--sans); }
+.album-year--none .album-year__label::before { background: var(--paper); box-shadow: 0 0 0 1px var(--rule-strong); }
+.album-year--none .album-year__year { color: var(--ink-quiet); }
+@media (max-width: 40rem) {
+  .album-year { padding-left: 1.5rem; }
+  .album-year__label { margin-left: -1.5rem; padding-left: 1.5rem; font-size: 1.3125rem; }
+  .album-years::before { left: 0.375rem; }
+  .album-year__label::before { width: 14px; height: 14px; margin-top: -7px; }
+}

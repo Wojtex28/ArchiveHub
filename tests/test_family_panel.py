@@ -111,3 +111,26 @@ def test_portrait_crop_is_saved_and_defaults_to_center(master_client, db):
     assert master_client.post(url, {"name": "Jan Bereza"}, content_type="application/json").status_code == 200
     person.refresh_from_db()
     assert (person.portrait_x, person.portrait_y, person.portrait_zoom) == (20, 80.5, 4)
+
+
+def test_person_years_follow_dates_whatever_the_path(db):
+    """ETAP 62: rok śmierci liczy się z daty przy każdym zapisie (był pasek osi czasu bez końca)."""
+    person = Person.objects.create(name="Stanisław Szyndlar", in_tree=True, birth_date="11.11.1922")
+    assert (person.birth_year, person.death_year) == (1922, None)
+    person.death_date = "25.04.2014"
+    person.save(update_fields=["death_date"])
+    person.refresh_from_db()
+    assert person.death_year == 2014 and "2014" in person.life
+
+
+def test_migration_fills_missing_years(db):
+    import importlib
+
+    from django.apps import apps
+
+    person = Person.objects.create(name="Jan Bereza", in_tree=True, death_date="lata 20.")
+    Person.objects.filter(pk=person.pk).update(death_year=None, birth_year=1800)
+    migration = importlib.import_module("albums.migrations.0020_lata_osob")
+    migration.fill_years(apps, None)
+    person.refresh_from_db()
+    assert (person.birth_year, person.death_year) == (None, 1924)

@@ -427,6 +427,17 @@ class NamedModel(models.Model):
         super().save(*args, **kwargs)
 
 
+def person_year(text):
+    """Rok do sortowania z tekstu daty osoby: środek zakresu („lata 20.” → 1924), ``None`` gdy brak."""
+    from .dates import DateError, parse_date
+
+    try:
+        date = parse_date(text or "")
+    except DateError:
+        return None
+    return (date.year_from + date.year_to) // 2 if date else None
+
+
 class Person(NamedModel):
     """Osoba rozpoznana przez rodzinę na zdjęciach (bez rozpoznawania twarzy).
 
@@ -475,6 +486,13 @@ class Person(NamedModel):
             from .names import guess_gender
 
             self.gender = guess_gender(self.name)
+        # ETAP 62: rok liczy się zawsze z tekstu daty, więc nie rozjedzie się z datą wpisaną
+        # dowolną drogą (formularz, cofnięcie zmiany, łączenie osób).
+        self.birth_year = person_year(self.birth_date)
+        self.death_year = person_year(self.death_date)
+        fields = kwargs.get("update_fields")
+        if fields is not None and {"birth_date", "death_date"} & set(fields):
+            kwargs["update_fields"] = {*fields, "birth_year", "death_year"}
         super().save(*args, **kwargs)
 
     @staticmethod

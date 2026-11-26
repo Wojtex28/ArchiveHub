@@ -90,6 +90,7 @@ VIEWS = ("kafelki", "lista")
 SORT_COOKIE = "albumy_kolejnosc"
 SORTS = {"domyslnie": "Domyślnie", "lata": "Chronologicznie", "grupy": "Według grup"}
 NO_GROUP = "Pozostałe"
+NO_YEAR = "Bez dat"
 
 
 def _first_year(card):
@@ -102,6 +103,18 @@ def _first_year(card):
 def _by_years(cards):
     """Od najstarszych; albumy bez lat na końcu, w kolejności z Panelu."""
     return sorted(cards, key=lambda c: (_first_year(c) is None, _first_year(c) or 0))
+
+
+def _year_sections(cards):
+    """ETAP 62: albumy chronologicznie z podziałem na lata (rok, od którego album się zaczyna)."""
+    sections = []
+    for card in _by_years(cards):
+        year = _first_year(card)
+        title = str(year) if year is not None else NO_YEAR
+        if not sections or sections[-1]["title"] != title:
+            sections.append({"title": title, "year": year, "cards": []})
+        sections[-1]["cards"].append(card)
+    return sections
 
 
 def _by_groups(cards, user):
@@ -151,8 +164,11 @@ def archive_home(request):
         sort = "domyslnie"
     cards = album_cards(albums, request.user)
     if sort == "lata":
-        cards = _by_years(cards)
-    sections = _by_groups(cards, request.user) if sort == "grupy" else [{"title": "", "cards": cards}]
+        sections = _year_sections(cards)
+    elif sort == "grupy":
+        sections = _by_groups(cards, request.user)
+    else:
+        sections = [{"title": "", "cards": cards}]
     favorites = favorite_photos(request.user)
     response = render(
         request,

@@ -1,6 +1,7 @@
 """ETAP 49: lista albumów: czytelne nazwy z folderów, okładka-mozaika, lata i liczba osób."""
 # ruff: noqa: F811
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -139,6 +140,10 @@ def test_archive_sorting(client, albums, group):
     page = client.get(reverse("archive") + "?sort=lata").content.decode()
     assert _titles(page) == ["Stary album", "Zielony album", "Brązowy ze Zlota Obramowka"]
     assert client.cookies["albumy_kolejnosc"].value == "lata"
+    # ETAP 62: oś lat, każdy rok ze swoimi albumami
+    years = re.findall(r'class="album-year__year">([^<]+)<', page)
+    assert years[0] == "1930" and years == sorted(set(years), key=years.index)
+    assert "1 album<" in page
     # bez parametru pamięta wybór z ciasteczka
     assert _titles(client.get(reverse("archive")).content.decode())[0] == "Stary album"
 

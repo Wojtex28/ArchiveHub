@@ -55,12 +55,25 @@
       {% endif %}
     </div>
     {% if cards %}
+    {% if sort == "lata" %}
+    <ol class="album-years" aria-label="Albumy według lat">
+      {% for section in sections %}
+      <li class="album-year{% if section.year is None %} album-year--none{% endif %}">
+        <h3 class="album-year__label"><span class="album-year__year">{{ section.title }}</span> <span class="album-year__count">{{ section.cards|length }} {% if section.cards|length == 1 %}album{% elif section.cards|length < 5 %}albumy{% else %}albumów{% endif %}</span></h3>
+        <ul class="album-grid album-grid--{{ layout }}" data-album-list>
+          {% for card in section.cards %}{% include "core/includes/album_card.html" %}{% endfor %}
+        </ul>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
     {% for section in sections %}
     {% if section.title %}<h3 class="album-section">{{ section.title }} <span class="section-title__count">{{ section.cards|length }}</span></h3>{% endif %}
     <ul class="album-grid album-grid--{{ layout }}" data-album-list>
       {% for card in section.cards %}{% include "core/includes/album_card.html" %}{% endfor %}
     </ul>
     {% endfor %}
+    {% endif %}
     {% else %}
     <div class="empty-state">
       <p>Nie widzisz jeszcze żadnych albumów.</p>
