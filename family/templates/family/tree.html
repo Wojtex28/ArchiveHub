@@ -14,6 +14,7 @@
       <span class="tree-modes" role="group" aria-label="Widok">
         <button type="button" class="tree-mode is-active" data-tree-mode="drzewo" aria-pressed="true">Drzewo</button>
         <button type="button" class="tree-mode" data-tree-mode="os" aria-pressed="false">Oś czasu</button>
+        <a class="tree-mode" href="{% url 'family:kalendarium' %}">Kalendarium</a>
       </span>
       {% if user.can_edit_tree %}<button type="button" class="button" data-tree-action="add">+ Osoba</button>{% endif %}
       <button type="button" class="icon-button tree-check" data-tree-action="check" aria-label="Sprawdzanie drzewa" title="Sprawdzanie drzewa"><span class="tree-check__icon" aria-hidden="true">✓</span><span class="tree-check__count"></span></button>

@@ -14,8 +14,9 @@ from albums.models import Person, Photo
 from albums.search import refresh_search_text
 from core.middleware import CONTENT_SECURITY_POLICY
 
-from . import chronology, person_photos, tree
+from . import chronology, kalendarium, person_photos, tree
 from .forms import (
+    FamilyEventForm,
     LifeEventForm,
     NewPersonForm,
     PersonForm,
@@ -23,7 +24,7 @@ from .forms import (
     PersonPhotoUploadForm,
     RelationForm,
 )
-from .models import LifeEvent, PersonPhoto
+from .models import FamilyEvent, LifeEvent, Partnership, PersonPhoto
 
 PHOTOS_SHOWN = 60
 
@@ -454,3 +455,126 @@ def event_remove(request, pk):
     tree.remove_event(request.user, event)
     messages.success(request, "Usunięto zdarzenie. W razie pomyłki wraca przez Panel → Drzewo.")
     return redirect(reverse("family:person", args=[person.pk]) + "#chronologia")
+
+
+# --- Kalendarium (ETAP 63) ----------------------------------------------------------------------
+
+
+def _kalendarium_url(request, anchor=""):
+    query = {k: request.POST.get(k) for k in ("pokaz", "osoba") if request.POST.get(k)}
+    url = reverse("family:kalendarium")
+    if query:
+        url += "?" + "&".join(f"{k}={v}" for k, v in query.items())
+    return url + (f"#{anchor}" if anchor else "")
+
+
+@tree_access()
+@require_safe
+def kalendarium_page(request):
+    return _kalendarium(request)
+
+
+def _kalendarium(request, form=None, status=200):
+    show = request.GET.get("pokaz")
+    show = show if show in kalendarium.FILTERS else "wszystko"
+    person = None
+    if request.GET.get("osoba", "").isdigit():
+        person = Person.objects.filter(pk=request.GET["osoba"], in_tree=True).first()
+    found = kalendarium.filtered(kalendarium.entries(request.user), show, person)
+    grouped = kalendarium.years(found)
+    return render(
+        request,
+        "family/kalendarium.html",
+        {
+            "years": grouped,
+            "decades": kalendarium.decades(grouped),
+            "filters": {key: label for key, (label, _) in kalendarium.FILTERS.items()},
+            "show": show,
+            "chosen": person,
+            "count": len(found),
+            "form": form or FamilyEventForm(label_suffix=""),
+            "can_edit": request.user.can_edit_tree,
+        },
+        status=status,
+    )
+
+
+@tree_access(edit=True)
+@require_POST
+def kalendarium_add(request):
+    form = FamilyEventForm(request.POST, label_suffix="")
+    if not form.is_valid():
+        return _kalendarium(request, form=form, status=400)
+    data = form.cleaned_data
+    person = data["person"]
+    if person is not None:
+        values = {
+            "kind": data["kind"],
+            "title": data["title"],
+            "date": data["date"],
+            "place": data["place"],
+            "note": data["note"],
+        }
+        with transaction.atomic():
+            tree.save_event(request.user, person, values)
+        event = person.life_events.order_by("-pk").first()
+        anchor = f"k-z-{event.pk}"
+    else:
+        event = FamilyEvent.objects.create(
+            kind=data["kind"],
+            title=data["title"],
+            date=data["date"],
+            year=form.year,
+            place=data["place"],
+            note=data["note"],
+            created_by=request.user,
+        )
+        anchor = f"k-r-{event.pk}"
+    messages.success(request, f"Dodano do Kalendarium: {data['title']}.")
+    return redirect(_kalendarium_url(request, anchor))
+
+
+@tree_access(edit=True)
+@require_POST
+def kalendarium_note(request):
+    """Opis wpisu w Kalendarium. Opis urodzenia, śmierci, ślubu i zdarzenia widać też na kartach osób."""
+    key = request.POST.get("klucz", "")
+    text = request.POST.get("opis", "").strip()[:2000]
+    kind, _, pk = key.partition("-")
+    if not pk.isdigit():
+        raise Http404
+    pk = int(pk)
+    with transaction.atomic():
+        if kind in ("u", "s"):
+            person = get_object_or_404(Person, pk=pk, in_tree=True)
+            before = tree.snapshot(person)
+            setattr(person, "birth_note" if kind == "u" else "death_note", text)
+            person.save()
+            tree.edit_person(request.user, person, before)
+        elif kind == "p":
+            pair = get_object_or_404(Partnership.objects.select_related("person1", "person2"), pk=pk)
+            tree.edit_couple(request.user, pair.person1, pair.person2, pair.since, pair.ended, note=text)
+        elif kind == "z":
+            event = get_object_or_404(LifeEvent.objects.select_related("person"), pk=pk)
+            tree.save_event(request.user, event.person, {**tree.event_data(event), "note": text}, event=event)
+        elif kind == "r":
+            event = get_object_or_404(FamilyEvent, pk=pk)
+            event.note = text
+            event.save(update_fields=["note"])
+        else:
+            raise Http404
+    messages.success(request, "Zapisano opis." if text else "Usunięto opis.")
+    return redirect(_kalendarium_url(request, f"k-{key}"))
+
+
+@tree_access(edit=True)
+@require_POST
+def kalendarium_remove(request, pk):
+    """Wydarzenie rodzinne usuwa ten, kto je dodał, albo administrator."""
+    event = get_object_or_404(FamilyEvent, pk=pk)
+    if not (request.user.is_superuser or event.created_by_id == request.user.pk):
+        messages.error(request, "Wydarzenie może usunąć tylko osoba, która je dodała.")
+    else:
+        event.delete()
+        messages.success(request, f"Usunięto z Kalendarium: {event.title}.")
+    return redirect(_kalendarium_url(request))

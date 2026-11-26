@@ -25,7 +25,10 @@
 </dl>
 {% if person.bio %}<div class="person-bio">{{ person.bio|linebreaks }}</div>{% endif %}
 
-<h2 id="chronologia">Chronologia</h2>
+<div class="chronology-head">
+  <h2 id="chronologia">Chronologia</h2>
+  <a class="chronology-head__link" href="{% url 'family:kalendarium' %}?osoba={{ person.pk }}"{% if embedded %} target="_blank" rel="noopener"{% endif %}>W Kalendarium →</a>
+</div>
 {% if timeline %}
 <ol class="chronology">
   {% for item in timeline %}
