@@ -262,3 +262,41 @@ class PersonPhotoUploadForm(PersonPhotoForm):
         if len(files) > MAX_FILES:
             raise forms.ValidationError(f"Naraz najwyżej {MAX_FILES} zdjęć.")
         return files
+
+
+class FamilyEventForm(forms.Form):
+    """Nowe wydarzenie w Kalendarium (ETAP 63): osoby (trafia na jej kartę) albo całej rodziny."""
+
+    title = forms.CharField(label="Co się wydarzyło", max_length=120)
+    date = forms.CharField(
+        label="Kiedy", max_length=60, help_text="Np. 1950, czerwiec 1950, 12.06.1950 albo ok. 1950."
+    )
+    person = forms.ModelChoiceField(
+        label="Kogo dotyczy",
+        queryset=Person.objects.none(),
+        required=False,
+        empty_label="Całej rodziny",
+    )
+    kind = forms.ChoiceField(label="Rodzaj", choices=LifeEvent.KINDS, initial="inne")
+    place = forms.CharField(label="Miejsce (opcjonalnie)", max_length=200, required=False)
+    note = forms.CharField(
+        label="Opis (opcjonalnie)", max_length=2000, required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["person"].queryset = Person.objects.filter(in_tree=True).order_by("key")
+        self.fields["date"].widget.attrs["placeholder"] = "np. 1950"
+
+    def clean_title(self):
+        return " ".join(self.cleaned_data["title"].split())
+
+    def clean_date(self):
+        try:
+            date = parse_date(self.cleaned_data["date"])
+        except DateError as exc:
+            raise forms.ValidationError(str(exc)) from None
+        if date is None:
+            raise forms.ValidationError("Wpisz, kiedy to było (wystarczy rok).")
+        self.year = _sort_year(date)
+        return date.text

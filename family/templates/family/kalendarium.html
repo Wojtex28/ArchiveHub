@@ -1,0 +1,100 @@
+{% extends "app_base.html" %}
+{% load static %}
+{% block title %}Kalendarium · {{ site_title }}{% endblock %}
+{% block main_class %}app-main--archive{% endblock %}
+{% block main %}
+<div class="kal-page">
+  <header class="kal-head">
+    <div>
+      <h1 class="kal-head__title">Kalendarium</h1>
+      <p class="kal-head__lead">Historia rodziny na jednej osi: urodzenia, śluby, śmierci, zdarzenia z kart osób i wydarzenia rodzinne.</p>
+    </div>
+    <nav class="tree-modes" aria-label="Widok drzewa">
+      <a class="tree-mode" href="{% url 'family:tree' %}">Drzewo</a>
+      <a class="tree-mode" href="{% url 'family:tree' %}?widok=os">Oś czasu</a>
+      <a class="tree-mode is-active" href="{% url 'family:kalendarium' %}" aria-current="page">Kalendarium</a>
+    </nav>
+  </header>
+
+  <div class="kal-tools">
+    <nav class="sort-switch" aria-label="Co pokazać">
+      {% for key, label in filters.items %}<a class="sort-switch__button" href="?pokaz={{ key }}{% if chosen %}&osoba={{ chosen.pk }}{% endif %}"{% if show == key %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+    {% if chosen %}<a class="kal-chosen" href="?pokaz={{ show }}" title="Pokaż wszystkich">Tylko: {{ chosen.name }} <span aria-hidden="true">×</span></a>{% endif %}
+    {% if can_edit %}
+    <details class="kal-add"{% if form.errors %} open{% endif %}>
+      <summary class="button">+ Dodaj wydarzenie</summary>
+      <form class="kal-add__form" method="post" action="{% url 'family:kalendarium_add' %}">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors.0 }}</p>{% endif %}
+        <div class="kal-add__grid">
+          {% for field in form %}
+          <div class="field kal-add__field kal-add__field--{{ field.name }}">
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.errors %}<p class="form-error">{{ field.errors.0 }}</p>{% elif field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <p class="hint">Wydarzenie osoby pojawi się też w chronologii na jej karcie. Wydarzenie całej rodziny jest tylko tutaj.</p>
+        <button type="submit" class="button">Dodaj do Kalendarium</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  {% if years %}
+  <nav class="kal-decades" aria-label="Przejdź do dziesięciolecia">
+    {% for decade, anchor in decades %}<a href="#{{ anchor }}">{{ decade }}</a>{% endfor %}
+  </nav>
+
+  <ol class="kal" aria-label="Kalendarium, {{ count }} wpisów">
+    {% for y in years %}
+    {% if y.gap_size %}<li class="kal-gap kal-gap--{{ y.gap_size }}" aria-hidden="true">{% if y.gap > 9 %}<span class="kal-gap__label">{{ y.gap }} lat bez wpisów</span>{% endif %}</li>{% endif %}
+    <li class="kal-year" id="rok-{{ y.year }}">
+      <h2 class="kal-year__label"><span>{{ y.year }}</span></h2>
+      <ul class="kal-year__entries">
+        {% for e in y.entries %}
+        <li class="kal-entry kal-entry--{{ e.side }} kal-entry--{{ e.kind }}" id="{{ e.anchor }}">
+          <span class="kal-entry__dot" aria-hidden="true">{{ e.icon }}</span>
+          <article class="kal-card{% if can_edit %} kal-card--edit{% endif %}">
+            <p class="kal-card__meta"><span class="kal-card__kind">{{ e.label }}</span>{% if e.when and e.when != y.year|stringformat:"s" %} · {{ e.when }}{% endif %}</p>
+            <h3 class="kal-card__title">{{ e.title_html }}</h3>
+            {% if e.place %}<p class="kal-card__place">{{ e.place }}</p>{% endif %}
+            {% if e.photo %}<a class="kal-card__photo" href="{% url 'albums:photo' e.photo.album_id e.photo.pk %}"><img class="rot-{{ e.photo.pending_front }}" src="{% url 'albums:thumb' e.photo.pk %}?v={{ e.photo.version_front }}" alt="Zdjęcie do wpisu: {{ e.title }}" loading="lazy"></a>{% endif %}
+            {% if e.note %}<p class="kal-card__note">{{ e.note|linebreaksbr }}</p>{% endif %}
+            {% if can_edit %}
+            <details class="kal-note">
+              <summary title="{% if e.note %}Zmień opis{% else %}Dodaj opis{% endif %}"><span aria-hidden="true">✎</span><span class="kal-note__text"> {% if e.note %}Zmień opis{% else %}Opisz{% endif %}</span></summary>
+              <form method="post" action="{% url 'family:kalendarium_note' %}">
+                {% csrf_token %}
+                <input type="hidden" name="klucz" value="{{ e.key }}">
+                {% if show != "wszystko" %}<input type="hidden" name="pokaz" value="{{ show }}">{% endif %}
+                {% if chosen %}<input type="hidden" name="osoba" value="{{ chosen.pk }}">{% endif %}
+                <label class="visually-hidden" for="opis-{{ e.key }}">Opis</label>
+                <textarea id="opis-{{ e.key }}" name="opis" rows="3" maxlength="2000" placeholder="Co warto wiedzieć o tym wydarzeniu?">{{ e.raw_note }}</textarea>
+                <div class="kal-note__buttons">
+                  <button type="submit" class="button button--small">Zapisz opis</button>
+                  {% if e.kind != "rodzinne" and e.kind != "slub" %}<span class="hint">Widać go też na karcie osoby.</span>{% elif e.kind == "slub" %}<span class="hint">Widać go też na kartach obojga.</span>{% endif %}
+                </div>
+              </form>
+            </details>
+            {% if e.family_event and user.is_superuser or e.family_event and e.family_event.created_by_id == user.pk %}
+            <form class="kal-card__remove" method="post" action="{% url 'family:kalendarium_remove' e.family_event.pk %}">{% csrf_token %}<button type="submit" class="link-button" data-confirm="Usunąć z Kalendarium „{{ e.title }}”?">Usuń wydarzenie</button></form>
+            {% endif %}
+            {% endif %}
+          </article>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="empty-state">
+    <p>{% if chosen or show != "wszystko" %}Nic tu nie pasuje do wybranego filtra.{% else %}Kalendarium ułoży się samo, gdy osoby w drzewie będą miały daty urodzenia, ślubu albo śmierci.{% endif %}</p>
+  </div>
+  {% endif %}
+</div>
+{% if can_edit %}<script src="{% static 'js/confirm.js' %}" defer></script>{% endif %}
+{% endblock %}

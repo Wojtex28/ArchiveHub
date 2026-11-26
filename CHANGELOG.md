@@ -15,6 +15,20 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.63.0 (2026-11-26) · ETAP 63: Kalendarium
+
+- Nowa zakładka „Kalendarium” w przełączniku drzewa (Drzewo | Oś czasu | Kalendarium): jedna pionowa
+  oś historii rodziny. Wpisy odchodzą od niej na zmianę w lewo i w prawo (na telefonie wszystkie
+  w prawo): urodzenia, śluby, śmierci, zdarzenia z kart osób i wydarzenia całej rodziny.
+- Skala dopasowuje się do wpisów: rok z wieloma wpisami rośnie, a puste lata zajmują tylko krótki
+  odstęp (przy dłuższej przerwie przerywana linia i podpis „23 lat bez wpisów”). Skok do dziesięciolecia
+  z paska u góry, filtr rodzaju wpisów i „tylko ta osoba” (link „W Kalendarium →” na karcie osoby).
+- Każdy wpis można opisać (✎ Opisz). Opis urodzenia, śmierci, ślubu i zdarzenia widać też w chronologii
+  na karcie osoby (ślubu na kartach obojga), zmiany trafiają do historii drzewa i da się je cofnąć.
+- „+ Dodaj wydarzenie”: wydarzenie osoby (trafia też na jej kartę) albo całej rodziny (tylko w Kalendarium;
+  usuwa je autor albo administrator).
+- Migracje tylko dodają pola (opisy osoby i pary) i tabelę wydarzeń rodzinnych.
+
 ## 0.62.0 (2026-11-26) · ETAP 62: oś lat w albumach, rok śmierci na osi czasu
 
 - „Chronologicznie” na stronie archiwum pokazuje albumy na pionowej osi lat: przy każdym roku

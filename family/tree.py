@@ -18,6 +18,8 @@ PERSON_FIELDS = [
     "death_date",
     "death_place",
     "burial_place",
+    "birth_note",
+    "death_note",
     "deceased",
     "bio",
     "portrait_id",
@@ -32,6 +34,8 @@ FIELD_LABELS = {
     "death_date": "data śmierci",
     "death_place": "miejsce śmierci",
     "burial_place": "pochówek",
+    "birth_note": "opis urodzenia",
+    "death_note": "opis śmierci",
     "deceased": "czy żyje",
     "bio": "historia",
     "portrait_id": "portret",
@@ -450,6 +454,7 @@ COUPLE_LABELS = {
     "widowed": "owdowienie",
     "order1": "kolejność związków",
     "order2": "kolejność związków",
+    "note": "opis ślubu",
 }
 
 
@@ -506,7 +511,9 @@ def couple_text(couple, person=None, other=None):
     return " · ".join(part for part in parts if part)
 
 
-def edit_couple(user, person, other, since, ended, reverts=None, place=None, widowed=None, **orders):
+def edit_couple(
+    user, person, other, since, ended, reverts=None, place=None, widowed=None, note=None, **orders
+):
     """Ślub, koniec związku i kolejność pary. Zwraca wpis historii albo ``None``, gdy nic się nie zmieniło.
 
     ``place=None`` i ``widowed=None`` zostawiają te pola bez zmian (strona otwarta przed zmianą ich
@@ -529,6 +536,8 @@ def edit_couple(user, person, other, since, ended, reverts=None, place=None, wid
         pair.widowed = False
     if place is not None:
         pair.place = " ".join(str(place).split())[:200]
+    if note is not None:
+        pair.note = str(note).strip()[:2000]
     for field in ("order1", "order2"):
         if field in orders:
             setattr(pair, field, orders[field])
@@ -844,6 +853,7 @@ def undo(user, change):
             widowed=values["widowed"],
             order1=values["order1"],
             order2=values["order2"],
+            note=values["note"],
         )
         if result is None:
             raise ValidationError("Ta para już jest taka jak przed zmianą.")

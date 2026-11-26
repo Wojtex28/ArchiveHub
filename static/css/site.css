@@ -1701,3 +1701,95 @@ a.chip { color: inherit; text-decoration: none; }
   .album-years::before { left: 0.375rem; }
   .album-year__label::before { width: 14px; height: 14px; margin-top: -7px; }
 }
+
+/* --- Kalendarium (ETAP 63) -------------------------------------------------------------------
+   Jedna pionowa oś na środku, wpisy na zmianę z lewej i prawej (na telefonie wszystkie z prawej).
+   Lata bez wpisów nie zajmują miejsca: odstęp kal-gap rośnie tylko z liczbą pustych lat. */
+.chronology-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.chronology-head__link { font-size: 0.9375rem; white-space: nowrap; }
+.kal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.kal-head__title { margin: 0; font: 400 2.25rem/1.15 var(--serif); }
+.kal-head__lead { max-width: 38rem; margin: 0.375rem 0 0; color: var(--ink-quiet); }
+.kal-head .tree-modes { margin: 0.375rem 0 0; }
+a.tree-mode { display: inline-flex; align-items: center; text-decoration: none; }
+.kal-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; }
+.kal-tools .sort-switch { flex-wrap: wrap; }
+.kal-chosen { display: inline-flex; align-items: center; gap: 0.375rem; height: 2.5rem; padding: 0 0.875rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 0.9375rem; text-decoration: none; }
+.kal-add { margin-left: auto; }
+.kal-add > summary { list-style: none; cursor: pointer; }
+.kal-add > summary::-webkit-details-marker { display: none; }
+.kal-add[open] { flex-basis: 100%; margin-left: 0; }
+.kal-add[open] > summary { margin-bottom: 0.75rem; }
+.kal-add__form { padding: 1.25rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--card); }
+.kal-add__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.25rem 1rem; }
+.kal-add__field--note { grid-column: 1 / -1; }
+.kal-add__field input, .kal-add__field select, .kal-add__field textarea { width: 100%; }
+.kal-decades { position: sticky; top: 0; z-index: 4; display: flex; gap: 0.25rem; margin: 0 0 1.5rem; padding: 0.5rem 0; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--rule); scrollbar-width: thin; }
+.kal-decades a { flex: none; padding: 0.25rem 0.625rem; border-radius: 999px; color: var(--ink-quiet); font-size: 0.875rem; font-variant-numeric: tabular-nums; text-decoration: none; }
+.kal-decades a:hover { background: var(--hover-bg); color: var(--ink); }
+
+.kal { position: relative; margin: 0; padding: 0 0 2rem; list-style: none; --kal-x: 50%; }
+.kal::before { content: ""; position: absolute; top: 0; bottom: 0; left: var(--kal-x); width: 2px; margin-left: -1px; border-radius: 1px; background: var(--rule-strong); }
+.kal-year { position: relative; scroll-margin-top: 3.5rem; }
+.kal-year__label { position: relative; z-index: 1; display: flex; justify-content: center; margin: 0 0 0.5rem; font: 400 1.25rem/1 var(--serif); }
+.kal-year__label span { padding: 0.375rem 0.875rem; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-variant-numeric: lining-nums tabular-nums; box-shadow: 0 0 0 5px var(--paper); }
+.kal-year__entries { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; column-gap: 3.5rem; row-gap: 0.625rem; margin: 0 0 0.75rem; padding: 0; list-style: none; }
+.kal-entry { position: relative; scroll-margin-top: 4rem; }
+.kal-entry--left { grid-column: 1; }
+.kal-entry--right { grid-column: 2; }
+.kal-entry__dot { position: absolute; top: 0.875rem; z-index: 1; display: grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--rule-strong); border-radius: 50%; background: var(--card); font-size: 0.9375rem; line-height: 1; box-shadow: 0 0 0 4px var(--paper); }
+.kal-entry--left .kal-entry__dot { right: -2.75rem; }
+.kal-entry--right .kal-entry__dot { left: -2.75rem; }
+.kal-card { position: relative; padding: 0.875rem 1.125rem 1rem; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); box-shadow: 0 1px 2px rgb(var(--shadow) / 0.06); }
+.kal-entry--left .kal-card::after, .kal-entry--right .kal-card::after { content: ""; position: absolute; top: 1.625rem; width: 0.75rem; height: 1px; background: var(--rule-strong); }
+.kal-entry--left .kal-card::after { right: -0.8125rem; }
+.kal-entry--right .kal-card::after { left: -0.8125rem; }
+.kal-entry:target .kal-card { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(var(--shadow) / 0.08); }
+.kal-card__meta { margin: 0 0 0.25rem; color: var(--ink-quiet); font-size: 0.8125rem; }
+.kal-card__kind { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; }
+.kal-card__title { margin: 0; font: 400 1.1875rem/1.3 var(--serif); }
+.kal-card__place { margin: 0.25rem 0 0; color: var(--ink-quiet); font-size: 0.9375rem; }
+.kal-card__note { margin: 0.625rem 0 0; padding-left: 0.75rem; border-left: 3px solid var(--rule); font-size: 0.9375rem; }
+.kal-card__photo { display: block; width: 7rem; margin-top: 0.625rem; overflow: hidden; border-radius: 8px; }
+.kal-card__photo img { display: block; width: 100%; height: auto; }
+.kal-card__people { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0.625rem 0 0; }
+.kal-card__people a { padding: 0.125rem 0.5rem; border-radius: 999px; background: var(--hover-bg); color: var(--ink); font-size: 0.8125rem; text-decoration: none; }
+.kal-card__people a:hover { background: var(--selected-bg); }
+.kal-entry--smierc .kal-entry__dot { background: var(--deceased-bg); }
+.kal-entry--rodzinne .kal-card { background: var(--notice-bg); border-color: var(--notice-rule); }
+.kal-card__title a { color: inherit; text-decoration-color: var(--rule-strong); text-underline-offset: 0.18em; }
+.kal-card__title a:hover { color: var(--accent); text-decoration-color: currentColor; }
+.kal-card--edit { padding-right: 6.5rem; }
+.kal-note[open] { margin-right: -5.375rem; }
+.kal-note > summary { position: absolute; top: 0.75rem; right: 0.875rem; padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--ink-quiet); font-size: 0.8125rem; cursor: pointer; list-style: none; }
+.kal-note > summary:hover { background: var(--hover-bg); }
+.kal-note > summary::-webkit-details-marker { display: none; }
+.kal-note > summary:hover { color: var(--accent); }
+.kal-note textarea { width: 100%; margin-top: 0.5rem; }
+.kal-note__buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.375rem; }
+.kal-card__remove { margin-top: 0.375rem; font-size: 0.8125rem; }
+.kal-card__remove .link-button { color: var(--ink-quiet); }
+
+/* Przerwa między latami: krótka kreska przy kilku pustych latach, przerywana przy dłuższych. */
+.kal-gap { position: relative; height: 0.5rem; }
+.kal-gap--2 { height: 1.25rem; }
+.kal-gap--3, .kal-gap--4 { height: 2.75rem; }
+.kal-gap--4 { height: 4rem; }
+.kal-gap--3::before, .kal-gap--4::before { content: ""; position: absolute; top: 0.25rem; bottom: 0.25rem; left: var(--kal-x); width: 2px; margin-left: -1px; background: var(--paper); border-left: 2px dotted var(--rule-strong); }
+.kal-gap__label { position: absolute; top: 50%; left: var(--kal-x); margin-left: 1rem; transform: translateY(-50%); color: var(--ink-quiet); font-size: 0.8125rem; font-style: italic; white-space: nowrap; }
+
+@media (max-width: 48rem) {
+  .kal { --kal-x: 1rem; }
+  .kal-year__label { justify-content: flex-start; }
+  .kal-year__label span { margin-left: -0.25rem; }
+  .kal-year__entries { grid-template-columns: minmax(0, 1fr); padding-left: 2.75rem; }
+  .kal-entry--left, .kal-entry--right { grid-column: 1; }
+  .kal-entry--left .kal-entry__dot, .kal-entry--right .kal-entry__dot { left: -2.75rem; right: auto; }
+  .kal-entry--left .kal-card::after { left: -0.8125rem; right: auto; }
+  .kal-head__title { font-size: 1.875rem; }
+  .kal-card--edit { padding-right: 2.75rem; }
+  .kal-note[open] { margin-right: -1.625rem; }
+  .kal-note__text { display: none; }
+  .kal-note > summary { top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.5rem; font-size: 1rem; }
+  .kal-add { margin-left: 0; }
+}

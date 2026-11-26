@@ -50,6 +50,8 @@ class Partnership(models.Model):
     order2 = models.PositiveSmallIntegerField("kolejność dla osoby 2", null=True, blank=True)
     # ETAP 47: miejsce ślubu (parafia, urząd, miejscowość).
     place = models.CharField("miejsce ślubu", max_length=200, blank=True)
+    # ETAP 63: opis ślubu dopisany w Kalendarium; widać go też na kartach obojga.
+    note = models.TextField("opis ślubu", max_length=2000, blank=True)
 
     class Meta:
         constraints = [
@@ -211,6 +213,36 @@ class LifeEvent(models.Model):
         if self.date and self.until:
             return f"{self.date} – {self.until}"
         return self.date or (f"do {self.until}" if self.until else "")
+
+
+class FamilyEvent(models.Model):
+    """Wydarzenie rodzinne w Kalendarium (ETAP 63), niezwiązane z jedną osobą.
+
+    Wydarzenie jednej osoby to :class:`LifeEvent` (widać je też na jej karcie).
+    """
+
+    kind = models.CharField("rodzaj", max_length=20, choices=LifeEvent.KINDS, default="inne")
+    title = models.CharField("co się wydarzyło", max_length=120)
+    date = models.CharField("kiedy", max_length=60)
+    year = models.SmallIntegerField(null=True, blank=True, editable=False)
+    place = models.CharField("miejsce", max_length=200, blank=True)
+    note = models.TextField("opis", max_length=2000, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["year", "pk"]
+        verbose_name = "wydarzenie rodzinne"
+        verbose_name_plural = "wydarzenia rodzinne"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def icon(self):
+        return "🏛" if self.kind == "inne" else LifeEvent.ICONS.get(self.kind, "📌")
 
 
 class CheckDismissal(models.Model):
