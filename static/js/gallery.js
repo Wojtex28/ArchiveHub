@@ -201,7 +201,10 @@
       var now = Date.now();
       var smooth = event.deltaMode === 0 &&
         (event.deltaX !== 0 || event.deltaY % 1 !== 0 || Math.abs(event.deltaY) < 40);
-      if (smooth) touchpadUntil = now + 400;
+      // 0.63.1: przesuwanie tylko przy ruchu dwóch palców, który zawsze ma choć trochę ruchu w bok.
+      // Myszy z płynnym kółkiem też wysyłają małe kroki, a wtedy dało się tylko lekko powiększyć
+      // (dalsze kręcenie przesuwało zdjęcie zamiast je pomniejszać).
+      if (event.deltaMode === 0 && event.deltaX !== 0 && !event.shiftKey) touchpadUntil = now + 600;
       var state = view(img);
       if (!event.ctrlKey && now < touchpadUntil && state.scale > 1) {
         state.x -= event.deltaX;
