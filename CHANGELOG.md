@@ -15,6 +15,12 @@ Wersja jest zapisana w `config/__init__.py`, a każda ma też tag w Git (`v0.13.
 
 ---
 
+## 0.63.1 (2026-11-27) · Poprawka: pomniejszanie zdjęcia kółkiem myszy
+
+- Mysz z płynnym kółkiem (małe kroki przewijania) była brana za touchpad: zdjęcie dało się tylko lekko
+  powiększyć, a dalsze kręcenie przesuwało je zamiast pomniejszać. Teraz kółko zawsze powiększa
+  i pomniejsza, a przesuwanie powiększonego zdjęcia zostaje dla ruchu dwoma palcami na touchpadzie.
+
 ## 0.63.0 (2026-11-26) · ETAP 63: Kalendarium
 
 - Nowa zakładka „Kalendarium” w przełączniku drzewa (Drzewo | Oś czasu | Kalendarium): jedna pionowa
